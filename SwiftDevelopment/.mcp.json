@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "XcodeBuildMCP": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "xcodebuildmcp@latest"
+      ]
+    },
+    "ios-simulator": {
+      "description": "Control iOS Simulator directly from Claude Code. Launch apps, take screenshots, manage device states, and streamline mobile development workflows.",
+      "command": "npx",
+      "args": ["-y", "ios-simulator-mcp"]
+    },
+    "apple-docs": {
+      "command": "npx",
+      "args": ["-y", "@kimsungwhee/apple-docs-mcp@latest"]
+    }
+  }
+}

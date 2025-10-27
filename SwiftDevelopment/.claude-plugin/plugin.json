@@ -1,0 +1,16 @@
+{
+  "name": "SwiftDevelopment",
+  "version": "0.1.0",
+  "description": "A collection of MCP servers and slash commands for Swift and iOS development workflows",
+  "author": {
+    "name": "Gustavo Ambrozio"
+  },
+  "keywords": [
+    "swift",
+    "ios",
+    "xcode",
+    "development",
+    "mobile"
+  ],
+  "license": "MIT"
+}
