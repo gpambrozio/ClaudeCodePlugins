@@ -18,12 +18,14 @@ A Claude Code plugin for Swift and iOS development workflows, providing MCP serv
 
 This plugin provides:
 - **Code Analysis**: Comprehensive Swift code analysis with `/analyze` command
-- **3 MCP Servers**: XcodeBuildMCP, ios-simulator, and apple-docs integration
+- **Swift Compilation**: Token-efficient xcodebuild and swift command wrappers with xcsift
+- **2 MCP Servers**: ios-simulator and apple-docs integration
 - **Extensible Structure**: Ready for custom skills and agents
 
 ## Slash Commands
 
 ### `/analyze`
+
 Performs comprehensive analysis of Swift code in your project:
 - Architecture pattern detection
 - Anti-pattern identification
@@ -35,20 +37,35 @@ Performs comprehensive analysis of Swift code in your project:
 
 Provides a summary of findings with file locations and severity levels (critical, warning, suggestion).
 
+## Skills
+
+### swift-compile
+
+Provides token-efficient wrappers for `xcodebuild` and `swift` commands using [xcsift](https://github.com/ldomaradzki/xcsift) to parse output into JSON format, dramatically reducing verbosity for AI coding agents.
+
+**Usage**: Claude will automatically use these wrappers when building or testing Swift projects. The skill:
+- Intercepts `xcodebuild` and `swift` commands
+- Parses compiler output into structured JSON
+- Reports errors and warnings concisely
+- Auto-installs xcsift via Homebrew if needed
+
+**Examples**:
+```bash
+# Build a workspace
+~/.claude/plugins/swift-development/skills/swift-compile/scripts/xcodebuild.sh \
+  -workspace Project.xcworkspace -scheme ProjectScheme build
+
+# Test a Swift package
+cd PackageFolder
+~/.claude/plugins/swift-development/skills/swift-compile/scripts/swift.sh test
+```
+
 ## MCP Servers
 
-This plugin includes three integrated MCP servers for comprehensive iOS development:
-
-### XcodeBuildMCP
-Xcode project management and scaffolding:
-- Scaffold new iOS projects with proper structure
-- Configure bundle identifiers and project settings
-- Set up device families and orientations
-- Generate Xcode project files
-
-**Package**: `xcodebuildmcp@latest`
+This plugin includes two integrated MCP servers for comprehensive iOS development:
 
 ### ios-simulator
+
 Control iOS Simulator directly from Claude Code:
 - Launch apps on simulator
 - Take screenshots
@@ -58,6 +75,7 @@ Control iOS Simulator directly from Claude Code:
 **Package**: `ios-simulator-mcp`
 
 ### apple-docs
+
 Access Apple's official documentation:
 - Search Swift API documentation
 - Find iOS framework references
@@ -65,6 +83,8 @@ Access Apple's official documentation:
 - Access best practices and guides
 
 **Package**: `@kimsungwhee/apple-docs-mcp@latest`
+
+### Adding More MCP Servers
 
 To add additional MCP servers, edit `.mcp.json`:
 ```json
