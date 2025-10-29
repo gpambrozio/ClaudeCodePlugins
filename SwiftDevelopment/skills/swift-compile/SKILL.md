@@ -27,7 +27,7 @@ scripts/xcodebuild.sh -workspace Project.xcworkspace -scheme ProjectScheme build
 scripts/swift.sh source.swift
 
 # Test an SPM package directly
-cd PackageFOlder
+cd PackageFolder
 scripts/swift.sh test
 
 # Build the package
