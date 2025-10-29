@@ -188,6 +188,7 @@ Plugins in this marketplace are organized by:
 - [Claude Code Documentation](https://docs.claude.com/en/docs/claude-code)
 - [Plugin Development Guide](https://docs.claude.com/en/docs/claude-code/plugins)
 - [MCP Server Documentation](https://docs.claude.com/en/docs/claude-code/mcp)
+- [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills)
 - [Slash Commands Reference](https://docs.claude.com/en/docs/claude-code/slash-commands)
 
 ## License
