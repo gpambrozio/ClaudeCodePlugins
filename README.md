@@ -34,38 +34,7 @@ Once the marketplace is added, install plugins:
 
 Swift and iOS development toolkit with MCP servers and slash commands.
 
-**Features:**
-- Comprehensive Swift code analysis
-- iOS project scaffolding with Xcode integration
-- iOS Simulator control
-- Apple documentation access
-- Memory management and anti-pattern detection
-
-**Slash Commands:**
-- `/analyze` - Comprehensive Swift code analysis with severity levels
-
-**MCP Servers:**
-- `XcodeBuildMCP` - Xcode project management and scaffolding
-- `ios-simulator` - iOS Simulator control and automation
-- `apple-docs` - Apple's official documentation search
-
 [View Plugin Documentation →](./SwiftDevelopment/README.md)
-
-## Repository Structure
-
-```
-ClaudeCodePlugins/
-├── .claude-plugin/
-│   └── marketplace.json     # Marketplace catalog
-├── SwiftDevelopment/        # Swift/iOS development plugin
-│   ├── .claude-plugin/
-│   ├── commands/
-│   ├── skills/
-│   ├── agents/
-│   ├── .mcp.json
-│   └── README.md
-└── README.md               # This file
-```
 
 ## Contributing a Plugin
 
@@ -175,14 +144,6 @@ cp -r SwiftDevelopment YourNewPlugin
 # Update README.md
 ```
 
-## Plugin Categories
-
-Plugins in this marketplace are organized by:
-
-- **Language/Framework**: Swift, Python, JavaScript, etc.
-- **Development Phase**: Analysis, scaffolding, testing, deployment
-- **Integration Type**: MCP servers, slash commands, skills, agents
-
 ## Resources
 
 - [Claude Code Documentation](https://docs.claude.com/en/docs/claude-code)
@@ -203,7 +164,3 @@ For issues with:
 - **Specific plugins**: Open an issue with the plugin name in the title
 - **Marketplace itself**: Open an issue tagged "marketplace"
 - **Claude Code**: Report at https://github.com/anthropics/claude-code/issues
-
----
-
-**Note**: Remember to update your GitHub repository URL in `.claude-plugin/marketplace.json` once you've pushed this to GitHub.
