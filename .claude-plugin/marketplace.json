@@ -1,18 +1,19 @@
 {
   "name": "claude-code-plugins",
-  "displayName": "Claude Code Plugins Collection",
-  "description": "A curated marketplace of Claude Code plugins for various development workflows",
   "owner": {
     "name": "Gustavo Ambrozio",
     "email": "gustavo@gustavo.eng.br"
   },
+  "metadata": {
+    "description": "A curated marketplace of Claude Code plugins for various development workflows"
+  },
   "repository": "https://github.com/gpambrozio/ClaudeCodePlugins",
   "plugins": [
     {
-      "name": "swift-development",
+      "name": "SwiftDevelopment",
+      "version": "0.1.2",
       "description": "A collection of MCP servers and slash commands for Swift and iOS development workflows",
       "source": "./SwiftDevelopment",
-      "version": "0.1.1",
       "author": {
         "name": "Gustavo Ambrozio"
       },

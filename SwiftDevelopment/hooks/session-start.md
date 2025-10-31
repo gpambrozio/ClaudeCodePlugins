@@ -1,6 +1,6 @@
 # Swift & iOS Development Plugin
 
-This plugin provides specialized tools for Swift and iOS development. Use these capabilities appropriately:
+The `SwiftDevelopment` plugin provides specialized tools for Swift and iOS development. Use these capabilities appropriately:
 
 ## Building & Compilation
 

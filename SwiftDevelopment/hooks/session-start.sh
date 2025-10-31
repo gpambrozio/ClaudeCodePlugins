@@ -16,6 +16,7 @@ ADDITIONAL_CONTEXT=$(cat "$MD_FILE" | jq -Rs .)
 # Output the JSON structure with the content from the markdown file
 cat << EOF
 {
+  "systemMessage": "The SwiftDevelopment plugin is loaded and ready to help with Swift and iOS development tasks.",
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
     "additionalContext": $ADDITIONAL_CONTEXT
