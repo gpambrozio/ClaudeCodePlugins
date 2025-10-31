@@ -42,7 +42,7 @@ build/
 *.js.map
 
 # Claude Code local configuration
-.claude/
+.claude/settings.local.json
 
 # Plugin-specific ignores
 # Add plugin-specific patterns here as needed
