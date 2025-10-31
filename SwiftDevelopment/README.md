@@ -52,12 +52,12 @@ Provides token-efficient wrappers for `xcodebuild` and `swift` commands using [x
 **Examples**:
 ```bash
 # Build a workspace
-~/.claude/plugins/swift-development/skills/swift-compile/scripts/xcodebuild.sh \
+~/.claude/plugins/SwiftDevelopment/skills/swift-compile/scripts/xcodebuild.sh \
   -workspace Project.xcworkspace -scheme ProjectScheme build
 
 # Test a Swift package
 cd PackageFolder
-~/.claude/plugins/swift-development/skills/swift-compile/scripts/swift.sh test
+~/.claude/plugins/SwiftDevelopment/skills/swift-compile/scripts/swift.sh test
 ```
 
 ## MCP Servers

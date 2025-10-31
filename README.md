@@ -25,7 +25,7 @@ Once the marketplace is added, install plugins:
 /plugin marketplace list
 
 # Install a specific plugin
-/plugin install swift-development@claude-code-plugins
+/plugin install SwiftDevelopment@ClaudeCodePlugins
 ```
 
 ## Available Plugins
@@ -104,7 +104,7 @@ Update the marketplace catalog:
 After changes, users can refresh:
 
 ```bash
-/plugin marketplace update claude-code-plugins
+/plugin marketplace update ClaudeCodePlugins
 ```
 
 ### Plugin Versioning
@@ -125,7 +125,7 @@ When updating a plugin:
 /plugin marketplace add /path/to/ClaudeCodePlugins
 
 # Test plugin installation
-/plugin install swift-development@claude-code-plugins
+/plugin install SwiftDevelopment@ClaudeCodePlugins
 
 # Verify plugin works
 /plugin list

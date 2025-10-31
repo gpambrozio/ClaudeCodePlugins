@@ -42,7 +42,7 @@ Users add the marketplace, then install plugins from it:
 /plugin marketplace list
 
 # Install a plugin from the marketplace
-/plugin install swift-development@claude-code-plugins
+/plugin install SwiftDevelopment@ClaudeCodePlugins
 ```
 
 ## Development Workflow
@@ -96,7 +96,7 @@ Test the marketplace and plugins locally before pushing:
 /plugin marketplace add /path/to/ClaudeCodePlugins
 
 # Install plugin from local marketplace
-/plugin install swift-development@claude-code-plugins
+/plugin install SwiftDevelopment@ClaudeCodePlugins
 
 # Verify installation
 /plugin list
