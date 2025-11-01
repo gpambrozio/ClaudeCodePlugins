@@ -49,11 +49,13 @@ Users add the marketplace, then install plugins from it:
 
 ### Adding a New Plugin
 
+**IMPORTANT**: The plugin `name` field MUST match the folder name exactly. This ensures consistency and easier maintenance.
+
 1. Create plugin directory at repository root (e.g., `YourPlugin/`)
 2. Create plugin manifest at `YourPlugin/.claude-plugin/plugin.json`:
    ```json
    {
-     "name": "your-plugin",
+     "name": "YourPlugin",
      "version": "0.1.0",
      "description": "What it does",
      "author": {"name": "Your Name"},
@@ -64,7 +66,7 @@ Users add the marketplace, then install plugins from it:
 3. Add plugin entry to `.claude-plugin/marketplace.json`:
    ```json
    {
-     "name": "your-plugin",
+     "name": "YourPlugin",
      "description": "What it does",
      "source": "./YourPlugin",
      "version": "0.1.0",
@@ -123,6 +125,69 @@ Test the marketplace and plugins locally before pushing:
   }
   ```
 
+### Hooks
+- Configured in plugin's `hooks/hooks.json`
+- Both Python scripts and markdown content files go in `hooks/` directory
+- Standard pattern (SessionStart example):
+
+**hooks/hooks.json:**
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**hooks/session-start.py:**
+```python
+#!/usr/bin/env python3
+import sys, json, os
+
+def main():
+    try:
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        # Look for the markdown file in the same directory
+        md_file = os.path.join(script_dir, "session-start.md")
+
+        if not os.path.exists(md_file):
+            sys.exit(0)
+
+        with open(md_file, 'r', encoding='utf-8') as f:
+            additional_context = f.read()
+
+        response = {
+            "systemMessage": "Plugin loaded message",
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": additional_context
+            }
+        }
+        print(json.dumps(response))
+        sys.exit(0)
+    except Exception as e:
+        sys.stderr.write(f"Hook error: {e}\n")
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()
+```
+
+**hooks/session-start.md:**
+- Contains the actual instructions/context in markdown format
+- Easier to edit than embedding in scripts
+- See `SwiftDevelopment/hooks/session-start.md` or `MarvinOutputStyle/hooks/session-start.md` for examples
+
 ### Skills and Agents
 - Skills: directories in `skills/` with `SKILL.md`
 - Agents: `.md` files in `agents/`
@@ -140,13 +205,3 @@ git push --force origin main
 ```
 
 This keeps a clean commit history during initial development.
-
-## Current Plugins
-
-### SwiftDevelopment
-Swift and iOS development toolkit with:
-- `/analyze` command - Comprehensive Swift code analysis
-- Three MCP servers:
-  - `XcodeBuildMCP` - Xcode project scaffolding
-  - `ios-simulator` - iOS Simulator control
-  - `apple-docs` - Apple documentation search
