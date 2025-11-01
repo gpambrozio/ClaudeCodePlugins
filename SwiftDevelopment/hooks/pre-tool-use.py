@@ -15,7 +15,7 @@ def main():
         command = tool_input.get("command", "")
 
         # Check for xcodebuild as a complete word (word boundary)
-        if tool_name == "Bash" and re.search(r'(xcodebuild|swift)\s', command):
+        if tool_name == "Bash" and re.search(r'^[/a-zA-Z]?(xcodebuild|swift)\s', command):
             # Deny the permission and suggest using swift-compile skill
             response = {
                 "hookSpecificOutput": {
