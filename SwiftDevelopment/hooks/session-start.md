@@ -2,9 +2,9 @@
 
 The `SwiftDevelopment` plugin provides specialized tools for Swift and iOS development. Use these capabilities appropriately:
 
-## Building & Compilation
+## Building, Testing & Compilation
 
-**IMPORTANT**: When you need to build an Xcode project/workspace, compile Swift packages, or use `swift`/`xcodebuild` commands, use the `swift-compile` skill instead of running bash commands directly. This skill provides token-efficient, AI-friendly compilation output.
+**IMPORTANT**: Whenever you need to build or test an Xcode project/workspace, compile or test Swift packages, or anytime you would use `swift`/`xcodebuild` commands, **always** use the `swift-compile` skill instead. This skill provides token-efficient, AI-friendly compilation output.
 
 ## Code Analysis
 
