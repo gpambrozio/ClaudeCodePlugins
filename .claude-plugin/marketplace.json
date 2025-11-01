@@ -25,6 +25,22 @@
         "mobile"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "MarvinOutputStyle",
+      "version": "1.0.0",
+      "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
+      "source": "./MarvinOutputStyle",
+      "author": {
+        "name": "Gustavo Ambrozio"
+      },
+      "keywords": [
+        "personality",
+        "output-style",
+        "marvin",
+        "hitchhikers-guide"
+      ],
+      "license": "MIT"
     }
   ]
 }
