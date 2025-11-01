@@ -126,6 +126,13 @@ When adding new features:
 - Test commands in real projects
 - Document any new MCP server requirements
 
+## Changelog
+
+### 0.1.3 (2025-10-31)
+- Converted hook scripts from Bash to Python for better cross-platform compatibility
+- Improved error handling in session-start and pre-tool-use hooks
+- Enhanced code maintainability with consistent Python implementation
+
 ## License
 
 MIT
