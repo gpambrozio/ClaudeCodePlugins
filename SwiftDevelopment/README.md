@@ -128,6 +128,10 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.4 (2025-11-01)
+- Fixed pre-tool-use hook regex that was too broad and causing false positives
+- Resolved issue where hook incorrectly triggered when tools searched for Swift files
+
 ### 0.1.3 (2025-10-31)
 - Converted hook scripts from Bash to Python for better cross-platform compatibility
 - Improved error handling in session-start and pre-tool-use hooks
