@@ -19,7 +19,7 @@ A Claude Code plugin for Swift and iOS development workflows, providing MCP serv
 This plugin provides:
 - **Code Analysis**: Comprehensive Swift code analysis with `/analyze` command
 - **Swift Compilation**: Token-efficient xcodebuild and swift command wrappers with xcsift
-- **2 MCP Servers**: ios-simulator and apple-docs integration
+- **1 MCP Server**: Sosumi AI integration for Swift development assistance
 - **Extensible Structure**: Ready for custom skills and agents
 
 ## Slash Commands
@@ -62,27 +62,14 @@ cd PackageFolder
 
 ## MCP Servers
 
-This plugin includes two integrated MCP servers for comprehensive iOS development:
+This plugin includes an integrated MCP server for Swift development:
 
-### ios-simulator
+### sosumi
 
-Control iOS Simulator directly from Claude Code:
-- Launch apps on simulator
-- Take screenshots
-- Manage device states
-- Streamline mobile development workflows
+Sosumi AI provides Swift documentation through an HTTP-based MCP server.
 
-**Package**: `ios-simulator-mcp`
-
-### apple-docs
-
-Access Apple's official documentation:
-- Search Swift API documentation
-- Find iOS framework references
-- Look up SwiftUI component documentation
-- Access best practices and guides
-
-**Package**: `@kimsungwhee/apple-docs-mcp@latest`
+**Type**: HTTP-based MCP server
+**URL**: `https://sosumi.ai/mcp`
 
 ### Adding More MCP Servers
 
@@ -127,6 +114,10 @@ When adding new features:
 - Document any new MCP server requirements
 
 ## Changelog
+
+### 0.1.5 (2025-11-05)
+- Replaced ios-simulator and apple-docs MCP servers with Sosumi AI HTTP-based MCP server
+- Further refined pre-tool-use hook regex to only block xcodebuild commands (removed overly broad swift pattern)
 
 ### 0.1.4 (2025-11-01)
 - Fixed pre-tool-use hook regex that was too broad and causing false positives
