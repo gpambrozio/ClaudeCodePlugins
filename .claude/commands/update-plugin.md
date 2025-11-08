@@ -5,7 +5,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 ## Steps to Update a Plugin
 
 1. **Identify the plugin to update**
-   - Ask the user which plugin they want to update if you can't determine using the current git changes
+   - Use current git changes to determine what plugin changed and only ask the user which plugin they want to update if you can't determine using the diff.
    - Confirm the new version number (use semantic versioning: major.minor.patch). Suggest one based on the current git changes
 
 2. **Update the plugin's manifest** (`<PluginDir>/.claude-plugin/plugin.json`)
