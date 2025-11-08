@@ -115,6 +115,9 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.7 (2025-11-08)
+- Reduced verbosity in xcsift installation script - now only outputs on errors
+
 ### 0.1.6 (2025-11-08)
 - Improved swift-compile skill instructions
 

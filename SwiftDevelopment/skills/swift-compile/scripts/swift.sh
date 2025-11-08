@@ -6,5 +6,5 @@ set -o pipefail
 
 "$(dirname "$0")/xcsift-install.sh"
 
-swift "$@" 2>&1 | xcsift --print-warnings
+swift "$@" 2>&1 | xcsift --warnings
 exit ${PIPESTATUS[0]}
