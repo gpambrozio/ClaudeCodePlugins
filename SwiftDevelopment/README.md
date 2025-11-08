@@ -115,6 +115,9 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.6 (2025-11-08)
+- Improved swift-compile skill instructions
+
 ### 0.1.5 (2025-11-05)
 - Replaced ios-simulator and apple-docs MCP servers with Sosumi AI HTTP-based MCP server
 - Further refined pre-tool-use hook regex to only block xcodebuild commands (removed overly broad swift pattern)
