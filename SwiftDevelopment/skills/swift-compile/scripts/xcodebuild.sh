@@ -6,5 +6,5 @@ set -o pipefail
 
 "$(dirname "$0")/xcsift-install.sh"
 
-xcodebuild -skipMacroValidation -skipPackagePluginValidation "$@" 2>&1 | xcsift
+xcodebuild -skipMacroValidation -skipPackagePluginValidation "$@" 2>&1 | xcsift --print-warnings
 exit ${PIPESTATUS[0]}

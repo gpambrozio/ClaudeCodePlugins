@@ -4,9 +4,17 @@ set -e
 set -u
 set -o pipefail
 
-# Check if xcsift is already installed and working
+# Check if xcsift is already installed
 if hash xcsift 2>/dev/null; then
   if xcsift --version >/dev/null 2>&1; then
+    # xcsift is installed and working, attempt to upgrade to latest
+    echo "xcsift is already installed. Checking for updates..."
+    if brew upgrade xcsift 2>/dev/null || brew upgrade ldomaradzki/xcsift/xcsift 2>/dev/null; then
+      echo "xcsift updated successfully"
+    else
+      # Upgrade failed, but xcsift is working, so this is not fatal
+      echo "xcsift is already up to date or upgrade failed (but existing version works)"
+    fi
     exit 0
   else
     echo "Error: xcsift command exists but is not working properly. Try reinstalling: brew uninstall xcsift && brew install ldomaradzki/xcsift/xcsift" >&2
