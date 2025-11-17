@@ -115,6 +115,12 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.8 (2025-11-16)
+- Removed wrapper scripts (swift.sh and xcodebuild.sh) - now use xcodebuild/swift directly with xcsift
+- Updated swift-compile skill to pipe commands through xcsift instead of using wrapper scripts
+- Changed pre-tool-use hook to allow (with reminder) rather than deny xcodebuild/swift commands
+- Simplified compilation workflow with direct tool usage
+
 ### 0.1.7 (2025-11-08)
 - Reduced verbosity in xcsift installation script - now only outputs on errors
 

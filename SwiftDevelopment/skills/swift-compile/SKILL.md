@@ -19,21 +19,36 @@ Use this skill whenever you need to:
 
 ## Instructions
 
-### For xcodebuild Commands
+### Using `xcsift`
 
-**ALWAYS** replace `xcodebuild` with `scripts/xcodebuild.sh` using the exact same parameters.
+`xcsift` parses output from `xcodebuild` and `swift` commands and only provides the necessary data back in json format. For most cases you want to use `xcsift` to get better data out of these commands, especially when buiding and running tests.
+
+To use `xcsift` make sure it's installed on the system. If it is not the script in `scripts/xcsift-install.sh` can be used to install it and update it if not available.
+
+If it is already installed still try to update it before using it for the first time in a session.
+
+If using it hides the useful output of a command (for example when trying to get all schemes) then skip using it.
+
+This is how to use this with `xcodebuild` for example:
+
+```bash
+xcodebuild \
+  -workspace MyApp.xcworkspace \
+  -scheme MyApp \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  build 2>&1 | xcsift --warnings
+```
+
+### For xcodebuild Commands
 
 **IMPORTANT Constraints:**
 1. **Never use `-sdk` parameter** - it can cause builds to fail unnecessarily
-2. **For iOS/watchOS/tvOS targets**: You must specify a destination
+2. **Always** use the `-skipMacroValidation -skipPackagePluginValidation` parameters to avoid unnecessary error
+3. **For iOS/watchOS/tvOS targets**: You must specify a destination
    - First find available simulators: `xcrun simctl list devices available`
-   - Then add: `-destination 'platform=iOS Simulator,name=<device-name>'`
+   - Then add: `-destination 'platform=iOS/watchOS Simulator,name=<device-name>'`
    - Example device names: "iPhone 15", "iPhone 15 Pro", "Apple Watch Series 9 (45mm)"
-3. **For macOS targets**: Use `-destination 'platform=macOS'` or omit destination entirely
-
-### For swift Commands
-
-**ALWAYS** replace `swift` with `scripts/swift.sh` using the exact same parameters.
+4. **For macOS targets**: Use `-destination 'platform=macOS'` or omit destination entirely
 
 ### Interpreting Output
 
@@ -53,47 +68,47 @@ If the build fails, analyze the `errors` array to identify issues and suggest fi
 xcrun simctl list devices available | grep "iPhone"
 
 # 2. Build with destination
-scripts/xcodebuild.sh \
+xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
-  build
+  build 2>&1 | xcsift --warnings
 ```
 
 ### Running Tests
 ```bash
-scripts/xcodebuild.sh \
+xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyAppTests \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
-  test
+  test 2>&1 | xcsift --warnings
 ```
 
 ### Building a macOS App
 ```bash
-scripts/xcodebuild.sh \
+xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'platform=macOS' \
-  build
+  build 2>&1 | xcsift --warnings
 ```
 
 ### Swift Package Manager
 ```bash
 # Test an SPM package
 cd PackageFolder
-scripts/swift.sh test
+swift test 2>&1 | xcsift --warnings
 
 # Build the package
-scripts/swift.sh build
+swift build 2>&1 | xcsift --warnings
 
 # Compile a single Swift file
-scripts/swift.sh compile source.swift
+swift compile source.swift 2>&1 | xcsift --warnings
 ```
 
 ## Requirements
 
-These scripts use [xcsift](https://github.com/ldomaradzki/xcsift) to parse compiler output into JSON format. The scripts will attempt to install xcsift via Homebrew if not present.
+These scripts use [xcsift](https://github.com/ldomaradzki/xcsift) to parse compiler output into JSON format. The `script/xcsift-install.sh` can be used to install it and update it if not available.
 
 ## Troubleshooting
 
