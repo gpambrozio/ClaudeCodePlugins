@@ -41,23 +41,26 @@ Provides a summary of findings with file locations and severity levels (critical
 
 ### swift-compile
 
-Provides token-efficient wrappers for `xcodebuild` and `swift` commands using [xcsift](https://github.com/ldomaradzki/xcsift) to parse output into JSON format, dramatically reducing verbosity for AI coding agents.
+Provides guidance for using `xcodebuild` and `swift` commands with [xcsift](https://github.com/ldomaradzki/xcsift) to parse output into JSON format, dramatically reducing verbosity for AI coding agents.
 
-**Usage**: Claude will automatically use these wrappers when building or testing Swift projects. The skill:
-- Intercepts `xcodebuild` and `swift` commands
-- Parses compiler output into structured JSON
+**Usage**: Claude will pipe xcodebuild and swift commands through xcsift when building or testing Swift projects. The skill:
+- Guides proper use of `xcodebuild` and `swift` commands
+- Pipes compiler output through xcsift for structured JSON parsing
 - Reports errors and warnings concisely
-- Auto-installs xcsift via Homebrew if needed
+- Provides xcsift installation script if needed
 
 **Examples**:
 ```bash
 # Build a workspace
-~/.claude/plugins/SwiftDevelopment/skills/swift-compile/scripts/xcodebuild.sh \
-  -workspace Project.xcworkspace -scheme ProjectScheme build
+xcodebuild \
+  -workspace Project.xcworkspace \
+  -scheme ProjectScheme \
+  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  build 2>&1 | xcsift --warnings
 
 # Test a Swift package
 cd PackageFolder
-~/.claude/plugins/SwiftDevelopment/skills/swift-compile/scripts/swift.sh test
+swift test 2>&1 | xcsift --warnings
 ```
 
 ## MCP Servers
