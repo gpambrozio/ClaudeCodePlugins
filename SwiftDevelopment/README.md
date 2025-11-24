@@ -118,6 +118,11 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.9 (2025-11-24)
+- Added `tee` to xcsift pipeline to preserve full output in temporary file for debugging
+- Made xcsift update command explicit in skill documentation
+- Updated all code examples to include the `tee` pattern
+
 ### 0.1.8 (2025-11-16)
 - Removed wrapper scripts (swift.sh and xcodebuild.sh) - now use xcodebuild/swift directly with xcsift
 - Updated swift-compile skill to pipe commands through xcsift instead of using wrapper scripts

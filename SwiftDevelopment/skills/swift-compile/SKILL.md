@@ -25,9 +25,9 @@ Use this skill whenever you need to:
 
 To use `xcsift` make sure it's installed on the system. If it is not the script in `scripts/xcsift-install.sh` can be used to install it and update it if not available.
 
-If it is already installed still try to update it before using it for the first time in a session.
+If it is already installed still try to update it with `brew upgrade xcsift >/dev/null 2>&1 || true` before using it for the first time in a session.
 
-If using it hides the useful output of a command (for example when trying to get all schemes) then skip using it.
+Because `xcsift` hides the useful output of a command (for example when trying to get all schemes) use `tee` to a temporary file that can be consuted if needed.
 
 This is how to use this with `xcodebuild` for example:
 
@@ -36,7 +36,7 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
-  build 2>&1 | xcsift --warnings
+  build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
 ### For xcodebuild Commands
@@ -72,7 +72,7 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
-  build 2>&1 | xcsift --warnings
+  build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
 ### Running Tests
@@ -81,7 +81,7 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyAppTests \
   -destination 'platform=iOS Simulator,name=iPhone 15' \
-  test 2>&1 | xcsift --warnings
+  test 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
 ### Building a macOS App
@@ -90,20 +90,20 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'platform=macOS' \
-  build 2>&1 | xcsift --warnings
+  build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
 ### Swift Package Manager
 ```bash
 # Test an SPM package
 cd PackageFolder
-swift test 2>&1 | xcsift --warnings
+swift test 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 
 # Build the package
-swift build 2>&1 | xcsift --warnings
+swift build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 
 # Compile a single Swift file
-swift compile source.swift 2>&1 | xcsift --warnings
+swift compile source.swift 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
 ## Requirements
