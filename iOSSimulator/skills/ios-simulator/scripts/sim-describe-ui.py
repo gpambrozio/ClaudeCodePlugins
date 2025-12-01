@@ -1,25 +1,33 @@
 #!/usr/bin/env python3
 """
-Describe UI elements on an iOS Simulator screen using macOS Accessibility APIs.
+Describe UI elements in the Simulator window using macOS Accessibility APIs.
 
 Usage:
     sim-describe-ui.py [--udid <udid>] [--max-depth <depth>]
 
 Options:
     --udid <udid>        Simulator UDID (uses booted if not specified)
-    --max-depth <depth>  Maximum depth to traverse (default: 10)
+    --max-depth <depth>  Maximum depth to traverse (default: 5)
     --buttons            Show only buttons and tappable elements
     --text-fields        Show only text input fields
-    --all                Show all elements (verbose)
+    --flat               Flat list of labeled interactive elements
 
 Output:
-    JSON object with UI element hierarchy including:
+    JSON object with UI element information including:
     - role: Element type (button, text field, static text, etc.)
-    - label: Accessibility label
-    - value: Current value (for text fields, etc.)
+    - label: Element name/label
+    - value: Current value (for text fields)
     - position: Screen coordinates {x, y}
     - size: Element dimensions {width, height}
-    - children: Nested child elements
+    - center: Center point for clicking
+
+Important:
+    This tool accesses the SIMULATOR WINDOW's accessibility elements (window
+    chrome, toolbar, device buttons like Volume/Sleep). It does NOT access
+    the iOS app UI rendered inside the simulator - that requires screenshots.
+
+    For iOS app UI elements, use sim-screenshot.py and visually identify
+    coordinates from the image.
 
 Notes:
     - Requires Accessibility permissions for Terminal/IDE
@@ -30,26 +38,7 @@ import subprocess
 import json
 import sys
 import argparse
-
-try:
-    from ApplicationServices import (
-        AXUIElementCreateApplication,
-        AXUIElementCopyAttributeValue,
-        AXUIElementCopyAttributeNames,
-        AXValueGetValue,
-        kAXErrorSuccess,
-        kAXValueTypeCGPoint,
-        kAXValueTypeCGSize,
-    )
-    from Quartz import (
-        CGWindowListCopyWindowInfo,
-        kCGWindowListOptionOnScreenOnly,
-        kCGNullWindowID,
-    )
-    import Quartz
-    HAS_ACCESSIBILITY = True
-except ImportError:
-    HAS_ACCESSIBILITY = False
+import re
 
 
 def get_booted_simulator():
@@ -67,222 +56,251 @@ def get_booted_simulator():
     return None, None
 
 
-def get_simulator_pid():
-    """Get the PID of Simulator.app."""
+def get_ui_elements_applescript(device_name=None, max_depth=5):
+    """Get UI elements using AppleScript."""
+
+    # AppleScript to extract UI elements from Simulator
+    script = '''
+    use framework "Foundation"
+    use scripting additions
+
+    on getElementInfo(uiElement, depth, maxDepth)
+        if depth > maxDepth then return missing value
+
+        set elementInfo to {}
+
+        try
+            set elementRole to role of uiElement
+            set end of elementInfo to {"role", elementRole}
+        end try
+
+        try
+            set elementName to name of uiElement
+            if elementName is not missing value and elementName is not "" then
+                set end of elementInfo to {"name", elementName}
+            end if
+        end try
+
+        try
+            set elementDesc to description of uiElement
+            if elementDesc is not missing value and elementDesc is not "" then
+                set end of elementInfo to {"description", elementDesc}
+            end if
+        end try
+
+        try
+            set elementValue to value of uiElement
+            if elementValue is not missing value then
+                set end of elementInfo to {"value", elementValue as text}
+            end if
+        end try
+
+        try
+            set elementPos to position of uiElement
+            set end of elementInfo to {"position", elementPos}
+        end try
+
+        try
+            set elementSize to size of uiElement
+            set end of elementInfo to {"size", elementSize}
+        end try
+
+        try
+            set elementEnabled to enabled of uiElement
+            set end of elementInfo to {"enabled", elementEnabled}
+        end try
+
+        return elementInfo
+    end getElementInfo
+
+    on run
+        set outputLines to {}
+
+        tell application "System Events"
+            tell process "Simulator"
+                set frontmost to true
+                delay 0.1
+
+                try
+                    set simWindow to front window
+                    set windowName to name of simWindow
+
+                    -- Get all UI elements recursively
+                    set allElements to entire contents of simWindow
+
+                    repeat with elem in allElements
+                        try
+                            set elemRole to role of elem
+                            set elemName to ""
+                            set elemDesc to ""
+                            set elemValue to ""
+                            set elemPos to {0, 0}
+                            set elemSize to {0, 0}
+
+                            try
+                                set elemName to name of elem
+                            end try
+                            try
+                                set elemDesc to description of elem
+                            end try
+                            try
+                                set elemValue to value of elem as text
+                            end try
+                            try
+                                set elemPos to position of elem
+                            end try
+                            try
+                                set elemSize to size of elem
+                            end try
+
+                            -- Format: role|name|description|value|posX|posY|sizeW|sizeH
+                            set elemLine to elemRole & "|" & elemName & "|" & elemDesc & "|" & elemValue & "|" & (item 1 of elemPos) & "|" & (item 2 of elemPos) & "|" & (item 1 of elemSize) & "|" & (item 2 of elemSize)
+                            set end of outputLines to elemLine
+                        end try
+                    end repeat
+
+                on error errMsg
+                    return "ERROR:" & errMsg
+                end try
+            end tell
+        end tell
+
+        -- Join lines with newline
+        set AppleScript's text item delimiters to linefeed
+        return outputLines as text
+    end run
+    '''
+
     result = subprocess.run(
-        ['pgrep', '-x', 'Simulator'],
+        ['osascript', '-e', script],
         capture_output=True, text=True
     )
-    if result.returncode == 0 and result.stdout.strip():
-        return int(result.stdout.strip().split('\n')[0])
-    return None
+
+    if result.returncode != 0:
+        return None, result.stderr
+
+    return result.stdout, None
 
 
-def get_ax_attribute(element, attribute):
-    """Safely get an accessibility attribute value."""
-    err, value = AXUIElementCopyAttributeValue(element, attribute, None)
-    if err == kAXErrorSuccess:
-        return value
-    return None
+def parse_applescript_output(output, filter_type=None):
+    """Parse AppleScript output into structured data."""
+    elements = []
 
+    if not output or output.startswith("ERROR:"):
+        return elements
 
-def get_ax_position(element):
-    """Get element position as dict."""
-    value = get_ax_attribute(element, "AXPosition")
-    if value:
+    # Tappable roles for filtering
+    tappable_roles = [
+        'AXButton', 'button',
+        'AXLink', 'link',
+        'AXMenuItem', 'menu item',
+        'AXCell', 'cell',
+        'AXCheckBox', 'checkbox',
+        'AXRadioButton', 'radio button',
+        'AXPopUpButton', 'pop up button',
+        'AXStaticText', 'static text',
+        'AXImage', 'image',
+        'AXGroup', 'group'
+    ]
+
+    text_roles = [
+        'AXTextField', 'text field',
+        'AXTextArea', 'text area',
+        'AXSearchField', 'search field',
+        'AXSecureTextField', 'secure text field',
+        'AXComboBox', 'combo box'
+    ]
+
+    for line in output.strip().split('\n'):
+        if not line or '|' not in line:
+            continue
+
+        parts = line.split('|')
+        if len(parts) < 8:
+            continue
+
+        role = parts[0].strip()
+        name = parts[1].strip()
+        desc = parts[2].strip()
+        value = parts[3].strip()
+
         try:
-            # AXPosition is an AXValue containing CGPoint
-            point = Quartz.CGPoint()
-            if AXValueGetValue(value, kAXValueTypeCGPoint, point):
-                return {"x": int(point.x), "y": int(point.y)}
-        except:
-            pass
-    return None
+            pos_x = int(float(parts[4]))
+            pos_y = int(float(parts[5]))
+            size_w = int(float(parts[6]))
+            size_h = int(float(parts[7]))
+        except (ValueError, IndexError):
+            continue
 
+        # Skip elements with no position or size
+        if size_w == 0 and size_h == 0:
+            continue
 
-def get_ax_size(element):
-    """Get element size as dict."""
-    value = get_ax_attribute(element, "AXSize")
-    if value:
-        try:
-            # AXSize is an AXValue containing CGSize
-            size = Quartz.CGSize()
-            if AXValueGetValue(value, kAXValueTypeCGSize, size):
-                return {"width": int(size.width), "height": int(size.height)}
-        except:
-            pass
-    return None
+        # Apply filters
+        role_lower = role.lower()
+        if filter_type == 'buttons':
+            if not any(r.lower() in role_lower for r in tappable_roles):
+                continue
+        elif filter_type == 'text-fields':
+            if not any(r.lower() in role_lower for r in text_roles):
+                continue
 
-
-def element_to_dict(element, depth=0, max_depth=10, filter_type=None):
-    """Convert an AXUIElement to a dictionary representation."""
-    if depth > max_depth:
-        return None
-
-    # Get basic attributes
-    role = get_ax_attribute(element, "AXRole")
-    subrole = get_ax_attribute(element, "AXSubrole")
-    title = get_ax_attribute(element, "AXTitle")
-    description = get_ax_attribute(element, "AXDescription")
-    value = get_ax_attribute(element, "AXValue")
-    label = get_ax_attribute(element, "AXLabel")
-    identifier = get_ax_attribute(element, "AXIdentifier")
-    enabled = get_ax_attribute(element, "AXEnabled")
-    position = get_ax_position(element)
-    size = get_ax_size(element)
-
-    # Convert role to string if needed
-    role_str = str(role) if role else None
-
-    # Apply filters
-    if filter_type == 'buttons':
-        # Only include buttons, links, and other tappable elements
-        tappable_roles = ['AXButton', 'AXLink', 'AXMenuItem', 'AXCell',
-                          'AXCheckBox', 'AXRadioButton', 'AXPopUpButton',
-                          'AXTabButton', 'AXToggle']
-        if role_str not in tappable_roles:
-            # Still process children
-            children = get_ax_attribute(element, "AXChildren")
-            if children:
-                child_results = []
-                for child in children:
-                    child_dict = element_to_dict(child, depth + 1, max_depth, filter_type)
-                    if child_dict:
-                        if isinstance(child_dict, list):
-                            child_results.extend(child_dict)
-                        else:
-                            child_results.append(child_dict)
-                return child_results if child_results else None
-            return None
-
-    if filter_type == 'text-fields':
-        # Only include text input elements
-        text_roles = ['AXTextField', 'AXTextArea', 'AXSearchField',
-                      'AXSecureTextField', 'AXComboBox']
-        if role_str not in text_roles:
-            # Still process children
-            children = get_ax_attribute(element, "AXChildren")
-            if children:
-                child_results = []
-                for child in children:
-                    child_dict = element_to_dict(child, depth + 1, max_depth, filter_type)
-                    if child_dict:
-                        if isinstance(child_dict, list):
-                            child_results.extend(child_dict)
-                        else:
-                            child_results.append(child_dict)
-                return child_results if child_results else None
-            return None
-
-    # Build result dict
-    result = {}
-
-    if role_str:
-        # Simplify role names
-        result['role'] = role_str.replace('AX', '')
-
-    if subrole:
-        result['subrole'] = str(subrole).replace('AX', '')
-
-    # Use the most descriptive label available
-    display_label = label or title or description or identifier
-    if display_label:
-        result['label'] = str(display_label)
-
-    if value is not None and str(value):
-        result['value'] = str(value)
-
-    if enabled is not None and not enabled:
-        result['enabled'] = False
-
-    if position:
-        result['position'] = position
-
-    if size:
-        result['size'] = size
-
-    # Calculate center point for easier tapping
-    if position and size:
-        result['center'] = {
-            'x': position['x'] + size['width'] // 2,
-            'y': position['y'] + size['height'] // 2
+        element = {
+            'role': role.replace('AX', ''),
+            'position': {'x': pos_x, 'y': pos_y},
+            'size': {'width': size_w, 'height': size_h},
+            'center': {
+                'x': pos_x + size_w // 2,
+                'y': pos_y + size_h // 2
+            }
         }
 
-    # Process children
-    children = get_ax_attribute(element, "AXChildren")
-    if children and len(children) > 0:
-        child_dicts = []
-        for child in children:
-            child_dict = element_to_dict(child, depth + 1, max_depth, filter_type)
-            if child_dict:
-                if isinstance(child_dict, list):
-                    child_dicts.extend(child_dict)
-                else:
-                    child_dicts.append(child_dict)
-        if child_dicts:
-            result['children'] = child_dicts
+        # Add optional fields
+        label = name or desc
+        if label and label != 'missing value':
+            element['label'] = label
+        if value and value != 'missing value':
+            element['value'] = value
 
-    # Skip empty elements (no useful info)
-    if len(result) <= 1 and 'children' not in result:
-        return None
+        elements.append(element)
 
-    return result
+    return elements
 
 
-def find_simulator_window_element(app_element, device_name=None):
-    """Find the simulator window element within the app."""
-    windows = get_ax_attribute(app_element, "AXWindows")
-    if not windows:
-        return None
+def flatten_for_tapping(elements):
+    """Filter to just interactive elements with useful info."""
+    interactive_roles = [
+        'button', 'link', 'menuitem', 'cell', 'checkbox',
+        'radiobutton', 'popupbutton', 'textfield', 'textarea',
+        'searchfield', 'securetextfield', 'combobox', 'slider',
+        'incrementor', 'statictext', 'image'
+    ]
 
-    for window in windows:
-        title = get_ax_attribute(window, "AXTitle")
-        if title:
-            # If device_name specified, try to match
-            if device_name:
-                if device_name in str(title):
-                    return window
-            else:
-                # Return first window that looks like a simulator
-                if any(keyword in str(title) for keyword in ['iPhone', 'iPad', 'Apple Watch', 'Apple TV']):
-                    return window
+    result = []
+    seen_positions = set()
 
-    # Return first window if no match
-    return windows[0] if windows else None
+    for elem in elements:
+        role_lower = elem.get('role', '').lower().replace(' ', '')
+        label = elem.get('label', '')
 
+        # Skip "missing value" labels
+        if label == 'missing value':
+            label = ''
 
-def flatten_tappable_elements(element_tree, result=None):
-    """Extract flat list of tappable elements with positions."""
-    if result is None:
-        result = []
+        # Include if it has a real label or is clearly interactive
+        has_label = bool(label)
+        is_interactive = any(r in role_lower for r in interactive_roles)
 
-    if not element_tree:
-        return result
-
-    if isinstance(element_tree, list):
-        for item in element_tree:
-            flatten_tappable_elements(item, result)
-        return result
-
-    role = element_tree.get('role', '')
-    tappable_roles = ['Button', 'Link', 'MenuItem', 'Cell', 'CheckBox',
-                      'RadioButton', 'PopUpButton', 'TabButton', 'Toggle',
-                      'TextField', 'TextArea', 'SearchField', 'SecureTextField']
-
-    if role in tappable_roles and element_tree.get('center'):
-        entry = {
-            'role': role,
-            'center': element_tree['center']
-        }
-        if 'label' in element_tree:
-            entry['label'] = element_tree['label']
-        if 'value' in element_tree:
-            entry['value'] = element_tree['value']
-        result.append(entry)
-
-    # Process children
-    if 'children' in element_tree:
-        flatten_tappable_elements(element_tree['children'], result)
+        if has_label:
+            # Dedupe by position
+            pos_key = (elem['center']['x'], elem['center']['y'])
+            if pos_key not in seen_positions:
+                seen_positions.add(pos_key)
+                result.append({
+                    'role': elem['role'],
+                    'label': label,
+                    'center': elem['center']
+                })
 
     return result
 
@@ -290,19 +308,11 @@ def flatten_tappable_elements(element_tree, result=None):
 def main():
     parser = argparse.ArgumentParser(description='Describe UI elements on iOS Simulator')
     parser.add_argument('--udid', help='Simulator UDID')
-    parser.add_argument('--max-depth', type=int, default=10, help='Max traversal depth')
+    parser.add_argument('--max-depth', type=int, default=5, help='Max traversal depth')
     parser.add_argument('--buttons', action='store_true', help='Show only tappable elements')
     parser.add_argument('--text-fields', action='store_true', help='Show only text fields')
-    parser.add_argument('--all', action='store_true', help='Show all elements (verbose)')
-    parser.add_argument('--flat', action='store_true', help='Flat list of tappable elements')
+    parser.add_argument('--flat', action='store_true', help='Flat list of interactive elements')
     args = parser.parse_args()
-
-    if not HAS_ACCESSIBILITY:
-        print(json.dumps({
-            'success': False,
-            'error': 'Accessibility modules not available. Requires pyobjc on macOS.'
-        }))
-        sys.exit(1)
 
     # Get booted simulator
     udid, device_name = get_booted_simulator()
@@ -313,30 +323,23 @@ def main():
         }))
         sys.exit(1)
 
-    # Get Simulator.app PID
-    pid = get_simulator_pid()
-    if not pid:
+    # Get UI elements via AppleScript
+    output, error = get_ui_elements_applescript(device_name, args.max_depth)
+
+    if error:
         print(json.dumps({
             'success': False,
-            'error': 'Simulator.app is not running'
+            'error': f'AppleScript error: {error.strip()}',
+            'hint': 'Grant accessibility permissions in System Settings > Privacy & Security > Accessibility'
         }))
         sys.exit(1)
 
-    # Create AXUIElement for the app
-    app_element = AXUIElementCreateApplication(pid)
-    if not app_element:
+    if not output or output.startswith("ERROR:"):
+        error_msg = output.replace("ERROR:", "") if output else "No output"
         print(json.dumps({
             'success': False,
-            'error': 'Could not access Simulator accessibility tree. Grant accessibility permissions in System Preferences > Security & Privacy > Privacy > Accessibility'
-        }))
-        sys.exit(1)
-
-    # Find the simulator window
-    window_element = find_simulator_window_element(app_element, device_name)
-    if not window_element:
-        print(json.dumps({
-            'success': False,
-            'error': 'Could not find Simulator window'
+            'error': f'Could not get UI elements: {error_msg}',
+            'hint': 'Grant accessibility permissions in System Settings > Privacy & Security > Accessibility'
         }))
         sys.exit(1)
 
@@ -347,17 +350,12 @@ def main():
     elif args.text_fields:
         filter_type = 'text-fields'
 
-    # Get element tree
-    element_tree = element_to_dict(
-        window_element,
-        depth=0,
-        max_depth=args.max_depth,
-        filter_type=filter_type
-    )
+    # Parse elements
+    elements = parse_applescript_output(output, filter_type)
 
     if args.flat:
-        # Return flat list of tappable elements
-        flat_list = flatten_tappable_elements(element_tree)
+        # Return simplified flat list
+        flat_list = flatten_for_tapping(elements)
         print(json.dumps({
             'success': True,
             'count': len(flat_list),
@@ -368,7 +366,8 @@ def main():
     else:
         print(json.dumps({
             'success': True,
-            'ui_tree': element_tree,
+            'count': len(elements),
+            'elements': elements,
             'udid': udid,
             'device': device_name
         }, indent=2))
