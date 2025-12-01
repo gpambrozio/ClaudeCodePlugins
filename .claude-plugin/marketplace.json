@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "SwiftDevelopment",
-      "version": "0.1.9",
+      "version": "0.1.10",
       "description": "A collection of MCP servers and slash commands for Swift and iOS development workflows",
       "source": "./SwiftDevelopment",
       "author": {

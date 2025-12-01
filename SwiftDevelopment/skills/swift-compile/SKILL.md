@@ -27,7 +27,9 @@ To use `xcsift` make sure it's installed on the system. If it is not the script 
 
 If it is already installed still try to update it with `brew upgrade xcsift >/dev/null 2>&1 || true` before using it for the first time in a session.
 
-Because `xcsift` hides the useful output of a command (for example when trying to get all schemes) use `tee` to a temporary file that can be consuted if needed.
+Because `xcsift` might hide some useful output of a command (for example when trying to get all schemes) use `tee` to redirect the output to a temporary file.
+
+If you need to see the full output of the command use the temporary file to consult it instead of running the command again.
 
 This is how to use this with `xcodebuild` for example:
 
@@ -35,7 +37,7 @@ This is how to use this with `xcodebuild` for example:
 xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'id=7C54F1A1-94C8-49C4-BDCD-7A5FCE88AEBA' \
   build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
@@ -46,8 +48,7 @@ xcodebuild \
 2. **Always** use the `-skipMacroValidation -skipPackagePluginValidation` parameters to avoid unnecessary error
 3. **For iOS/watchOS/tvOS targets**: You must specify a destination
    - First find available simulators: `xcrun simctl list devices available`
-   - Then add: `-destination 'platform=iOS/watchOS Simulator,name=<device-name>'`
-   - Example device names: "iPhone 15", "iPhone 15 Pro", "Apple Watch Series 9 (45mm)"
+   - Then add: `-destination 'id=<device-uuid>'`
 4. **For macOS targets**: Use `-destination 'platform=macOS'` or omit destination entirely
 
 ### Interpreting Output
@@ -71,7 +72,7 @@ xcrun simctl list devices available | grep "iPhone"
 xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'id=<device-uuid>' \
   build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
@@ -80,7 +81,7 @@ xcodebuild \
 xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyAppTests \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
+  -destination 'id=<device-uuid>' \
   test 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 
@@ -89,7 +90,7 @@ xcodebuild \
 xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
-  -destination 'platform=macOS' \
+  -destination 'id=<device-uuid>' \
   build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
 ```
 

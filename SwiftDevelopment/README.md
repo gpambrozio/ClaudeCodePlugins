@@ -118,6 +118,11 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.10 (2025-12-01)
+- Changed destination parameter from device names to device UUIDs for more reliable simulator targeting
+- Clarified documentation about using `tee` to redirect output to temporary file for later inspection
+- Simplified destination parameter examples throughout skill documentation
+
 ### 0.1.9 (2025-11-24)
 - Added `tee` to xcsift pipeline to preserve full output in temporary file for debugging
 - Made xcsift update command explicit in skill documentation
