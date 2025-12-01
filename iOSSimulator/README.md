@@ -56,6 +56,7 @@ python3 scripts/sim-type.py --text "Hello!"
 | `sim-launch.py` | Launch an app |
 | `sim-terminate.py` | Terminate an app |
 | `sim-install.py` | Install an app |
+| `sim-point-accurate.py` | Set window to Point Accurate mode (required for tap/swipe) |
 | `sim-tap.py` | Tap at screen coordinates |
 | `sim-type.py` | Type text |
 | `sim-swipe.py` | Swipe gesture |

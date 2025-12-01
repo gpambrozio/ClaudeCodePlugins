@@ -140,6 +140,16 @@ python3 sim-screenshot.py
 
 ### UI Automation
 
+#### sim-point-accurate.py
+**IMPORTANT:** Before using tap/swipe commands, ensure the Simulator is set to "Point Accurate" mode. This makes window coordinates match iOS point coordinates.
+
+```bash
+# Set Simulator to Point Accurate mode (Cmd+2)
+python3 sim-point-accurate.py
+```
+
+Run this once at the start of a UI automation session. Without Point Accurate mode, tap coordinates may be offset.
+
 #### sim-tap.py
 Tap at screen coordinates.
 
