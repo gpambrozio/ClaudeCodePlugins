@@ -60,6 +60,7 @@ python3 scripts/sim-type.py --text "Hello!"
 | `sim-type.py` | Type text |
 | `sim-swipe.py` | Swipe gesture |
 | `sim-home.py` | Press Home button |
+| `sim-shake.py` | Simulate shake gesture |
 | `sim-keyboard.py` | Send keyboard shortcuts |
 | `sim-openurl.py` | Open URL/deep link |
 | `sim-location.py` | Set GPS location |

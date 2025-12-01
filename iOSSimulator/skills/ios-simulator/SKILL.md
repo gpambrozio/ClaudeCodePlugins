@@ -190,6 +190,13 @@ Press the Home button.
 python3 sim-home.py
 ```
 
+#### sim-shake.py
+Simulate a shake gesture (useful for "Shake to Undo" or testing shake-triggered features).
+
+```bash
+python3 sim-shake.py
+```
+
 #### sim-keyboard.py
 Send keyboard shortcuts and special keys.
 
