@@ -123,37 +123,6 @@ Install an app from a .app bundle or .ipa file.
 python3 sim-install.py --app /path/to/MyApp.app
 ```
 
-### UI Inspection
-
-#### sim-describe-ui.py
-Get accessibility information about UI elements on screen. Uses macOS Accessibility APIs to inspect the Simulator window.
-
-```bash
-# Get full UI element tree
-python3 sim-describe-ui.py
-
-# Get only tappable elements (buttons, links, etc.)
-python3 sim-describe-ui.py --buttons
-
-# Get only text input fields
-python3 sim-describe-ui.py --text-fields
-
-# Get flat list of tappable elements with coordinates
-python3 sim-describe-ui.py --flat
-```
-
-**Output includes:**
-- `role`: Element type (Button, TextField, StaticText, etc.)
-- `label`: Accessibility label/title
-- `value`: Current value (for text fields)
-- `position`: Screen coordinates `{x, y}`
-- `size`: Element dimensions `{width, height}`
-- `center`: Center point for tapping `{x, y}`
-
-**Note:** First run may prompt for Accessibility permissions. Grant access in System Preferences > Security & Privacy > Privacy > Accessibility.
-
-**Tip:** Use `--flat` to get a simple list of all interactive elements with their center coordinates for easy tapping.
-
 ### Screenshots
 
 #### sim-screenshot.py

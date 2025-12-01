@@ -7,7 +7,6 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 - **Simulator Management**: List, boot, shutdown simulators
 - **App Control**: Install, launch, terminate apps
 - **Screenshots**: Capture simulator screen (viewable by Claude!)
-- **UI Inspection**: Describe UI elements with accessibility info
 - **UI Automation**: Tap, swipe, type text, shake
 - **System Features**: Set location, appearance (dark/light), open URLs
 
@@ -54,7 +53,6 @@ python3 scripts/sim-type.py --text "Hello!"
 | `sim-boot.py` | Boot a simulator |
 | `sim-shutdown.py` | Shutdown simulator(s) |
 | `sim-screenshot.py` | Take a screenshot |
-| `sim-describe-ui.py` | Get UI element accessibility info |
 | `sim-launch.py` | Launch an app |
 | `sim-terminate.py` | Terminate an app |
 | `sim-install.py` | Install an app |
