@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""
+Install an app on an iOS Simulator.
+
+Usage:
+    sim-install.py --app <path> [--udid <udid>]
+
+Options:
+    --app <path>   Path to .app bundle or .ipa file
+    --udid <udid>  Simulator UDID (uses booted if not specified)
+
+Output:
+    JSON object with success status and bundle info
+"""
+
+import subprocess
+import json
+import sys
+import argparse
+import os
+
+
+def run_simctl(*args):
+    """Run xcrun simctl command and return output."""
+    cmd = ['xcrun', 'simctl'] + list(args)
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode == 0, result.stdout, result.stderr
+
+
+def get_booted_simulator():
+    """Get the first booted simulator's UDID."""
+    cmd = ['xcrun', 'simctl', 'list', '-j', 'devices']
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return None
+
+    data = json.loads(result.stdout)
+    for runtime, devices in data.get('devices', {}).items():
+        for device in devices:
+            if device.get('state') == 'Booted':
+                return device.get('udid')
+    return None
+
+
+def install_app(udid, app_path):
+    """Install an app on the simulator."""
+    success, stdout, stderr = run_simctl('install', udid, app_path)
+    return success, stderr
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Install app on iOS Simulator')
+    parser.add_argument('--app', '-a', required=True, help='Path to .app or .ipa file')
+    parser.add_argument('--udid', help='Simulator UDID (uses booted if not specified)')
+    args = parser.parse_args()
+
+    # Verify app exists
+    if not os.path.exists(args.app):
+        print(json.dumps({
+            'success': False,
+            'error': f'App not found: {args.app}'
+        }))
+        sys.exit(1)
+
+    # Get UDID
+    udid = args.udid
+    if not udid:
+        udid = get_booted_simulator()
+        if not udid:
+            print(json.dumps({
+                'success': False,
+                'error': 'No booted simulator found. Boot a simulator first or specify --udid'
+            }))
+            sys.exit(1)
+
+    # Install the app
+    success, error = install_app(udid, args.app)
+
+    if not success:
+        print(json.dumps({
+            'success': False,
+            'error': error.strip() if error else 'Failed to install app'
+        }))
+        sys.exit(1)
+
+    print(json.dumps({
+        'success': True,
+        'message': 'App installed successfully',
+        'app_path': args.app,
+        'udid': udid
+    }))
+
+
+if __name__ == '__main__':
+    main()
