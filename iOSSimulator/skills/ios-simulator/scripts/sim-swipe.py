@@ -87,11 +87,24 @@ def get_simulator_window_info(device_name=None):
     return None
 
 
-def activate_simulator():
-    """Bring Simulator.app to front."""
-    script = 'tell application "Simulator" to activate'
+def set_point_accurate_mode():
+    """Set Simulator to Point Accurate mode (Cmd+2) for correct coordinate mapping."""
+    script = '''
+    tell application "Simulator" to activate
+    delay 0.2
+    tell application "System Events"
+        tell process "Simulator"
+            keystroke "2" using {command down}
+        end tell
+    end tell
+    '''
     subprocess.run(['osascript', '-e', script], capture_output=True)
-    time.sleep(0.2)
+    time.sleep(0.1)
+
+
+def activate_simulator():
+    """Bring Simulator.app to front and ensure Point Accurate mode."""
+    set_point_accurate_mode()  # This also activates the simulator
 
 
 def screen_to_window_coords(screen_x, screen_y, window_info):
