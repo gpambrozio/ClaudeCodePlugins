@@ -203,7 +203,7 @@ def element_to_dict(element: Any, max_depth: int = 20, current_depth: int = 0) -
     key_attrs = [
         'AXRole', 'AXRoleDescription', 'AXSubrole',
         'AXTitle', 'AXDescription', 'AXLabel', 'AXValue',
-        'AXFrame', 'AXPosition', 'AXSize',
+        'AXFrame',
         'AXEnabled', 'AXFocused', 'AXSelected',
         'AXHelp', 'AXIdentifier', 'AXPlaceholderValue'
     ]
@@ -215,9 +215,9 @@ def element_to_dict(element: Any, max_depth: int = 20, current_depth: int = 0) -
                 info[attr] = value
 
     # Compute frame from position and size if not directly available
-    if 'AXFrame' not in info and 'AXPosition' in info and 'AXSize' in info:
-        pos = info.get('AXPosition', {})
-        size = info.get('AXSize', {})
+    if 'AXFrame' not in info and 'AXPosition' in attributes and 'AXSize' in attributes:
+        pos = get_ax_attribute(element, 'AXPosition')
+        size = get_ax_attribute(element, 'AXSize')
         if isinstance(pos, dict) and isinstance(size, dict):
             info['AXFrame'] = {
                 'x': pos.get('x', 0),
@@ -294,14 +294,6 @@ def convert_to_simulator_coordinates(tree: dict, content_origin: dict) -> dict:
             'y': frame['y'] - content_origin['y'],
             'width': frame['width'],
             'height': frame['height']
-        }
-
-    # Convert AXPosition coordinates
-    if 'AXPosition' in result:
-        pos = result['AXPosition']
-        result['AXPosition'] = {
-            'x': pos['x'] - content_origin['x'],
-            'y': pos['y'] - content_origin['y']
         }
 
     # Process children recursively
