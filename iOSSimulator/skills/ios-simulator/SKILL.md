@@ -321,6 +321,23 @@ scripts/sim-appearance.py dark
 scripts/sim-appearance.py light
 ```
 
+#### sim-device-info.py
+Get detailed device information including screen dimensions and scale factor.
+
+```bash
+# Get info for booted simulator
+scripts/sim-device-info.py
+
+# Get info for specific simulator
+scripts/sim-device-info.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+```
+
+**Output includes:**
+- Device name, UDID, state, runtime
+- Model identifier (e.g., iPhone18,1)
+- Screen scale factor (1x, 2x, or 3x)
+- Screen dimensions in both pixels and points
+
 ## Automation Workflow Example
 
 Here's a typical workflow to automate UI testing:
@@ -369,13 +386,50 @@ scripts/sim-screenshot.py --output /tmp/step3.png
 
 ## Coordinate System
 
-- Coordinates are in **screen points** (not pixels)
-- Origin (0, 0) is **top-left** of the simulator screen
-- Typical iPhone dimensions:
-  - iPhone SE: 375 x 667 points
-  - iPhone 14/15: 390 x 844 points
-  - iPhone 14/15 Pro Max: 430 x 932 points
-- When viewing screenshots, estimate coordinates based on element position
+### Points vs Pixels
+
+iOS uses a **point-based** coordinate system that is independent of screen resolution:
+
+| Concept | Description |
+|---------|-------------|
+| **Points** | Logical coordinates used by `sim-tap.py`, `sim-swipe.py`, and `sim-describe-ui.py` |
+| **Pixels** | Physical screen pixels in screenshots |
+| **Scale Factor** | Multiplier to convert points to pixels (1x, 2x, or 3x for Retina displays) |
+
+**Relationship:** `pixels = points × scale_factor`
+
+### Screenshot to Tap Coordinate Conversion
+
+Screenshots are captured at **native pixel resolution**, but tap commands use **points**. The `sim-screenshot.py` output includes screen info to help with conversion:
+
+```json
+{
+  "success": true,
+  "path": "/tmp/screenshot.png",
+  "screen": {
+    "scale": 3,
+    "width_pixels": 1206,
+    "height_pixels": 2622,
+    "width_points": 402,
+    "height_points": 874
+  }
+}
+```
+
+**To convert pixel coordinates from a screenshot to tap coordinates:**
+
+```python
+# If you identify an element at pixel (600, 900) in the screenshot:
+scale = 3  # From screenshot output
+tap_x = 600 / scale  # = 200 points
+tap_y = 900 / scale  # = 300 points
+```
+
+### Coordinate Origin
+
+- Origin (0, 0) is the **top-left** corner of the simulator screen
+- X increases to the right
+- Y increases downward
 
 ## Troubleshooting
 
@@ -491,9 +545,17 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
   "message": "Screenshot saved",
   "path": "/tmp/sim-screenshot-1234567890.png",
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
-  "size_bytes": 123456
+  "size_bytes": 123456,
+  "screen": {
+    "scale": 3,
+    "width_pixels": 1206,
+    "height_pixels": 2622,
+    "width_points": 402,
+    "height_points": 874
+  }
 }
 ```
+**Note:** The `screen` object provides the scale factor needed to convert pixel coordinates from the screenshot to point coordinates for `sim-tap.py`. Divide pixel coordinates by `scale` to get tap coordinates.
 
 #### sim-tap.py
 ```json
@@ -549,6 +611,27 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
   "latitude": 37.7749,
   "longitude": -122.4194,
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-device-info.py
+```json
+{
+  "success": true,
+  "name": "iPhone 17 Pro",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "state": "Booted",
+  "runtime": "iOS-26-1",
+  "device_type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro",
+  "model_identifier": "iPhone18,1",
+  "screen": {
+    "scale": 3,
+    "width_pixels": 1206,
+    "height_pixels": 2622,
+    "width_points": 402,
+    "height_points": 874,
+    "ppi": 460
+  }
 }
 ```
 
