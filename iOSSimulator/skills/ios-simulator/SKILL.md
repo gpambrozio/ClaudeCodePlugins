@@ -149,12 +149,12 @@ scripts/sim-screenshot.py
 ### UI Inspection
 
 #### sim-describe-ui.py
-Describe the complete UI accessibility hierarchy of the simulator. This provides structured information about all UI elements including their roles, labels, and positions.
+Describe the UI accessibility hierarchy of the iOS app running in the simulator. By default, only shows iOS app elements (not simulator chrome like menus or hardware buttons).
 
 **Note:** This script requires `uv` to run as it manages its own dependencies (pyobjc-framework-ApplicationServices).
 
 ```bash
-# Get full UI hierarchy (nested format)
+# Get full UI hierarchy (nested format) - iOS elements only
 scripts/sim-describe-ui.py
 
 # Get flat list of all elements
@@ -165,20 +165,33 @@ scripts/sim-describe-ui.py --max-depth 5
 
 # Describe element at specific coordinates
 scripts/sim-describe-ui.py --point 200,400
+
+# Include simulator chrome (menus, hardware buttons) with absolute screen coordinates
+scripts/sim-describe-ui.py --include-chrome
 ```
 
 **Output includes:**
 - `AXRole`: Element type (AXButton, AXStaticText, AXGroup, etc.)
-- `AXTitle`/`AXLabel`: Element text/label
-- `AXFrame`: Position and size `{x, y, width, height}` in screen coordinates
+- `AXTitle`/`AXLabel`/`AXDescription`: Element text/label
+- `AXFrame`: Position and size `{x, y, width, height}` in **simulator coordinates**
 - `AXEnabled`/`AXFocused`: Element state
 - `children`: Nested child elements (in nested format)
 
 **Example output (flat format):**
 ```
-AXButton  | "DECEMBER"   | (656,222) 114x34
-AXButton  | "S, 23"      | (238,264) 57x88
-AXButton  | "M, 24"      | (295,264) 58x88
+AXButton  | "DECEMBER"   | (16,108) 114x34
+AXButton  | "S, 30"      | (0,150) 57x88
+AXButton  | "M, 1"       | (57,150) 58x88
+```
+
+**Coordinates are ready to use with sim-tap.py:**
+```bash
+# Find a button
+scripts/sim-describe-ui.py --format flat | grep "Login"
+# Output: AXButton | "Login" | (180,500) 120x44
+
+# Tap it directly
+scripts/sim-tap.py --x 180 --y 500
 ```
 
 **Use cases:**
@@ -186,11 +199,6 @@ AXButton  | "M, 24"      | (295,264) 58x88
 - Find exact element positions without guessing from screenshots
 - Debug why taps aren't hitting the expected elements
 - Understand the app's view hierarchy
-
-**Converting screen coordinates to simulator coordinates:**
-The output shows absolute screen coordinates. To convert to simulator coordinates for `sim-tap.py`:
-1. Find the iOS content area (AXGroup with AXSubrole "iOSContentGroup")
-2. Subtract the content area's origin from the element's position
 
 ### UI Automation
 

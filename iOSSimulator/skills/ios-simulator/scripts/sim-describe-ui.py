@@ -20,19 +20,22 @@ Options:
     --format <format>   Output format: 'nested' (default) or 'flat'
     --max-depth <n>     Maximum depth to traverse (default: 20)
     --point <x,y>       Describe element at specific coordinates
+    --include-chrome    Include simulator chrome (menus, hardware buttons)
+                        By default, only iOS app UI elements are shown
 
 Output:
     JSON object containing the UI element hierarchy with:
     - AXRole: Element type (button, staticText, etc.)
     - AXLabel: Accessibility label
     - AXValue: Current value
-    - AXFrame: Position and size {x, y, width, height}
+    - AXFrame: Position and size {x, y, width, height} in simulator coordinates
     - children: Nested child elements (in nested format)
 
 Notes:
     - Requires Accessibility permissions in System Preferences
     - The simulator must be visible on screen
-    - Some elements may not expose full accessibility information
+    - Coordinates are relative to the iOS screen (0,0 = top-left of app)
+    - Use --include-chrome for absolute screen coordinates
 """
 
 import subprocess
@@ -258,10 +261,71 @@ def flatten_tree(tree: dict, flat_list: list, parent_path: str = "") -> None:
         flatten_tree(child, flat_list, entry['path'])
 
 
+def find_ios_content_group(tree: dict) -> Optional[dict]:
+    """Find the iOSContentGroup element in the accessibility tree."""
+    if not tree:
+        return None
+
+    # Check if this is the iOS content group
+    if tree.get('AXSubrole') == 'iOSContentGroup':
+        return tree
+
+    # Search children recursively
+    for child in tree.get('children', []):
+        found = find_ios_content_group(child)
+        if found:
+            return found
+
+    return None
+
+
+def convert_to_simulator_coordinates(tree: dict, content_origin: dict) -> dict:
+    """Convert absolute screen coordinates to simulator-relative coordinates."""
+    if not tree:
+        return tree
+
+    result = dict(tree)
+
+    # Convert AXFrame coordinates
+    if 'AXFrame' in result:
+        frame = result['AXFrame']
+        result['AXFrame'] = {
+            'x': frame['x'] - content_origin['x'],
+            'y': frame['y'] - content_origin['y'],
+            'width': frame['width'],
+            'height': frame['height']
+        }
+
+    # Convert AXPosition coordinates
+    if 'AXPosition' in result:
+        pos = result['AXPosition']
+        result['AXPosition'] = {
+            'x': pos['x'] - content_origin['x'],
+            'y': pos['y'] - content_origin['y']
+        }
+
+    # Process children recursively
+    if 'children' in result:
+        result['children'] = [
+            convert_to_simulator_coordinates(child, content_origin)
+            for child in result['children']
+        ]
+
+    return result
+
+
 def describe_simulator_ui(device_name: Optional[str] = None,
                           output_format: str = 'nested',
-                          max_depth: int = 20) -> dict:
-    """Describe the UI hierarchy of the Simulator."""
+                          max_depth: int = 20,
+                          ios_only: bool = True) -> dict:
+    """Describe the UI hierarchy of the Simulator.
+
+    Args:
+        device_name: Optional device name to match
+        output_format: 'nested' or 'flat'
+        max_depth: Maximum depth to traverse
+        ios_only: If True, only return iOS app elements (not simulator chrome)
+    """
 
     # Get simulator PID
     sim_pid = get_simulator_pid()
@@ -296,6 +360,25 @@ def describe_simulator_ui(device_name: Optional[str] = None,
             'error': 'Could not read accessibility tree. Check Accessibility permissions in System Preferences > Privacy & Security > Accessibility'
         }
 
+    # Filter to iOS content only if requested
+    content_origin = None
+    if ios_only:
+        ios_content = find_ios_content_group(tree)
+        if ios_content:
+            # Get the origin of the iOS content area for coordinate conversion
+            frame = ios_content.get('AXFrame') or {}
+            content_origin = {
+                'x': frame.get('x', 0),
+                'y': frame.get('y', 0)
+            }
+            # Convert coordinates to be relative to the iOS content area
+            tree = convert_to_simulator_coordinates(ios_content, content_origin)
+        else:
+            return {
+                'success': False,
+                'error': 'Could not find iOS content area in simulator. The simulator window may not be fully loaded.'
+            }
+
     result = {
         'success': True,
         'simulator': {
@@ -308,6 +391,13 @@ def describe_simulator_ui(device_name: Optional[str] = None,
             }
         }
     }
+
+    # Add iOS content area info if we filtered
+    if content_origin:
+        result['ios_content_area'] = {
+            'screen_origin': content_origin,
+            'note': 'Coordinates are relative to iOS screen (0,0 = top-left of app)'
+        }
 
     if output_format == 'flat':
         flat_list = []
@@ -369,6 +459,9 @@ def main():
     parser.add_argument('--max-depth', type=int, default=20,
                         help='Maximum depth to traverse (default: 20)')
     parser.add_argument('--point', help='Describe element at x,y coordinates (e.g., "100,200")')
+    parser.add_argument('--include-chrome', action='store_true',
+                        help='Include simulator chrome (menus, buttons) in output. '
+                             'By default, only iOS app elements are shown.')
     args = parser.parse_args()
 
     if not HAS_ACCESSIBILITY:
@@ -401,7 +494,8 @@ def main():
             sys.exit(1)
     else:
         # Describe full UI hierarchy
-        result = describe_simulator_ui(device_name, args.format, args.max_depth)
+        ios_only = not args.include_chrome
+        result = describe_simulator_ui(device_name, args.format, args.max_depth, ios_only)
 
     print(json.dumps(result, indent=2))
 
