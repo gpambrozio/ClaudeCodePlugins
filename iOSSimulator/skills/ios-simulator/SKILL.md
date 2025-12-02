@@ -13,6 +13,14 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 - Xcode Command Line Tools (`xcode-select --install`)
 - Python 3 (pre-installed on macOS)
 
+## Running the scripts.
+
+- All scripts are executable and have the proper shebang line so no need to prefix it with `python3`.
+- All scripts are in the `scripts/` directory.
+- All scripts output JSON.
+- All scripts have proper docstrings explaining the arguments.
+- For more complicated workflows you can also write your own scripts using the functions provided by the scripts or just using them as code sample to write your own scripts.
+
 ## Quick Start Workflow
 
 ```bash
