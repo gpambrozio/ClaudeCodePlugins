@@ -1,0 +1,413 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "pyobjc-framework-ApplicationServices>=10.0",
+#     "pyobjc-framework-Quartz>=10.0",
+# ]
+# ///
+"""
+Describe the UI hierarchy of the frontmost iOS Simulator screen.
+
+This script uses macOS Accessibility APIs to inspect the Simulator window
+and extract the accessibility tree of the iOS app's UI elements.
+
+Usage:
+    sim-describe-ui.py [--udid <udid>] [--format <format>] [--max-depth <n>]
+
+Options:
+    --udid <udid>       Simulator UDID (uses booted if not specified)
+    --format <format>   Output format: 'nested' (default) or 'flat'
+    --max-depth <n>     Maximum depth to traverse (default: 20)
+    --point <x,y>       Describe element at specific coordinates
+
+Output:
+    JSON object containing the UI element hierarchy with:
+    - AXRole: Element type (button, staticText, etc.)
+    - AXLabel: Accessibility label
+    - AXValue: Current value
+    - AXFrame: Position and size {x, y, width, height}
+    - children: Nested child elements (in nested format)
+
+Notes:
+    - Requires Accessibility permissions in System Preferences
+    - The simulator must be visible on screen
+    - Some elements may not expose full accessibility information
+"""
+
+import subprocess
+import json
+import sys
+import argparse
+from typing import Any, Optional
+
+# Import macOS accessibility APIs
+try:
+    from ApplicationServices import (
+        AXUIElementCreateSystemWide,
+        AXUIElementCreateApplication,
+        AXUIElementCopyAttributeValue,
+        AXUIElementCopyAttributeNames,
+        AXUIElementCopyElementAtPosition,
+        AXValueGetType,
+        AXValueGetValue,
+        kAXValueCGPointType,
+        kAXValueCGSizeType,
+        kAXValueCGRectType,
+        kAXErrorSuccess,
+    )
+    from Quartz import (
+        CGWindowListCopyWindowInfo,
+        kCGWindowListOptionOnScreenOnly,
+        kCGNullWindowID,
+    )
+    import Quartz
+    HAS_ACCESSIBILITY = True
+except ImportError as e:
+    HAS_ACCESSIBILITY = False
+    IMPORT_ERROR = str(e)
+
+
+def get_booted_simulator() -> tuple[Optional[str], Optional[str]]:
+    """Get the first booted simulator's UDID and name."""
+    cmd = ['xcrun', 'simctl', 'list', '-j', 'devices']
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        return None, None
+
+    data = json.loads(result.stdout)
+    for runtime, devices in data.get('devices', {}).items():
+        for device in devices:
+            if device.get('state') == 'Booted':
+                return device.get('udid'), device.get('name')
+    return None, None
+
+
+def get_simulator_pid() -> Optional[int]:
+    """Get the process ID of Simulator.app."""
+    cmd = ['pgrep', '-x', 'Simulator']
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0 and result.stdout.strip():
+        return int(result.stdout.strip().split('\n')[0])
+    return None
+
+
+def get_simulator_window_info(device_name: Optional[str] = None) -> Optional[dict]:
+    """Get Simulator window position and size."""
+    window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
+
+    # Collect all Simulator windows
+    sim_windows = []
+    for window in window_list:
+        owner = window.get('kCGWindowOwnerName', '')
+        if owner == 'Simulator':
+            bounds = window.get('kCGWindowBounds', {})
+            # Skip windows with no size (menu bar items, etc.)
+            if bounds.get('Width', 0) > 100 and bounds.get('Height', 0) > 100:
+                sim_windows.append({
+                    'x': bounds.get('X', 0),
+                    'y': bounds.get('Y', 0),
+                    'width': bounds.get('Width', 0),
+                    'height': bounds.get('Height', 0),
+                    'name': window.get('kCGWindowName') or device_name or 'Simulator',
+                    'pid': window.get('kCGWindowOwnerPID')
+                })
+
+    if not sim_windows:
+        return None
+
+    # If we have device_name, try to find matching window
+    if device_name:
+        for win in sim_windows:
+            if device_name in (win.get('name') or ''):
+                return win
+
+    # Return the first (frontmost) Simulator window
+    return sim_windows[0]
+
+
+def ax_value_to_python(value: Any) -> Any:
+    """Convert AXValue types to Python-native types."""
+    if value is None:
+        return None
+
+    # Handle AXValue types (CGPoint, CGSize, CGRect)
+    # pyobjc returns the value directly without needing AXValueGetValue
+    try:
+        value_type = AXValueGetType(value)
+        if value_type == kAXValueCGPointType:
+            # For pyobjc, use AXValueGetValue with None as last param
+            success, point = AXValueGetValue(value, kAXValueCGPointType, None)
+            if success and point:
+                return {'x': float(point.x), 'y': float(point.y)}
+        elif value_type == kAXValueCGSizeType:
+            success, size = AXValueGetValue(value, kAXValueCGSizeType, None)
+            if success and size:
+                return {'width': float(size.width), 'height': float(size.height)}
+        elif value_type == kAXValueCGRectType:
+            success, rect = AXValueGetValue(value, kAXValueCGRectType, None)
+            if success and rect:
+                return {
+                    'x': float(rect.origin.x),
+                    'y': float(rect.origin.y),
+                    'width': float(rect.size.width),
+                    'height': float(rect.size.height)
+                }
+    except (TypeError, AttributeError, ValueError):
+        pass
+
+    # Handle basic types
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [ax_value_to_python(v) for v in value]
+
+    # Try to convert to string as fallback
+    try:
+        return str(value)
+    except Exception:
+        return None
+
+
+def get_ax_attribute(element: Any, attribute: str) -> Any:
+    """Get a single accessibility attribute value."""
+    error, value = AXUIElementCopyAttributeValue(element, attribute, None)
+    if error == kAXErrorSuccess:
+        return ax_value_to_python(value)
+    return None
+
+
+def get_ax_attributes(element: Any) -> list[str]:
+    """Get list of all attribute names for an element."""
+    error, names = AXUIElementCopyAttributeNames(element, None)
+    if error == kAXErrorSuccess and names:
+        return list(names)
+    return []
+
+
+def element_to_dict(element: Any, max_depth: int = 20, current_depth: int = 0) -> Optional[dict]:
+    """Convert an AXUIElement to a dictionary representation."""
+    if current_depth > max_depth:
+        return {'truncated': True, 'reason': 'max_depth_exceeded'}
+
+    # Get all available attributes
+    attributes = get_ax_attributes(element)
+
+    # Build element info with key attributes
+    info = {}
+
+    # Standard attributes we want to capture
+    key_attrs = [
+        'AXRole', 'AXRoleDescription', 'AXSubrole',
+        'AXTitle', 'AXDescription', 'AXLabel', 'AXValue',
+        'AXFrame', 'AXPosition', 'AXSize',
+        'AXEnabled', 'AXFocused', 'AXSelected',
+        'AXHelp', 'AXIdentifier', 'AXPlaceholderValue'
+    ]
+
+    for attr in key_attrs:
+        if attr in attributes:
+            value = get_ax_attribute(element, attr)
+            if value is not None:
+                info[attr] = value
+
+    # Compute frame from position and size if not directly available
+    if 'AXFrame' not in info and 'AXPosition' in info and 'AXSize' in info:
+        pos = info.get('AXPosition', {})
+        size = info.get('AXSize', {})
+        if isinstance(pos, dict) and isinstance(size, dict):
+            info['AXFrame'] = {
+                'x': pos.get('x', 0),
+                'y': pos.get('y', 0),
+                'width': size.get('width', 0),
+                'height': size.get('height', 0)
+            }
+
+    # Get children recursively
+    if 'AXChildren' in attributes:
+        error, children = AXUIElementCopyAttributeValue(element, 'AXChildren', None)
+        if error == kAXErrorSuccess and children:
+            child_list = []
+            for child in children:
+                child_dict = element_to_dict(child, max_depth, current_depth + 1)
+                if child_dict:
+                    child_list.append(child_dict)
+            if child_list:
+                info['children'] = child_list
+
+    return info if info else None
+
+
+def flatten_tree(tree: dict, flat_list: list, parent_path: str = "") -> None:
+    """Flatten a nested tree into a list of elements with paths."""
+    if not tree:
+        return
+
+    # Create a copy without children for the flat entry
+    entry = {k: v for k, v in tree.items() if k != 'children'}
+
+    # Add path info
+    role = tree.get('AXRole', 'unknown')
+    label = tree.get('AXLabel') or tree.get('AXTitle') or tree.get('AXDescription') or ''
+    entry['path'] = f"{parent_path}/{role}[{label}]" if parent_path else f"/{role}[{label}]"
+
+    flat_list.append(entry)
+
+    # Process children
+    for i, child in enumerate(tree.get('children', [])):
+        flatten_tree(child, flat_list, entry['path'])
+
+
+def describe_simulator_ui(device_name: Optional[str] = None,
+                          output_format: str = 'nested',
+                          max_depth: int = 20) -> dict:
+    """Describe the UI hierarchy of the Simulator."""
+
+    # Get simulator PID
+    sim_pid = get_simulator_pid()
+    if not sim_pid:
+        return {
+            'success': False,
+            'error': 'Simulator.app is not running'
+        }
+
+    # Get window info for context
+    window_info = get_simulator_window_info(device_name)
+    if not window_info:
+        return {
+            'success': False,
+            'error': 'No Simulator window found. Is it visible on screen?'
+        }
+
+    # Create AXUIElement for the Simulator application
+    app_element = AXUIElementCreateApplication(sim_pid)
+    if not app_element:
+        return {
+            'success': False,
+            'error': 'Could not create accessibility element for Simulator'
+        }
+
+    # Get the full accessibility tree
+    tree = element_to_dict(app_element, max_depth)
+
+    if not tree:
+        return {
+            'success': False,
+            'error': 'Could not read accessibility tree. Check Accessibility permissions in System Preferences > Privacy & Security > Accessibility'
+        }
+
+    result = {
+        'success': True,
+        'simulator': {
+            'name': window_info.get('name', 'Unknown'),
+            'window': {
+                'x': window_info.get('x'),
+                'y': window_info.get('y'),
+                'width': window_info.get('width'),
+                'height': window_info.get('height')
+            }
+        }
+    }
+
+    if output_format == 'flat':
+        flat_list = []
+        flatten_tree(tree, flat_list)
+        result['elements'] = flat_list
+        result['count'] = len(flat_list)
+    else:
+        result['tree'] = tree
+
+    return result
+
+
+def describe_element_at_point(x: float, y: float, device_name: Optional[str] = None) -> dict:
+    """Describe the UI element at a specific screen coordinate."""
+
+    # Get window info to calculate absolute position
+    window_info = get_simulator_window_info(device_name)
+    if not window_info:
+        return {
+            'success': False,
+            'error': 'No Simulator window found'
+        }
+
+    # Calculate absolute screen position
+    # Account for window position and estimated bezel
+    TITLE_BAR_HEIGHT = 28
+    DEVICE_TOP_BEZEL = 50
+    LEFT_BEZEL = 20
+
+    abs_x = window_info['x'] + LEFT_BEZEL + x
+    abs_y = window_info['y'] + TITLE_BAR_HEIGHT + DEVICE_TOP_BEZEL + y
+
+    # Get element at position
+    system_wide = AXUIElementCreateSystemWide()
+    error, element = AXUIElementCopyElementAtPosition(system_wide, abs_x, abs_y, None)
+
+    if error != kAXErrorSuccess or not element:
+        return {
+            'success': False,
+            'error': f'No element found at point ({x}, {y})',
+            'absolute_position': {'x': abs_x, 'y': abs_y}
+        }
+
+    info = element_to_dict(element, max_depth=1)
+
+    return {
+        'success': True,
+        'point': {'x': x, 'y': y},
+        'absolute_position': {'x': abs_x, 'y': abs_y},
+        'element': info
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Describe iOS Simulator UI hierarchy')
+    parser.add_argument('--udid', help='Simulator UDID (uses booted if not specified)')
+    parser.add_argument('--format', choices=['nested', 'flat'], default='nested',
+                        help='Output format (default: nested)')
+    parser.add_argument('--max-depth', type=int, default=20,
+                        help='Maximum depth to traverse (default: 20)')
+    parser.add_argument('--point', help='Describe element at x,y coordinates (e.g., "100,200")')
+    args = parser.parse_args()
+
+    if not HAS_ACCESSIBILITY:
+        print(json.dumps({
+            'success': False,
+            'error': f'Missing required dependencies: {IMPORT_ERROR}',
+            'hint': 'Run this script with: uv run sim-describe-ui.py'
+        }))
+        sys.exit(1)
+
+    # Get booted simulator for context
+    udid, device_name = get_booted_simulator()
+    if not udid:
+        print(json.dumps({
+            'success': False,
+            'error': 'No booted simulator found'
+        }))
+        sys.exit(1)
+
+    if args.point:
+        # Describe element at specific point
+        try:
+            x, y = map(float, args.point.split(','))
+            result = describe_element_at_point(x, y, device_name)
+        except ValueError:
+            print(json.dumps({
+                'success': False,
+                'error': 'Invalid point format. Use: --point x,y (e.g., --point 100,200)'
+            }))
+            sys.exit(1)
+    else:
+        # Describe full UI hierarchy
+        result = describe_simulator_ui(device_name, args.format, args.max_depth)
+
+    print(json.dumps(result, indent=2))
+
+    if not result.get('success'):
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    main()

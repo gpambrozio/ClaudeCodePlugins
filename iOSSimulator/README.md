@@ -25,6 +25,7 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 - macOS with Xcode installed
 - Xcode Command Line Tools (`xcode-select --install`)
 - Python 3 (pre-installed on macOS)
+- [uv](https://docs.astral.sh/uv/) (optional, for `sim-describe-ui.py`)
 
 ## Quick Start
 
@@ -53,6 +54,7 @@ python3 scripts/sim-type.py --text "Hello!"
 | `sim-boot.py` | Boot a simulator |
 | `sim-shutdown.py` | Shutdown simulator(s) |
 | `sim-screenshot.py` | Take a screenshot |
+| `sim-describe-ui.py` | Describe UI accessibility hierarchy (requires uv) |
 | `sim-launch.py` | Launch an app |
 | `sim-terminate.py` | Terminate an app |
 | `sim-install.py` | Install an app |
