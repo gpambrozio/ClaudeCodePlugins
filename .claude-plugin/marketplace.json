@@ -41,6 +41,25 @@
         "hitchhikers-guide"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "iOSSimulator",
+      "version": "0.1.0",
+      "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
+      "source": "./iOSSimulator",
+      "author": {
+        "name": "Gustavo Ambrozio"
+      },
+      "keywords": [
+        "ios",
+        "simulator",
+        "automation",
+        "testing",
+        "ui-automation",
+        "xcrun",
+        "simctl"
+      ],
+      "license": "MIT"
     }
   ]
 }

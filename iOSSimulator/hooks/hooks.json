@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"The iOSSimulator plugin is loaded. You can control iOS Simulators using the ios-simulator skill.\", \"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\"}}'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.py"
+          }
+        ]
+      }
+    ]
+  }
+}
