@@ -397,3 +397,163 @@ scripts/sim-boot.py --name "iPhone 15"
 ### Screenshots show wrong simulator
 - If multiple simulators are booted, specify `--udid` explicitly
 - Use `scripts/sim-list.py --booted` to see all running simulators
+
+## JSON Output Schemas
+
+All scripts output JSON to stdout. Every response includes a `success` boolean field.
+
+### Standard Success Response
+```json
+{
+  "success": true,
+  "message": "Description of what was done",
+  "udid": "SIMULATOR-UDID"
+}
+```
+
+### Standard Error Response
+```json
+{
+  "success": false,
+  "error": "Description of what went wrong"
+}
+```
+
+### Script-Specific Schemas
+
+#### sim-list.py
+```json
+{
+  "success": true,
+  "count": 5,
+  "simulators": [
+    {
+      "name": "iPhone 15",
+      "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+      "state": "Booted",
+      "runtime": "iOS 17.0"
+    }
+  ]
+}
+```
+
+#### sim-boot.py
+```json
+{
+  "success": true,
+  "message": "Simulator booted successfully",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "name": "iPhone 15",
+  "runtime": "iOS-17-0"
+}
+```
+
+#### sim-screenshot.py
+```json
+{
+  "success": true,
+  "message": "Screenshot saved",
+  "path": "/tmp/sim-screenshot-1234567890.png",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "size_bytes": 123456
+}
+```
+
+#### sim-tap.py
+```json
+{
+  "success": true,
+  "message": "Tapped at (200, 400)",
+  "screen_x": 200,
+  "screen_y": 400,
+  "window_x": 320,
+  "window_y": 478,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-swipe.py
+```json
+{
+  "success": true,
+  "message": "Swiped from (195, 500) to (195, 200)",
+  "from": {"x": 195, "y": 500},
+  "to": {"x": 195, "y": 200},
+  "duration": 0.3,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-type.py
+```json
+{
+  "success": true,
+  "message": "Typed 12 characters",
+  "text_length": 12,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-launch.py
+```json
+{
+  "success": true,
+  "message": "Launched com.apple.Preferences",
+  "bundle_id": "com.apple.Preferences",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "pid": 12345
+}
+```
+
+#### sim-location.py
+```json
+{
+  "success": true,
+  "message": "Location set",
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-describe-ui.py (nested format)
+```json
+{
+  "success": true,
+  "simulator": {
+    "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+    "name": "iPhone 15"
+  },
+  "element_count": 42,
+  "root": {
+    "AXRole": "AXGroup",
+    "AXFrame": {"x": 0, "y": 0, "width": 390, "height": 844},
+    "children": [
+      {
+        "AXRole": "AXButton",
+        "AXLabel": "Login",
+        "AXFrame": {"x": 135, "y": 400, "width": 120, "height": 44}
+      }
+    ]
+  }
+}
+```
+
+#### sim-describe-ui.py (flat format)
+```json
+{
+  "success": true,
+  "simulator": {
+    "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+    "name": "iPhone 15"
+  },
+  "element_count": 42,
+  "elements": [
+    {
+      "AXRole": "AXButton",
+      "AXLabel": "Login",
+      "AXFrame": {"x": 135, "y": 400, "width": 120, "height": 44},
+      "AXEnabled": true
+    }
+  ]
+}

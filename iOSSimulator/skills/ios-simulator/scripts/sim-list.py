@@ -13,27 +13,11 @@ Output:
     JSON object with simulators grouped by runtime, or flat list if --booted
 """
 
-import subprocess
 import json
 import sys
 import argparse
 
-
-def run_simctl(*args):
-    """Run xcrun simctl command and return output."""
-    cmd = ['xcrun', 'simctl'] + list(args)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return None, result.stderr
-    return result.stdout, None
-
-
-def get_simulators():
-    """Get all simulators as JSON."""
-    output, error = run_simctl('list', '-j', 'devices')
-    if error:
-        return None, error
-    return json.loads(output), None
+from sim_utils import get_simulators
 
 
 def filter_booted(devices_data):

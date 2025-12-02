@@ -29,6 +29,8 @@ import sys
 import argparse
 import time
 
+from sim_utils import get_booted_simulator
+
 try:
     from Quartz import (
         CGEventCreateMouseEvent,
@@ -44,21 +46,6 @@ try:
     HAS_QUARTZ = True
 except ImportError:
     HAS_QUARTZ = False
-
-
-def get_booted_simulator():
-    """Get the first booted simulator's UDID and name."""
-    cmd = ['xcrun', 'simctl', 'list', '-j', 'devices']
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return None, None
-
-    data = json.loads(result.stdout)
-    for runtime, devices in data.get('devices', {}).items():
-        for device in devices:
-            if device.get('state') == 'Booted':
-                return device.get('udid'), device.get('name')
-    return None, None
 
 
 def get_simulator_window_info(device_name=None):

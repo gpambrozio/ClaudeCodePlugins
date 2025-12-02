@@ -15,63 +15,17 @@ Output:
     JSON object with success status and simulator info
 """
 
-import subprocess
 import json
 import sys
 import argparse
 
-
-def run_simctl(*args):
-    """Run xcrun simctl command and return output."""
-    cmd = ['xcrun', 'simctl'] + list(args)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0, result.stdout, result.stderr
-
-
-def get_simulators():
-    """Get all simulators as JSON."""
-    cmd = ['xcrun', 'simctl', 'list', '-j', 'devices']
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return None
-    return json.loads(result.stdout)
-
-
-def find_simulator_by_name(name, runtime=None):
-    """Find a simulator by name, optionally filtered by runtime."""
-    devices_data = get_simulators()
-    if not devices_data:
-        return None
-
-    matches = []
-    for rt, devices in devices_data.get('devices', {}).items():
-        if runtime and runtime not in rt:
-            continue
-        for device in devices:
-            if device.get('name') == name and device.get('isAvailable', True):
-                matches.append({
-                    'udid': device.get('udid'),
-                    'name': device.get('name'),
-                    'state': device.get('state'),
-                    'runtime': rt.split('.')[-1]
-                })
-
-    # Return the first match, preferring newer runtimes (sorted desc)
-    if matches:
-        matches.sort(key=lambda x: x['runtime'], reverse=True)
-        return matches[0]
-    return None
+from sim_utils import run_simctl, find_simulator_by_name, open_simulator_app
 
 
 def boot_simulator(udid):
     """Boot a simulator by UDID."""
     success, stdout, stderr = run_simctl('boot', udid)
     return success, stderr
-
-
-def open_simulator_app():
-    """Open the Simulator.app to show the booted simulator."""
-    subprocess.run(['open', '-a', 'Simulator'], capture_output=True)
 
 
 def main():

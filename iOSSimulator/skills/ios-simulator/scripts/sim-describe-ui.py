@@ -44,6 +44,9 @@ import sys
 import argparse
 from typing import Any, Optional
 
+# Note: We can't use sim_utils here because this script uses uv for dependency management
+# and needs to be self-contained. The duplication is intentional.
+
 # Import macOS accessibility APIs
 try:
     from ApplicationServices import (
@@ -72,7 +75,11 @@ except ImportError as e:
 
 
 def get_booted_simulator() -> tuple[Optional[str], Optional[str]]:
-    """Get the first booted simulator's UDID and name."""
+    """Get the first booted simulator's UDID and name.
+
+    Note: This function is duplicated here because this script uses uv
+    for dependency management and needs to be self-contained.
+    """
     cmd = ['xcrun', 'simctl', 'list', '-j', 'devices']
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:

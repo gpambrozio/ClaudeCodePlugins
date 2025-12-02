@@ -15,34 +15,13 @@ Output:
     JSON object with success status and file path
 """
 
-import subprocess
 import json
 import sys
 import argparse
 import time
 import os
 
-
-def run_simctl(*args):
-    """Run xcrun simctl command and return output."""
-    cmd = ['xcrun', 'simctl'] + list(args)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0, result.stdout, result.stderr
-
-
-def get_booted_simulator():
-    """Get the first booted simulator's UDID."""
-    cmd = ['xcrun', 'simctl', 'list', '-j', 'devices']
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        return None
-
-    data = json.loads(result.stdout)
-    for runtime, devices in data.get('devices', {}).items():
-        for device in devices:
-            if device.get('state') == 'Booted':
-                return device.get('udid')
-    return None
+from sim_utils import run_simctl, get_booted_simulator_udid
 
 
 def take_screenshot(udid, output_path, mask='ignored'):
@@ -67,7 +46,7 @@ def main():
     # Get UDID
     udid = args.udid
     if not udid:
-        udid = get_booted_simulator()
+        udid = get_booted_simulator_udid()
         if not udid:
             print(json.dumps({
                 'success': False,

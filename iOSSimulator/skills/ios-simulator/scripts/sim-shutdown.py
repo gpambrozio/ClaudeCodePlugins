@@ -14,17 +14,11 @@ Output:
     JSON object with success status
 """
 
-import subprocess
 import json
 import sys
 import argparse
 
-
-def run_simctl(*args):
-    """Run xcrun simctl command and return output."""
-    cmd = ['xcrun', 'simctl'] + list(args)
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.returncode == 0, result.stdout, result.stderr
+from sim_utils import run_simctl
 
 
 def shutdown_simulator(udid):
