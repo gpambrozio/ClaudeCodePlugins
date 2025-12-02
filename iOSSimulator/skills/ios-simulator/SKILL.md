@@ -177,20 +177,13 @@ scripts/sim-describe-ui.py --include-chrome
 - `AXEnabled`/`AXFocused`: Element state
 - `children`: Nested child elements (in nested format)
 
-**Example output (flat format):**
-```
-AXButton  | "DECEMBER"   | (16,108) 114x34
-AXButton  | "S, 30"      | (0,150) 57x88
-AXButton  | "M, 1"       | (57,150) 58x88
-```
-
 **Coordinates are ready to use with sim-tap.py:**
 ```bash
-# Find a button
-scripts/sim-describe-ui.py --format flat | grep "Login"
-# Output: AXButton | "Login" | (180,500) 120x44
+# Find a button by label
+scripts/sim-describe-ui.py --format flat | jq '.elements[] | select(.AXDescription == "Login")'
+# Output: {"AXRole": "AXButton", "AXLabel": "Login", "AXFrame": {"x": 180, "y": 500, "width": 120, "height": 44}, ...}
 
-# Tap it directly
+# Tap it directly using the coordinates from AXFrame
 scripts/sim-tap.py --x 180 --y 500
 ```
 
