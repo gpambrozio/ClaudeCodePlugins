@@ -415,7 +415,35 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
 ```json
 {
   "success": false,
-  "error": "Description of what went wrong"
+  "error": "Description of what went wrong. Helpful hint if available.",
+  "error_category": "category_name"
+}
+```
+
+**Error Categories:**
+| Category | Description |
+|----------|-------------|
+| `already_booted` | Simulator is already running (treated as success) |
+| `already_shutdown` | Simulator is already shut down (treated as success) |
+| `app_not_running` | App is not running when terminating (treated as success) |
+| `invalid_device` | Unknown or invalid simulator UDID |
+| `invalid_bundle` | App not installed or invalid bundle ID |
+| `app_not_found` | Cannot find or launch the app |
+| `install_failed` | App installation failed |
+| `launch_failed` | App failed to launch |
+| `url_denied` | URL scheme not registered |
+| `location_failed` | Failed to set location |
+| `screenshot_failed` | Failed to capture screenshot |
+| `timeout` | Operation timed out |
+| `unknown` | Unrecognized error |
+
+**Note:** Some "errors" are actually success conditions (marked above). For example, trying to boot an already-booted simulator returns:
+```json
+{
+  "success": true,
+  "message": "The simulator is already running.",
+  "note": "Unable to boot device in current state: Booted",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 }
 ```
 

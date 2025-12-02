@@ -18,7 +18,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl
+from sim_utils import run_simctl, handle_simctl_result
 
 
 def shutdown_simulator(udid):
@@ -54,29 +54,28 @@ def main():
                 'message': 'All simulators shutdown'
             }))
         else:
-            print(json.dumps({
-                'success': False,
-                'error': error.strip() if error else 'Failed to shutdown simulators'
-            }))
+            _, response = handle_simctl_result(
+                success, error, operation='shutdown all'
+            )
+            print(json.dumps(response))
             sys.exit(1)
         return
 
     success, error = shutdown_simulator(args.udid)
 
     if not success:
-        # Check if already shutdown
-        if 'current state: Shutdown' in error:
-            print(json.dumps({
-                'success': True,
-                'message': 'Simulator already shutdown',
-                'udid': args.udid
-            }))
+        actual_success, response = handle_simctl_result(
+            success, error, operation='shutdown',
+            context={'udid': args.udid}
+        )
+
+        if actual_success:
+            # Non-error condition (already shutdown)
+            response['udid'] = args.udid
+            print(json.dumps(response))
             return
 
-        print(json.dumps({
-            'success': False,
-            'error': error.strip()
-        }))
+        print(json.dumps(response))
         sys.exit(1)
 
     print(json.dumps({

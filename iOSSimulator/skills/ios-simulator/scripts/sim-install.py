@@ -18,7 +18,7 @@ import sys
 import argparse
 import os
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def install_app(udid, app_path):
@@ -56,10 +56,11 @@ def main():
     success, error = install_app(udid, args.app)
 
     if not success:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to install app'
-        }))
+        _, response = handle_simctl_result(
+            success, error, operation='install app',
+            context={'app_path': args.app, 'udid': udid}
+        )
+        print(json.dumps(response))
         sys.exit(1)
 
     print(json.dumps({

@@ -32,7 +32,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def launch_app(udid, bundle_id, wait=False, extra_args=None):
@@ -76,17 +76,11 @@ def main():
     )
 
     if not success:
-        error_msg = stderr.strip() if stderr else 'Failed to launch app'
-
-        # Provide helpful hints for common errors
-        if 'Invalid bundle identifier' in error_msg:
-            error_msg += '. The app may not be installed.'
-
-        print(json.dumps({
-            'success': False,
-            'error': error_msg,
-            'bundle_id': parsed_args.bundle_id
-        }))
+        _, response = handle_simctl_result(
+            success, stderr, operation='launch app',
+            context={'bundle_id': parsed_args.bundle_id, 'udid': udid}
+        )
+        print(json.dumps(response))
         sys.exit(1)
 
     # Parse PID from output if present (format: "com.app.id: 12345")

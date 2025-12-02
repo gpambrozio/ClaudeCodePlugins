@@ -23,7 +23,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def open_url(udid, url):
@@ -63,10 +63,11 @@ def main():
     success, error = open_url(udid, url)
 
     if not success:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to open URL'
-        }))
+        _, response = handle_simctl_result(
+            success, error, operation='open URL',
+            context={'url': url, 'udid': udid}
+        )
+        print(json.dumps(response))
         sys.exit(1)
 
     print(json.dumps({

@@ -21,7 +21,7 @@ import argparse
 import time
 import os
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def take_screenshot(udid, output_path, mask='ignored'):
@@ -69,10 +69,11 @@ def main():
     success, error = take_screenshot(udid, output_path, args.mask)
 
     if not success:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to take screenshot'
-        }))
+        _, response = handle_simctl_result(
+            success, error, operation='take screenshot',
+            context={'output_path': output_path, 'udid': udid}
+        )
+        print(json.dumps(response))
         sys.exit(1)
 
     # Verify file exists

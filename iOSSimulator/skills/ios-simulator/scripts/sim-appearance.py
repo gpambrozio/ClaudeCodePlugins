@@ -19,7 +19,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def set_appearance(udid, mode):
@@ -61,10 +61,11 @@ def main():
     success, error = set_appearance(udid, mode)
 
     if not success:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to set appearance'
-        }))
+        _, response = handle_simctl_result(
+            success, error, operation='set appearance',
+            context={'mode': mode, 'udid': udid}
+        )
+        print(json.dumps(response))
         sys.exit(1)
 
     print(json.dumps({

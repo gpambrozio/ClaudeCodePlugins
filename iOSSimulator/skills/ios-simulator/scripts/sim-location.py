@@ -27,7 +27,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def set_location(udid, lat, lon):
@@ -87,10 +87,11 @@ def main():
     if args.clear:
         success, error = clear_location(udid)
         if not success:
-            print(json.dumps({
-                'success': False,
-                'error': error.strip() if error else 'Failed to clear location'
-            }))
+            _, response = handle_simctl_result(
+                success, error, operation='clear location',
+                context={'udid': udid}
+            )
+            print(json.dumps(response))
             sys.exit(1)
         print(json.dumps({
             'success': True,
@@ -103,10 +104,11 @@ def main():
     success, error = set_location(udid, args.lat, args.lon)
 
     if not success:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to set location'
-        }))
+        _, response = handle_simctl_result(
+            success, error, operation='set location',
+            context={'udid': udid, 'latitude': args.lat, 'longitude': args.lon}
+        )
+        print(json.dumps(response))
         sys.exit(1)
 
     print(json.dumps({

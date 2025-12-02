@@ -19,7 +19,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl, find_simulator_by_name, open_simulator_app
+from sim_utils import run_simctl, find_simulator_by_name, open_simulator_app, handle_simctl_result
 
 
 def boot_simulator(udid):
@@ -74,21 +74,20 @@ def main():
     success, error = boot_simulator(udid)
 
     if not success:
-        # Check if error is "already booted"
-        if 'Unable to boot device in current state: Booted' in error:
+        actual_success, response = handle_simctl_result(
+            success, error, operation='boot',
+            context={'udid': udid}
+        )
+
+        if actual_success:
+            # Non-error condition (already booted)
             if not args.no_open:
                 open_simulator_app()
-            print(json.dumps({
-                'success': True,
-                'message': 'Simulator already booted',
-                'udid': udid
-            }))
+            response['udid'] = udid
+            print(json.dumps(response))
             return
 
-        print(json.dumps({
-            'success': False,
-            'error': error.strip()
-        }))
+        print(json.dumps(response))
         sys.exit(1)
 
     # Open Simulator.app unless --no-open

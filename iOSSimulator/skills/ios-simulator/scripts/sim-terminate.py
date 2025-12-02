@@ -18,7 +18,7 @@ import json
 import sys
 import argparse
 
-from sim_utils import run_simctl, get_booted_simulator_udid
+from sim_utils import run_simctl, get_booted_simulator_udid, handle_simctl_result
 
 
 def terminate_app(udid, bundle_id):
@@ -48,12 +48,19 @@ def main():
     success, error = terminate_app(udid, args.bundle_id)
 
     if not success:
-        error_msg = error.strip() if error else 'Failed to terminate app'
-        print(json.dumps({
-            'success': False,
-            'error': error_msg,
-            'bundle_id': args.bundle_id
-        }))
+        actual_success, response = handle_simctl_result(
+            success, error, operation='terminate app',
+            context={'bundle_id': args.bundle_id, 'udid': udid}
+        )
+
+        if actual_success:
+            # Non-error condition (app not running)
+            response['bundle_id'] = args.bundle_id
+            response['udid'] = udid
+            print(json.dumps(response))
+            return
+
+        print(json.dumps(response))
         sys.exit(1)
 
     print(json.dumps({
