@@ -36,6 +36,18 @@ Swift and iOS development toolkit with MCP servers and slash commands.
 
 [View Plugin Documentation →](./SwiftDevelopment/README.md)
 
+### iOSSimulator
+
+Control iOS Simulators using native macOS tools. Manage simulators, automate UI interactions, take screenshots, and more - all without additional dependencies beyond Xcode.
+
+[View Plugin Documentation →](./iOSSimulator/README.md)
+
+### MarvinOutputStyle
+
+Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent. Transforms Claude into a critical thinker who questions assumptions and identifies flaws while remaining highly capable.
+
+[View Plugin Documentation →](./MarvinOutputStyle/README.md)
+
 ## Contributing a Plugin
 
 Want to add your plugin to this marketplace?
