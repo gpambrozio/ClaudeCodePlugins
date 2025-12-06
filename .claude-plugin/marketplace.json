@@ -60,6 +60,27 @@
         "simctl"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "XcodeBuild",
+      "version": "0.1.0",
+      "description": "Build, test, and manage Xcode projects and workspaces - discover projects, list schemes, build for simulators and devices, run tests, and diagnose environment issues",
+      "source": "./XcodeBuild",
+      "author": {
+        "name": "Gustavo Ambrozio"
+      },
+      "keywords": [
+        "xcode",
+        "xcodebuild",
+        "ios",
+        "macos",
+        "swift",
+        "build",
+        "test",
+        "device",
+        "development"
+      ],
+      "license": "MIT"
     }
   ]
 }
