@@ -54,6 +54,22 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 [View Plugin Documentation →](./MarvinOutputStyle/README.md)
 
+### XcodeBuildTools
+
+A comprehensive set of skills for Xcode development, reimplementing [XcodeBuildMCP](https://github.com/cameroncooke/XcodeBuildMCP) functionality as Claude Code skills. Build, test, and manage iOS/macOS apps and Swift packages without requiring an MCP server.
+
+**Includes skills for:**
+- Environment diagnostics (`xcode-doctor`)
+- Device builds (`device-build`)
+- Simulator builds (`simulator-build`)
+- Simulator management (`simulator-management`)
+- macOS builds (`macos-build`)
+- Project discovery (`project-discovery`)
+- Swift packages (`swift-package`)
+- Build cleanup (`xcode-clean`)
+
+[View Plugin Documentation →](./XcodeBuildTools/README.md)
+
 ## Contributing a Plugin
 
 Want to add your plugin to this marketplace?

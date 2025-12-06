@@ -1,0 +1,17 @@
+{
+  "name": "XcodeBuildTools",
+  "version": "0.1.0",
+  "description": "Xcode build tools for iOS, macOS, and Swift development - build, test, run, and manage simulators and devices",
+  "author": {"name": "Gustavo Ambrozio"},
+  "keywords": [
+    "xcode",
+    "ios",
+    "macos",
+    "swift",
+    "build",
+    "simulator",
+    "device",
+    "testing"
+  ],
+  "license": "MIT"
+}
