@@ -14,20 +14,15 @@ Output:
 import json
 import subprocess
 import sys
-import os
-import tempfile
 import re
 
 
 def list_devices_devicectl():
     """List devices using devicectl (Xcode 15+)."""
-    # Create temp file for JSON output
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-        temp_path = f.name
-
     try:
+        # Use /dev/stdout to capture JSON output directly without temp files
         result = subprocess.run(
-            ["xcrun", "devicectl", "list", "devices", "--json-output", temp_path],
+            ["xcrun", "devicectl", "list", "devices", "--json-output", "/dev/stdout"],
             capture_output=True,
             text=True,
             timeout=30
@@ -36,9 +31,8 @@ def list_devices_devicectl():
         if result.returncode != 0:
             return None, "devicectl failed"
 
-        # Read and parse JSON output
-        with open(temp_path, 'r') as f:
-            data = json.load(f)
+        # Parse JSON from stdout
+        data = json.loads(result.stdout)
 
         devices = []
         device_list = data.get("result", {}).get("devices", [])
@@ -72,12 +66,6 @@ def list_devices_devicectl():
         return None, "Failed to parse devicectl output"
     except Exception as e:
         return None, str(e)
-    finally:
-        # Clean up temp file
-        try:
-            os.unlink(temp_path)
-        except OSError:
-            pass
 
 
 def list_devices_xctrace():
