@@ -54,6 +54,20 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 [View Plugin Documentation →](./MarvinOutputStyle/README.md)
 
+### XcodeBuildSkills
+
+Comprehensive Xcode development skills reimplementing tools from XcodeBuildMCP as Claude Code skills. Includes 27 executable Python scripts covering Swift package management, project discovery, device management, simulator control, log capture, xcodebuild wrappers, and diagnostics.
+
+**Key capabilities:**
+- Swift Package: build, test, run, clean, process management
+- Project Discovery: find projects, list schemes, show build settings
+- Devices: list, install, launch, and stop apps on physical devices
+- Simulators: erase, record video, status bar override, log capture
+- Xcodebuild: build for simulator/device/macOS, run tests
+- Utilities: clean build products, diagnose environment
+
+[View Plugin Documentation →](./XcodeBuildSkills/README.md)
+
 ## Contributing a Plugin
 
 Want to add your plugin to this marketplace?

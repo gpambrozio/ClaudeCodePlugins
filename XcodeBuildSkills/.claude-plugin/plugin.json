@@ -1,0 +1,19 @@
+{
+  "name": "XcodeBuildSkills",
+  "version": "0.1.0",
+  "description": "Comprehensive Xcode development skills - Swift packages, project discovery, device management, log capture, and more",
+  "author": {
+    "name": "Gustavo Ambrozio"
+  },
+  "keywords": [
+    "xcode",
+    "swift",
+    "ios",
+    "macos",
+    "swift-package",
+    "devices",
+    "logging",
+    "xcodebuild"
+  ],
+  "license": "MIT"
+}
