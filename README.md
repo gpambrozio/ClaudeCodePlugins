@@ -42,6 +42,12 @@ Control iOS Simulators using native macOS tools. Manage simulators, automate UI 
 
 [View Plugin Documentation →](./iOSSimulator/README.md)
 
+### SwiftScaffolding
+
+Swift project scaffolding and code generation tools. Generate project structures, create boilerplate code from templates, and initialize new iOS/MacOS projects with common configurations.
+
+[View Plugin Documentation →](./SwiftScaffolding/README.md)
+
 ### MarvinOutputStyle
 
 Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent. Transforms Claude into a critical thinker who questions assumptions and identifies flaws while remaining highly capable.

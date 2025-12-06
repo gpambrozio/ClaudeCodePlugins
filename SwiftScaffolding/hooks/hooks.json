@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"The SwiftScaffolding plugin is loaded. You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.\", \"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

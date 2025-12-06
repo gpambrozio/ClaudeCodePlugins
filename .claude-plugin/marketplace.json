@@ -60,6 +60,23 @@
         "simctl"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "SwiftScaffolding",
+      "version": "0.1.0",
+      "description": "Swift project scaffolding and code generation tools",
+      "source": "./SwiftScaffolding",
+      "author": {
+        "name": "Gustavo Ambrozio"
+      },
+      "keywords": [
+        "swift",
+        "scaffolding",
+        "code-generation",
+        "project-setup",
+        "templates"
+      ],
+      "license": "MIT"
     }
   ]
 }
