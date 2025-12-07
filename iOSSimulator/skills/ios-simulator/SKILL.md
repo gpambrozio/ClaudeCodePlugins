@@ -139,7 +139,7 @@ Install an app from a .app bundle or .ipa file.
 scripts/sim-install.py --app /path/to/MyApp.app
 ```
 
-### Screenshots
+### Screenshots and Recording
 
 #### sim-screenshot.py
 Capture the simulator screen.
@@ -153,6 +153,26 @@ scripts/sim-screenshot.py
 ```
 
 **Important:** After taking a screenshot, use the Read tool to view the image. This allows you to see the current UI state and identify coordinates for tap/swipe actions.
+
+#### sim-record-video.py
+Record video from the simulator screen.
+
+```bash
+# Record until Ctrl+C is pressed
+scripts/sim-record-video.py --udid XXXXXXXX --output /tmp/demo.mp4
+
+# Record for 30 seconds
+scripts/sim-record-video.py --udid XXXXXXXX --output /tmp/demo.mp4 --duration 30
+
+# Record with HEVC codec (smaller file size)
+scripts/sim-record-video.py --udid XXXXXXXX --output /tmp/demo.mp4 --codec hevc
+```
+
+**Notes:**
+- Press Ctrl+C to stop recording (if no duration specified)
+- The simulator must be booted
+- Supports .mp4 and .mov output formats
+- Uses the simulator's native screen recording capability
 
 ### UI Inspection
 
@@ -320,6 +340,38 @@ Set light or dark mode.
 scripts/sim-appearance.py dark
 scripts/sim-appearance.py light
 ```
+
+#### sim-statusbar.py
+Override the status bar for clean screenshots (perfect for App Store screenshots).
+
+```bash
+# Classic Apple marketing screenshot style
+scripts/sim-statusbar.py --udid XXXXXXXX --time "9:41" --battery 100 --wifi 3 --cellular 4
+
+# Show as charging
+scripts/sim-statusbar.py --udid XXXXXXXX --battery 50 --battery-state charging
+
+# Custom carrier name
+scripts/sim-statusbar.py --udid XXXXXXXX --carrier "Carrier"
+
+# Reset to real values
+scripts/sim-statusbar.py --udid XXXXXXXX --clear
+```
+
+**Options:**
+| Option | Description |
+|--------|-------------|
+| `--time` | Custom time (e.g., "9:41") |
+| `--battery` | Battery level (0-100) |
+| `--battery-state` | charged, charging, or discharging |
+| `--wifi` | WiFi signal bars (0-3) |
+| `--cellular` | Cellular signal bars (0-4) |
+| `--carrier` | Carrier name |
+| `--clear` | Clear all overrides |
+
+**Notes:**
+- The time "9:41" is Apple's traditional marketing time
+- Overrides persist until cleared or simulator is erased
 
 #### sim-device-info.py
 Get detailed device information including screen dimensions and scale factor.
@@ -676,3 +728,24 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
     }
   ]
 }
+```
+
+#### sim-record-video.py
+```json
+{
+  "success": true,
+  "message": "Recording completed",
+  "output": "/tmp/demo.mp4",
+  "size_bytes": 1234567,
+  "codec": "h264"
+}
+```
+
+#### sim-statusbar.py
+```json
+{
+  "success": true,
+  "message": "Status bar overrides applied",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
