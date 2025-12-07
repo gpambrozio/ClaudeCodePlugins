@@ -1,12 +1,18 @@
 # XcodeBuildSkills
 
-Xcode development skills for Claude Code, reimplementing tools from [XcodeBuildMCP](https://github.com/cameroncooke/XcodeBuildMCP) as executable Python scripts.
+Xcode development skills for Claude Code. Build/test skills use [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient JSON output.
 
 ## Installation
 
 ```bash
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
 /plugin install XcodeBuildSkills@ClaudeCodePlugins
+```
+
+## Prerequisites
+
+```bash
+brew install xcsift
 ```
 
 ## Skills
@@ -22,12 +28,10 @@ Xcode development skills for Claude Code, reimplementing tools from [XcodeBuildM
 | `macos-app` | Launch and stop macOS applications |
 | `sim-log` | Capture logs from iOS Simulator apps |
 
-All scripts output JSON and support `--help`.
-
 ## Related Plugins
 
 - **iOSSimulator** - Simulator control, screenshots, video, status bar
-- **SwiftDevelopment** - swift-compile with xcswift integration
+- **SwiftDevelopment** - swift-compile skill with xcsift integration
 
 ## License
 

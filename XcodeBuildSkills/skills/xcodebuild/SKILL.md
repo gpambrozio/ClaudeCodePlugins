@@ -1,38 +1,67 @@
 ---
 name: xcodebuild
-description: Build Xcode projects for simulator, device, or macOS using xcodebuild. Use when compiling iOS/tvOS/watchOS apps for simulator or physical device, building macOS apps, or cleaning build products.
+description: Build Xcode projects for simulator, device, or macOS using xcodebuild with xcsift for token-efficient JSON output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, or cleaning build products.
 ---
 
 # Xcodebuild
 
-Build Xcode projects and workspaces for various destinations.
+Build Xcode projects and workspaces using `xcodebuild` with `xcsift` for structured JSON output.
 
-## Scripts
+## Prerequisites
 
-| Script | Purpose |
-|--------|---------|
-| `xcodebuild-sim.py` | Build for iOS/tvOS/watchOS simulator |
-| `xcodebuild-device.py` | Build for physical device (requires signing) |
-| `xcodebuild-macos.py` | Build macOS app |
-| `xcodebuild-clean.py` | Clean build products |
+Ensure `xcsift` is installed: `brew install xcsift` (or `brew upgrade xcsift` to update).
 
-## Common Usage
+## Key Constraints
 
+1. **Never use `-sdk` parameter** - causes unnecessary build failures
+2. **Always add** `-skipMacroValidation -skipPackagePluginValidation`
+3. **iOS/watchOS/tvOS**: Must specify destination with simulator ID
+4. **macOS**: Use `-destination 'platform=macOS'` or omit destination
+
+## Build Commands
+
+### iOS Simulator
 ```bash
-# Build for simulator
-scripts/xcodebuild-sim.py --project <path> | --workspace <path> --scheme <name> \
-  [--simulator-name "iPhone 15"] [--configuration Debug]
+# Find simulator
+xcrun simctl list devices available | grep "iPhone"
 
-# Build for device (requires code signing)
-scripts/xcodebuild-device.py --project <path> | --workspace <path> --scheme <name> \
-  [--device-id <udid>] [--configuration Debug]
-
-# Build macOS app
-scripts/xcodebuild-macos.py --project <path> | --workspace <path> --scheme <name> \
-  [--arch arm64|x86_64] [--configuration Debug]
-
-# Clean
-scripts/xcodebuild-clean.py --project <path> | --workspace <path> --scheme <name>
+# Build
+xcodebuild \
+  -workspace MyApp.xcworkspace \
+  -scheme MyApp \
+  -destination 'id=<simulator-uuid>' \
+  -skipMacroValidation -skipPackagePluginValidation \
+  build 2>&1 | tee /tmp/build.log | xcsift --warnings
 ```
 
-All scripts output JSON with `success`, `app_path`, and build details.
+### Physical Device
+```bash
+xcodebuild \
+  -workspace MyApp.xcworkspace \
+  -scheme MyApp \
+  -destination 'id=<device-udid>' \
+  -skipMacroValidation -skipPackagePluginValidation \
+  build 2>&1 | tee /tmp/build.log | xcsift --warnings
+```
+
+### macOS
+```bash
+xcodebuild \
+  -workspace MyApp.xcworkspace \
+  -scheme MyApp \
+  -destination 'platform=macOS' \
+  -skipMacroValidation -skipPackagePluginValidation \
+  build 2>&1 | tee /tmp/build.log | xcsift --warnings
+```
+
+### Clean
+```bash
+xcodebuild \
+  -workspace MyApp.xcworkspace \
+  -scheme MyApp \
+  clean 2>&1 | xcsift
+```
+
+## Output
+
+`xcsift` returns JSON with `success`, `errors`, `warnings`, and `notes` arrays. Check `/tmp/build.log` for full output if needed.

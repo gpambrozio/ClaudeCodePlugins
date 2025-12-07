@@ -5,37 +5,51 @@ description: Build, test, run, and manage Swift Package Manager projects. Use wh
 
 # Swift Package
 
-Manage Swift Package Manager projects with build, test, run, clean, and process management.
+Manage Swift Package Manager projects.
 
-## Scripts
+## Prerequisites
 
-| Script | Purpose |
-|--------|---------|
-| `swift-package-build.py` | Build with `swift build` |
-| `swift-package-test.py` | Run tests with `swift test` |
-| `swift-package-run.py` | Run executables with `swift run` |
-| `swift-package-clean.py` | Clean `.build` directory |
-| `swift-package-list.py` | List running background processes |
-| `swift-package-stop.py` | Stop a running process |
+For build/test output parsing: `brew install xcsift`
 
-## Common Usage
+## Build & Test (with xcsift)
 
 ```bash
+cd /path/to/package
+
 # Build
-scripts/swift-package-build.py --package-path <path> [--configuration release] [--target <name>]
+swift build 2>&1 | tee /tmp/build.log | xcsift --warnings
+
+# Build release
+swift build -c release 2>&1 | tee /tmp/build.log | xcsift --warnings
 
 # Test
-scripts/swift-package-test.py --package-path <path> [--filter <pattern>] [--show-codecov]
+swift test 2>&1 | tee /tmp/test.log | xcsift --warnings
 
-# Run executable
+# Test with filter
+swift test --filter "testLogin" 2>&1 | tee /tmp/test.log | xcsift --warnings
+```
+
+## Run & Process Management
+
+```bash
+# Run default executable
 scripts/swift-package-run.py --package-path <path> [--executable <name>] [--background]
 
-# Clean
-scripts/swift-package-clean.py --package-path <path>
-
-# List/stop background processes
+# List running background processes
 scripts/swift-package-list.py
+
+# Stop a process
 scripts/swift-package-stop.py --pid <pid> [--force]
 ```
 
-All scripts output JSON with `success`, `message`, and relevant details.
+## Clean
+
+```bash
+# Clean build artifacts
+swift package clean
+
+# Or remove .build directory directly
+rm -rf /path/to/package/.build
+```
+
+Output from `xcsift`: JSON with `success`, `errors`, `warnings`. Check log files for full output.
