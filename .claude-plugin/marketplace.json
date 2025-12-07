@@ -77,6 +77,27 @@
         "templates"
       ],
       "license": "MIT"
+    },
+    {
+      "name": "XcodeBuildSkills",
+      "version": "0.1.0",
+      "description": "Xcode development skills: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
+      "source": "./XcodeBuildSkills",
+      "author": {
+        "name": "Gustavo Ambrozio"
+      },
+      "keywords": [
+        "xcode",
+        "swift",
+        "ios",
+        "macos",
+        "swift-package",
+        "devices",
+        "logging",
+        "xcodebuild",
+        "simulator"
+      ],
+      "license": "MIT"
     }
   ]
 }
