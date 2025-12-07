@@ -54,7 +54,7 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 [View Plugin Documentation →](./MarvinOutputStyle/README.md)
 
-### XcodeBuildSkills
+### XcodeBuild
 
 Xcode development skills using [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient build output. Provides 8 consolidated skills covering the full Xcode development workflow.
 
@@ -68,7 +68,7 @@ Xcode development skills using [xcsift](https://github.com/ldomaradzki/xcsift) f
 - `macos-app` - Launch and stop macOS applications
 - `sim-log` - Capture logs from iOS Simulator apps
 
-[View Plugin Documentation →](./XcodeBuildSkills/README.md)
+[View Plugin Documentation →](./XcodeBuild/README.md)
 
 ## Contributing a Plugin
 
