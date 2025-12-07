@@ -17,32 +17,109 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
+import os
 
 
-def stop_app(device_id, bundle_id):
-    """Stop app using devicectl (Xcode 15+)."""
+def get_app_name_for_bundle_id(device_id, bundle_id):
+    """Get the app name for a bundle ID by querying installed apps."""
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
+            tmp_path = tmp.name
+
         result = subprocess.run(
-            ["xcrun", "devicectl", "device", "process", "terminate",
-             "--device", device_id, "--pid", bundle_id],
+            ["xcrun", "devicectl", "device", "info", "apps",
+             "--device", device_id, "--json-output", tmp_path],
             capture_output=True,
             text=True,
             timeout=30
         )
 
-        # devicectl might use different syntax, try alternative
-        if result.returncode != 0:
-            # Try with bundle ID directly
-            result = subprocess.run(
-                ["xcrun", "devicectl", "device", "process", "terminate",
-                 "--device", device_id, bundle_id],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+        if result.returncode == 0 and os.path.exists(tmp_path):
+            try:
+                with open(tmp_path) as f:
+                    data = json.load(f)
+                apps = data.get("result", {}).get("apps", [])
+                for app in apps:
+                    if app.get("bundleIdentifier") == bundle_id:
+                        return app.get("name")
+            except (json.JSONDecodeError, IOError):
+                pass
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        return None
+    except Exception:
+        return None
+
+
+def find_app_pid(device_id, app_name):
+    """Find the PID of a running app by its app name."""
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
+            tmp_path = tmp.name
+
+        result = subprocess.run(
+            ["xcrun", "devicectl", "device", "info", "processes",
+             "--device", device_id, "--json-output", tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode == 0 and os.path.exists(tmp_path):
+            try:
+                with open(tmp_path) as f:
+                    data = json.load(f)
+                processes = data.get("result", {}).get("runningProcesses", [])
+                app_name_lower = app_name.lower()
+
+                for proc in processes:
+                    exe = proc.get("executable", "").lower()
+                    # Match by app name in .app bundle path
+                    # e.g., /path/to/SurfTracker.app/SurfTracker
+                    if f"/{app_name_lower}.app/" in exe or exe.endswith(f"/{app_name_lower}"):
+                        return proc.get("processIdentifier")
+            except (json.JSONDecodeError, IOError):
+                pass
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        return None
+    except Exception:
+        return None
+
+
+def stop_app(device_id, bundle_id):
+    """Stop app using devicectl (Xcode 15+)."""
+    try:
+        # First, get the app name for this bundle ID
+        app_name = get_app_name_for_bundle_id(device_id, bundle_id)
+
+        if app_name is None:
+            return False, f"App with bundle ID '{bundle_id}' is not installed on this device"
+
+        # Find the PID for the app
+        pid = find_app_pid(device_id, app_name)
+
+        if pid is None:
+            return True, "App was not running"
+
+        # Terminate using the PID
+        result = subprocess.run(
+            ["xcrun", "devicectl", "device", "process", "terminate",
+             "--device", device_id, "--pid", str(pid)],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
 
         if result.returncode == 0:
-            return True, "App terminated successfully"
+            return True, f"App '{app_name}' terminated successfully (PID {pid})"
         else:
             error = result.stderr.strip() or result.stdout.strip()
             # Check if app wasn't running
