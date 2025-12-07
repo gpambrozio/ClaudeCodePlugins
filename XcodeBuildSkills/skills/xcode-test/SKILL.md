@@ -9,7 +9,7 @@ Run unit and UI tests with `xcodebuild test` and `xcsift --format toon`.
 
 ## Prerequisites
 
-Ensure `xcsift` is installed: `brew install xcsift`
+Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upgrade xcsift` to update).
 
 ## Test Commands
 

@@ -9,7 +9,7 @@ Build Xcode projects and workspaces using `xcodebuild` with `xcsift --format too
 
 ## Prerequisites
 
-Ensure `xcsift` is installed: `brew install xcsift` (or `brew upgrade xcsift` to update).
+Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upgrade xcsift` to update).
 
 ## Key Constraints
 
