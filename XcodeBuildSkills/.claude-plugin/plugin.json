@@ -1,7 +1,7 @@
 {
   "name": "XcodeBuildSkills",
   "version": "0.1.0",
-  "description": "Comprehensive Xcode development skills - Swift packages, project discovery, device management, log capture, xcodebuild wrappers, and more",
+  "description": "Xcode development skills: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
   "author": {
     "name": "Gustavo Ambrozio"
   },
