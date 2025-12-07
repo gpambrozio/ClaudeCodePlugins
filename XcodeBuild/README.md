@@ -1,4 +1,4 @@
-# XcodeBuildSkills
+# XcodeBuild
 
 Xcode development skills for Claude Code. Build/test skills use [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient JSON output.
 
@@ -6,7 +6,7 @@ Xcode development skills for Claude Code. Build/test skills use [xcsift](https:/
 
 ```bash
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
-/plugin install XcodeBuildSkills@ClaudeCodePlugins
+/plugin install XcodeBuild@ClaudeCodePlugins
 ```
 
 ## Prerequisites
