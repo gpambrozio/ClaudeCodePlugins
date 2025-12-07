@@ -14,7 +14,7 @@ Comprehensive Xcode development skills for Claude Code, reimplementing tools fro
 
 ## Skills Overview
 
-This plugin provides 27 skills organized into categories:
+This plugin provides 24 skills organized into categories:
 
 ### Swift Package Management
 
@@ -45,13 +45,10 @@ This plugin provides 27 skills organized into categories:
 | `launch-app-device` | Launch apps on devices |
 | `stop-app-device` | Stop apps on devices |
 
-### Simulator Management
+### Simulator Log Capture
 
 | Skill | Description |
 |-------|-------------|
-| `erase-simulator` | Factory reset a simulator |
-| `record-sim-video` | Record video from simulator |
-| `sim-statusbar` | Override status bar for screenshots |
 | `start-sim-log` | Start capturing simulator logs |
 | `stop-sim-log` | Stop log capture |
 
@@ -128,10 +125,10 @@ skills/list-devices/scripts/list-devices.py
 
 This plugin complements:
 
-- **iOSSimulator** - Provides basic simulator control and UI automation
+- **iOSSimulator** - Provides simulator control, UI automation, screenshots, video recording, and status bar overrides
 - **SwiftDevelopment** - Provides swift-compile skill with xcsift integration
 
-XcodeBuildSkills adds additional capabilities like device management, log capture, video recording, and comprehensive xcodebuild wrappers.
+XcodeBuildSkills adds additional capabilities like device management, simulator log capture, and comprehensive xcodebuild wrappers.
 
 ## License
 
