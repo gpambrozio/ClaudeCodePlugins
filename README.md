@@ -56,15 +56,17 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 ### XcodeBuildSkills
 
-Comprehensive Xcode development skills reimplementing tools from XcodeBuildMCP as Claude Code skills. Includes 27 executable Python scripts covering Swift package management, project discovery, device management, simulator control, log capture, xcodebuild wrappers, and diagnostics.
+Xcode development skills using [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient build output. Provides 8 consolidated skills covering the full Xcode development workflow.
 
-**Key capabilities:**
-- Swift Package: build, test, run, clean, process management
-- Project Discovery: find projects, list schemes, show build settings
-- Devices: list, install, launch, and stop apps on physical devices
-- Simulators: erase, record video, status bar override, log capture
-- Xcodebuild: build for simulator/device/macOS, run tests
-- Utilities: clean build products, diagnose environment
+**Skills:**
+- `swift-package` - Build, test, run, and manage SPM projects
+- `xcode-project` - Discover projects, list schemes, view settings, get bundle IDs
+- `xcodebuild` - Build for simulator, device, or macOS
+- `xcode-test` - Run unit and UI tests
+- `xcode-doctor` - Diagnose development environment
+- `device-app` - Manage apps on physical Apple devices
+- `macos-app` - Launch and stop macOS applications
+- `sim-log` - Capture logs from iOS Simulator apps
 
 [View Plugin Documentation →](./XcodeBuildSkills/README.md)
 
