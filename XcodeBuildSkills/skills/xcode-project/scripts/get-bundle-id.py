@@ -54,7 +54,6 @@ def main():
 
     if args.app:
         app_path = os.path.abspath(args.app)
-        plist_path = os.path.join(app_path, "Info.plist")
 
         if not os.path.isdir(app_path):
             print(json.dumps({
@@ -62,16 +61,31 @@ def main():
                 "error": f"App bundle does not exist: {app_path}"
             }))
             sys.exit(1)
+
+        # Check for Info.plist in both iOS (flat) and macOS (Contents/) locations
+        ios_plist_path = os.path.join(app_path, "Info.plist")
+        macos_plist_path = os.path.join(app_path, "Contents", "Info.plist")
+
+        if os.path.exists(ios_plist_path):
+            plist_path = ios_plist_path
+        elif os.path.exists(macos_plist_path):
+            plist_path = macos_plist_path
+        else:
+            print(json.dumps({
+                "success": False,
+                "error": f"Info.plist not found in app bundle: {app_path}"
+            }))
+            sys.exit(1)
     else:
         plist_path = os.path.abspath(args.plist)
         app_path = None
 
-    if not os.path.exists(plist_path):
-        print(json.dumps({
-            "success": False,
-            "error": f"Info.plist not found: {plist_path}"
-        }))
-        sys.exit(1)
+        if not os.path.exists(plist_path):
+            print(json.dumps({
+                "success": False,
+                "error": f"Info.plist not found: {plist_path}"
+            }))
+            sys.exit(1)
 
     plist_data = read_plist(plist_path)
 
