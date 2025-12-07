@@ -17,10 +17,45 @@ Output:
 
 import argparse
 import json
+import re
 import subprocess
 import sys
-import signal
-import os
+
+
+def get_app_name_from_bundle_id(udid, bundle_id):
+    """Get the app name (CFBundleName) for a bundle ID from installed simulator apps."""
+    try:
+        result = subprocess.run(
+            ["xcrun", "simctl", "listapps", udid],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode != 0:
+            return None
+
+        output = result.stdout
+        # Parse the plist-style output to find CFBundleName for our bundle ID
+        # Look for pattern: CFBundleIdentifier = "bundle_id"; ... CFBundleName = AppName;
+        # The output groups apps by bundle ID, so we find our bundle section first
+
+        # Find the section for our bundle ID
+        pattern = rf'"{re.escape(bundle_id)}"\s*=\s*\{{'
+        match = re.search(pattern, output)
+        if not match:
+            return None
+
+        # Find the CFBundleName within this app's section (before the next app section)
+        start_pos = match.end()
+        # Look for CFBundleName in this section
+        remaining = output[start_pos:]
+        name_match = re.search(r'CFBundleName\s*=\s*"?([^";]+)"?\s*;', remaining)
+        if name_match:
+            return name_match.group(1).strip()
+
+        return None
+    except Exception:
+        return None
 
 
 def main():
@@ -33,8 +68,14 @@ def main():
 
     args = parser.parse_args()
 
-    # Build predicate to filter logs by bundle ID
-    predicate = f'subsystem == "{args.bundle_id}" OR process == "{args.bundle_id.split(".")[-1]}"'
+    # Get the actual app name from the simulator's installed apps
+    app_name = get_app_name_from_bundle_id(args.udid, args.bundle_id)
+    if not app_name:
+        # Fall back to last component of bundle ID (less reliable)
+        app_name = args.bundle_id.split(".")[-1]
+
+    # Build predicate to filter logs by bundle ID (subsystem) or process name
+    predicate = f'subsystem == "{args.bundle_id}" OR process == "{app_name}"'
 
     cmd = [
         "xcrun", "simctl", "spawn", args.udid,
