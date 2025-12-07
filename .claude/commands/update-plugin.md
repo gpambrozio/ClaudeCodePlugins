@@ -1,3 +1,7 @@
+---
+allowed-tools: AskUserQuestion
+description: Update a plugin in the Claude Code Plugin Marketplace. Follow these steps carefully.
+---
 # Update Plugin Version
 
 You are helping update a plugin in the Claude Code Plugin Marketplace. Follow these steps carefully:
@@ -5,8 +9,8 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 ## Steps to Update a Plugin
 
 1. **Identify the plugin to update**
-   - Use current git changes to determine what plugin changed and only ask the user which plugin they want to update if you can't determine using the diff.
-   - Confirm the new version number (use semantic versioning: major.minor.patch). Suggest one based on the current git changes
+   - Use current git changes to determine what plugin changed and only ask the user if you can't determine using the diff. Use the `AskUserQuestion` tool to ask the user if needed.
+   - Confirm the new version number (use semantic versioning: major.minor.patch). Suggest one based on the current git changes using the `AskUserQuestion` tool.
 
 2. **Update the plugin's manifest** (`<PluginDir>/.claude-plugin/plugin.json`)
    - Update the `version` field to the new version
@@ -32,12 +36,3 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
   - PATCH version for backwards-compatible bug fixes
 - Ensure all JSON files remain valid after edits
 - The marketplace catalog and plugin manifest versions must match
-
-## Example Version Update
-
-If updating from version "0.1.0" to "0.2.0":
-- Update `SwiftDevelopment/.claude-plugin/plugin.json`: `"version": "0.2.0"`
-- Update `.claude-plugin/marketplace.json` plugin entry: `"version": "0.2.0"`
-- Document changes in `SwiftDevelopment/README.md`
-
-Begin by asking the user which plugin to update and what the new version should be.
