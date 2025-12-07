@@ -21,7 +21,9 @@ Use this skill whenever you need to:
 
 ### Using `xcsift`
 
-`xcsift` parses output from `xcodebuild` and `swift` commands and only provides the necessary data back in json format. For most cases you want to use `xcsift` to get better data out of these commands, especially when buiding and running tests.
+`xcsift` parses output from `xcodebuild` and `swift` commands and only provides the necessary data back in a structured format. For most cases you want to use `xcsift` to get better data out of these commands, especially when building and running tests.
+
+Use `--format toon` for token-optimized output (recommended for AI agents) or omit for JSON format.
 
 To use `xcsift` make sure it's installed on the system. If it is not the script in `scripts/xcsift-install.sh` can be used to install it and update it if not available.
 
@@ -38,7 +40,7 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'id=7C54F1A1-94C8-49C4-BDCD-7A5FCE88AEBA' \
-  build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+  build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### For xcodebuild Commands
@@ -73,7 +75,7 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'id=<device-uuid>' \
-  build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+  build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### Running Tests
@@ -82,7 +84,7 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyAppTests \
   -destination 'id=<device-uuid>' \
-  test 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+  test 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### Building a macOS App
@@ -91,20 +93,20 @@ xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
   -destination 'id=<device-uuid>' \
-  build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+  build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### Swift Package Manager
 ```bash
 # Test an SPM package
 cd PackageFolder
-swift test 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+swift test 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 
 # Build the package
-swift build 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+swift build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 
 # Compile a single Swift file
-swift compile source.swift 2>&1 | tee /path/to/temporary/file | xcsift --warnings
+swift compile source.swift 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ## Requirements

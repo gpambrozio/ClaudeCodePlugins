@@ -118,6 +118,10 @@ When adding new features:
 
 ## Changelog
 
+### 0.1.11 (2025-12-06)
+- Added `--format toon` flag documentation to swift-compile skill for token-optimized output
+- Updated all xcsift examples to use the recommended `--format toon --warnings` pattern
+
 ### 0.1.10 (2025-12-01)
 - Changed destination parameter from device names to device UUIDs for more reliable simulator targeting
 - Clarified documentation about using `tee` to redirect output to temporary file for later inspection
