@@ -1,11 +1,11 @@
 ---
 name: xcodebuild
-description: Build Xcode projects for simulator, device, or macOS using xcodebuild with xcsift for token-efficient JSON output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, or cleaning build products.
+description: Build Xcode projects for simulator, device, or macOS using xcodebuild with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, or cleaning build products.
 ---
 
 # Xcodebuild
 
-Build Xcode projects and workspaces using `xcodebuild` with `xcsift` for structured JSON output.
+Build Xcode projects and workspaces using `xcodebuild` with `xcsift --format toon` for token-efficient output.
 
 ## Prerequisites
 
@@ -31,7 +31,7 @@ xcodebuild \
   -scheme MyApp \
   -destination 'id=<simulator-uuid>' \
   -skipMacroValidation -skipPackagePluginValidation \
-  build 2>&1 | tee /tmp/build.log | xcsift --warnings
+  build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 ```
 
 ### Physical Device
@@ -41,7 +41,7 @@ xcodebuild \
   -scheme MyApp \
   -destination 'id=<device-udid>' \
   -skipMacroValidation -skipPackagePluginValidation \
-  build 2>&1 | tee /tmp/build.log | xcsift --warnings
+  build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 ```
 
 ### macOS
@@ -51,7 +51,7 @@ xcodebuild \
   -scheme MyApp \
   -destination 'platform=macOS' \
   -skipMacroValidation -skipPackagePluginValidation \
-  build 2>&1 | tee /tmp/build.log | xcsift --warnings
+  build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 ```
 
 ### Clean
@@ -59,9 +59,9 @@ xcodebuild \
 xcodebuild \
   -workspace MyApp.xcworkspace \
   -scheme MyApp \
-  clean 2>&1 | xcsift
+  clean 2>&1 | xcsift --format toon
 ```
 
 ## Output
 
-`xcsift` returns JSON with `success`, `errors`, `warnings`, and `notes` arrays. Check `/tmp/build.log` for full output if needed.
+`xcsift --format toon` returns token-optimized output with errors, warnings, and notes. Check `/tmp/build.log` for full output if needed.

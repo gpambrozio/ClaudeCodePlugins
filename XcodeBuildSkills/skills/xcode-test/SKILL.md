@@ -1,11 +1,11 @@
 ---
 name: xcode-test
-description: Run Xcode unit tests and UI tests using xcodebuild with xcsift for structured output. Use when running tests for iOS/macOS projects, filtering specific test cases, or checking test results.
+description: Run Xcode unit tests and UI tests using xcodebuild with xcsift for token-efficient output. Use when running tests for iOS/macOS projects, filtering specific test cases, or checking test results.
 ---
 
 # Xcode Test
 
-Run unit and UI tests with `xcodebuild test` and `xcsift`.
+Run unit and UI tests with `xcodebuild test` and `xcsift --format toon`.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ xcodebuild \
   -scheme MyAppTests \
   -destination 'id=<simulator-uuid>' \
   -skipMacroValidation -skipPackagePluginValidation \
-  test 2>&1 | tee /tmp/test.log | xcsift --warnings
+  test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ### macOS Tests
@@ -30,7 +30,7 @@ xcodebuild \
   -scheme MyAppTests \
   -destination 'platform=macOS' \
   -skipMacroValidation -skipPackagePluginValidation \
-  test 2>&1 | tee /tmp/test.log | xcsift --warnings
+  test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ### Run Specific Tests
@@ -40,12 +40,12 @@ xcodebuild \
   -scheme MyAppTests \
   -destination 'id=<simulator-uuid>' \
   -only-testing:MyAppTests/LoginTests/testLoginSuccess \
-  test 2>&1 | tee /tmp/test.log | xcsift --warnings
+  test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ### Skip Specific Tests
 ```bash
-xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --warnings
+xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --format toon --warnings
 ```
 
 ## Test Specification Format
@@ -54,4 +54,4 @@ xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --warnings
 - Test class: `MyAppTests/LoginTests`
 - Test method: `MyAppTests/LoginTests/testLoginSuccess`
 
-Output includes `success`, test counts, and any failures. Check `/tmp/test.log` for details.
+Output shows test results, errors, and failures. Check `/tmp/test.log` for details.

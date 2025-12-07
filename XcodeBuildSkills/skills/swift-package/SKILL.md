@@ -17,16 +17,16 @@ For build/test output parsing: `brew install xcsift`
 cd /path/to/package
 
 # Build
-swift build 2>&1 | tee /tmp/build.log | xcsift --warnings
+swift build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 
 # Build release
-swift build -c release 2>&1 | tee /tmp/build.log | xcsift --warnings
+swift build -c release 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 
 # Test
-swift test 2>&1 | tee /tmp/test.log | xcsift --warnings
+swift test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 
 # Test with filter
-swift test --filter "testLogin" 2>&1 | tee /tmp/test.log | xcsift --warnings
+swift test --filter "testLogin" 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ## Run & Process Management
@@ -52,4 +52,4 @@ swift package clean
 rm -rf /path/to/package/.build
 ```
 
-Output from `xcsift`: JSON with `success`, `errors`, `warnings`. Check log files for full output.
+Output from `xcsift --format toon`: token-optimized output with errors and warnings. Check log files for full output.
