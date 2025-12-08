@@ -16,12 +16,23 @@ def main():
 
         # Check for xcodebuild as a complete word (word boundary)
         if tool_name == "Bash" and re.search(r'^[/a-zA-Z]?(xcodebuild|swift build|swift test)\s', command):
-            # Deny the permission and suggest using swift-compile skill
+            # Allow the permission and suggest using xcodebuild skill
             response = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
                     "permissionDecision": "allow",
                     "permissionDecisionReason": "Make sure to use the `xcodebuild` skill to compile with xcodebuild or `swift build`/`swift test` to compile with swift."
+                }
+            }
+            print(json.dumps(response))
+            sys.exit(0)
+
+        if tool_name == "Skill" and tool_input.get("skill", "").startswith("XcodeBuildTools:"):
+            # Allow the permission
+            response = {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow"
                 }
             }
             print(json.dumps(response))
