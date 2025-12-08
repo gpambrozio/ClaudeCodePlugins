@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/../base/session-start.py \"Marvin Output Style\""
+            "command": "${CLAUDE_PLUGIN_ROOT}/../common/session-start.py \"Marvin Output Style\""
           }
         ]
       }

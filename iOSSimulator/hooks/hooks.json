@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/../base/session-start.py \"iOS Simulator\""
+            "command": "${CLAUDE_PLUGIN_ROOT}/../common/session-start.py \"iOS Simulator\""
           }
         ]
       }
