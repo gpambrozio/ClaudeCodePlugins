@@ -91,6 +91,10 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.3.0
+- Added version tracking with automatic changelog notifications on plugin updates
+- Refactored session hooks to use shared infrastructure
+
 ### 0.2.0
 - Added `sim-record-video.py` for recording simulator screen video
 - Added `sim-statusbar.py` for overriding status bar (perfect for App Store screenshots with "9:41" time)

@@ -5,7 +5,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"systemMessage\": \"The iOSSimulator plugin is loaded. You can control iOS Simulators using the ios-simulator skill.\", \"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\"}}'"
+            "command": "claude plugin marketplace update ClaudeCodePlugins > /dev/null 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/../base/session-start.py \"iOS Simulator\""
           }
         ]
       }
