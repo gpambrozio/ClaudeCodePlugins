@@ -47,3 +47,4 @@ build/
 # Plugin-specific ignores
 # Add plugin-specific patterns here as needed
 __pycache__
+.claude/marvinOutputStyle.json
