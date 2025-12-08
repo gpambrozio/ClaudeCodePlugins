@@ -1,6 +1,6 @@
 {
   "name": "PluginBase",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The base plugin for all other plugins.",
   "author": {
     "name": "Gustavo Ambrozio"

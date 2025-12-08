@@ -108,6 +108,10 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.2.0
+- Centralized hooks to common/hooks.json
+- Made session-start.py self-configuring from plugin.json
+
 ### 1.1.0
 - Added version tracking with automatic changelog notifications on plugin updates
 - Refactored session hooks to use shared infrastructure

@@ -118,6 +118,10 @@ When adding new features:
 
 ## Changelog
 
+### 0.3.0
+- Centralized hooks to common/hooks.json
+- Made session-start.py and pre-tool-use.py self-configuring from plugin.json
+
 ### 0.2.0
 - Added version tracking with automatic changelog notifications on plugin updates
 - Refactored session hooks to use shared infrastructure

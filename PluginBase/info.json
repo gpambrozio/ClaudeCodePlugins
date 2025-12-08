@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.2.0",
+            "changes": "Centralized hooks to common/hooks.json and made scripts self-configuring from plugin.json"
+        },
+        {
             "version": "0.1.0",
             "changes": "Initial version"
         }

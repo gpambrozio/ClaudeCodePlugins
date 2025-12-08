@@ -2,6 +2,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
         {
+            "version": "0.3.0",
+            "changes": "Centralized hooks to common/hooks.json and made scripts self-configuring from plugin.json"
+        },
+        {
             "version": "0.2.0",
             "changes": "Added version tracking with changelog notifications and refactored session hooks to use shared infrastructure"
         },

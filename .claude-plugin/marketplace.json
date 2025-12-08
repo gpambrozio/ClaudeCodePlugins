@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "SwiftDevelopment",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "A collection of MCP servers and slash commands for Swift and iOS development workflows",
       "source": "./SwiftDevelopment",
       "author": {
@@ -28,7 +28,7 @@
     },
     {
       "name": "MarvinOutputStyle",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
       "source": "./MarvinOutputStyle",
       "author": {
@@ -44,7 +44,7 @@
     },
     {
       "name": "iOSSimulator",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
       "source": "./iOSSimulator",
       "author": {
@@ -63,7 +63,7 @@
     },
     {
       "name": "SwiftScaffolding",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Swift project scaffolding and code generation tools",
       "source": "./SwiftScaffolding",
       "author": {
@@ -80,7 +80,7 @@
     },
     {
       "name": "XcodeBuildTools",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
       "source": "./XcodeBuildTools",
       "author": {

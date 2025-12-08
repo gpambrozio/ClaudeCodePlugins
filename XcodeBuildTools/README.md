@@ -35,6 +35,10 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.0
+- Centralized hooks to common/hooks.json
+- Made session-start.py and pre-tool-use.py self-configuring from plugin.json
+
 ### 0.2.0
 - Renamed from XcodeBuildSkills to XcodeBuildTools
 - Added version tracking with automatic changelog notifications on plugin updates
