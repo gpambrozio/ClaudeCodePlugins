@@ -61,7 +61,7 @@ def check_for_updates(plugin_dir, config_filename, plugin_name=None):
     Check for plugin updates and return changelog if there are new versions.
 
     Args:
-        plugin_dir: Path to the plugin directory (containing history.json)
+        plugin_dir: Path to the plugin directory (containing info.json)
         config_filename: Name of the config file to store in .claude/ (e.g., "testPlugin.json")
         plugin_name: Optional name for the changelog header (defaults to "Plugin")
 
@@ -74,8 +74,8 @@ def check_for_updates(plugin_dir, config_filename, plugin_name=None):
     if not project_path:
         return "", False
 
-    history_file = os.path.join(plugin_dir, "history.json")
-    if not os.path.exists(history_file):
+    info_file = os.path.join(plugin_dir, "info.json")
+    if not os.path.exists(info_file):
         return "", False
 
     claude_dir = os.path.join(project_path, ".claude")
@@ -85,8 +85,9 @@ def check_for_updates(plugin_dir, config_filename, plugin_name=None):
     config = load_json_file(config_file) or {}
     last_version = config.get('lastVersion', '')
 
-    # Load versions list
-    versions_list = load_json_file(history_file) or []
+    # Load plugin info and extract versions list
+    plugin_info = load_json_file(info_file) or {}
+    versions_list = plugin_info.get('versions', [])
 
     # Find new versions
     new_versions = get_new_versions(versions_list, last_version)

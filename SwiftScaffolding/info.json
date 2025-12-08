@@ -1,0 +1,12 @@
+{
+    "versions": [
+        {
+            "version": "0.2.0",
+            "changes": "Added version tracking with changelog notifications and refactored session hooks to use shared infrastructure"
+        },
+        {
+            "version": "0.1.0",
+            "changes": "Initial release with scaffolding command"
+        }
+    ]
+}
