@@ -1,12 +1,12 @@
-# XcodeBuildSkills
+# XcodeBuildTools
 
-Xcode development skills for Claude Code. Build/test skills use [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient JSON output.
+Xcode development tools for Claude Code. Build/test tools use [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient JSON output.
 
 ## Installation
 
 ```bash
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
-/plugin install XcodeBuildSkills@ClaudeCodePlugins
+/plugin install XcodeBuildTools@ClaudeCodePlugins
 ```
 
 ## Prerequisites
@@ -32,6 +32,16 @@ brew install xcsift
 
 - **iOSSimulator** - Simulator control, screenshots, video, status bar
 - **SwiftDevelopment** - swift-compile skill with xcsift integration
+
+## Changelog
+
+### 0.2.0
+- Renamed from XcodeBuildSkills to XcodeBuildTools
+- Added version tracking with automatic changelog notifications on plugin updates
+- Added session hooks using shared infrastructure
+
+### 0.1.0
+- Initial release with 8 Xcode development tools
 
 ## License
 

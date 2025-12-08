@@ -1,0 +1,10 @@
+[
+    {
+        "version": "0.2.0",
+        "changes": "Renamed from XcodeBuildSkills to XcodeBuildTools. Added version tracking with changelog notifications and session hooks."
+    },
+    {
+        "version": "0.1.0",
+        "changes": "Initial release with 8 Xcode development tools"
+    }
+]
