@@ -106,6 +106,15 @@ Marvin represents a different approach to AI assistance - one that questions ass
 - Encouraging clearer, more specific requirements
 - Adding some personality to long coding sessions
 
+## Changelog
+
+### 1.1.0
+- Added version tracking with automatic changelog notifications on plugin updates
+- Refactored session hooks to use shared infrastructure
+
+### 1.0.0
+- Initial release with Marvin personality SessionStart hook
+
 ## License
 
 MIT
