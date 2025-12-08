@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/../common/session-start.py \"Marvin Output Style\""
+            "command": "${CLAUDE_PLUGIN_ROOT}/../common/session-start.py \"Marvin Output Style\" \"Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.\""
           }
         ]
       }
