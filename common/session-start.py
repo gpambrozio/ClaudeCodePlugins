@@ -7,14 +7,27 @@ import os
 from version_tracker import check_for_updates
 
 
+def derive_config_filename(plugin_name: str) -> str:
+    """Derive config filename from plugin name by removing spaces and lowercasing first letter."""
+    name_no_spaces = plugin_name.replace(" ", "")
+    if name_no_spaces:
+        return name_no_spaces[0].lower() + name_no_spaces[1:] + ".json"
+    return "plugin.json"
+
+
 def main():
+    # Get plugin name from command line argument
+    if len(sys.argv) < 2:
+        sys.stderr.write("Usage: session-start.py <plugin_name>\n")
+        sys.exit(1)
+
+    plugin_name = sys.argv[1]
+    config_filename = derive_config_filename(plugin_name)
+
     try:
         # Get the directory where this script is located
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        md_file = os.path.join(script_dir, "session-start.md")
-
-        # Plugin directory is the parent of hooks/
-        plugin_dir = os.path.dirname(script_dir)
+        plugin_dir = os.environ.get('CLAUDE_PLUGIN_ROOT', '')
+        md_file = os.path.join(plugin_dir, "session-start.md")
 
         # Read the markdown file
         if os.path.exists(md_file):
@@ -23,13 +36,13 @@ def main():
         else:
             additional_context = ""
 
-        system_message = "The PluginBase is loaded and ready."
+        system_message = f"The {plugin_name} plugin is loaded and ready."
 
         # Check for version updates
         changelog, _ = check_for_updates(
             plugin_dir=plugin_dir,
-            config_filename="pluginBase.json",
-            plugin_name="PluginBase"
+            config_filename=config_filename,
+            plugin_name=plugin_name
         )
         if changelog:
             system_message += changelog

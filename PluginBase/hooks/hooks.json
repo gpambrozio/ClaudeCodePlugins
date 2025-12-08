@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py"
+            "command": "${CLAUDE_PLUGIN_ROOT}/../base/session-start.py PluginBase"
           }
         ]
       }
