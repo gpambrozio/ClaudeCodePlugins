@@ -5,6 +5,8 @@
   "author": {
     "name": "Gustavo Ambrozio"
   },
+  "homepage": "https://github.com/gambrozio/ClaudeCodePlugins/MarvinOutputStyle",
+  "hooks": "./../common/hooks.json",
   "keywords": ["personality", "output-style", "marvin", "hitchhikers-guide"],
   "license": "MIT"
 }

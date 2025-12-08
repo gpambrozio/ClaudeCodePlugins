@@ -4,7 +4,7 @@ import sys
 import json
 import os
 
-from version_tracker import check_for_updates
+from version_tracker import check_for_updates, load_json_file
 
 
 def derive_config_filename(plugin_name: str) -> str:
@@ -16,18 +16,23 @@ def derive_config_filename(plugin_name: str) -> str:
 
 
 def main():
-    # Get plugin name from command line argument
-    if len(sys.argv) < 2:
-        sys.stderr.write("Usage: session-start.py <plugin_name> [additional_message]\n")
-        sys.exit(1)
-
-    plugin_name = sys.argv[1]
-    additional_message = sys.argv[2] if len(sys.argv) > 2 else None
-    config_filename = derive_config_filename(plugin_name)
-
     try:
-        # Get the directory where this script is located
+        # Get the plugin directory from environment
         plugin_dir = os.environ.get('CLAUDE_PLUGIN_ROOT', '')
+        if not plugin_dir:
+            sys.exit(0)
+
+        # Load plugin name from plugin.json
+        plugin_json_path = os.path.join(plugin_dir, ".claude-plugin", "plugin.json")
+        plugin_json = load_json_file(plugin_json_path) or {}
+        plugin_name = plugin_json.get('name', 'Plugin')
+
+        # Load welcome message from info.json
+        info_json_path = os.path.join(plugin_dir, "info.json")
+        info_json = load_json_file(info_json_path) or {}
+        welcome_message = info_json.get('welcomeMessage', '')
+
+        config_filename = derive_config_filename(plugin_name)
         md_file = os.path.join(plugin_dir, "session-start.md")
 
         # Read the markdown file
@@ -38,8 +43,8 @@ def main():
             additional_context = ""
 
         system_message = f"The {plugin_name} plugin is loaded and ready."
-        if additional_message:
-            system_message += f" {additional_message}"
+        if welcome_message:
+            system_message += f" {welcome_message}"
 
         # Check for version updates
         changelog, _ = check_for_updates(

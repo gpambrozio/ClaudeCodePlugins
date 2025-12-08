@@ -1,4 +1,5 @@
 {
+    "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
         {
             "version": "0.2.0",

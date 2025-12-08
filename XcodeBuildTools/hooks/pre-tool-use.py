@@ -2,18 +2,7 @@
 
 import sys
 import json
-import os
 import re
-
-def allow():
-    response = {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "allow"
-        }
-    }
-    print(json.dumps(response))
-    sys.exit(0)
 
 def main():
     try:
@@ -37,13 +26,6 @@ def main():
             }
             print(json.dumps(response))
             sys.exit(0)
-
-        if tool_name == "Skill" and tool_input.get("skill", "").startswith("XcodeBuildTools:"):
-            allow()
-
-        plugin_dir = os.environ.get('CLAUDE_PLUGIN_ROOT', '')
-        if tool_name == "Bash" and command.startswith(f"{plugin_dir}/skills/"):
-            allow()
 
         # If conditions don't match, allow the tool to proceed (no output needed)
         sys.exit(0)
