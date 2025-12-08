@@ -1,0 +1,10 @@
+[
+    {
+        "version": "0.2.0",
+        "changes": "Added version tracking with changelog notifications and refactored session hooks to use shared infrastructure"
+    },
+    {
+        "version": "0.1.11",
+        "changes": "Added --format toon flag documentation to swift-compile skill for token-optimized output"
+    }
+]

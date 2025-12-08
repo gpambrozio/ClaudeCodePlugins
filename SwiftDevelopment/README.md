@@ -118,6 +118,10 @@ When adding new features:
 
 ## Changelog
 
+### 0.2.0
+- Added version tracking with automatic changelog notifications on plugin updates
+- Refactored session hooks to use shared infrastructure
+
 ### 0.1.11 (2025-12-06)
 - Added `--format toon` flag documentation to swift-compile skill for token-optimized output
 - Updated all xcsift examples to use the recommended `--format toon --warnings` pattern
