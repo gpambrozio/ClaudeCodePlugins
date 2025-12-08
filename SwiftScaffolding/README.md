@@ -27,6 +27,15 @@ Swift project scaffolding and code generation tools.
 
 Use the `/scaffolding` command to scaffold Swift projects.
 
+## Changelog
+
+### 0.2.0
+- Added version tracking with automatic changelog notifications on plugin updates
+- Refactored session hooks to use shared infrastructure
+
+### 0.1.0
+- Initial release with scaffolding command
+
 ## License
 
 MIT

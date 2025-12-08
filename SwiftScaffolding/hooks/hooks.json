@@ -5,7 +5,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"systemMessage\": \"The SwiftScaffolding plugin is loaded. You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.\", \"hookSpecificOutput\": {\"hookEventName\": \"SessionStart\"}}'"
+            "command": "claude plugin marketplace update ClaudeCodePlugins > /dev/null 2>&1 || true"
+          },
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/../common/session-start.py \"Swift Scaffolding\" \"You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.\""
           }
         ]
       }

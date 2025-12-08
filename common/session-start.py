@@ -18,10 +18,11 @@ def derive_config_filename(plugin_name: str) -> str:
 def main():
     # Get plugin name from command line argument
     if len(sys.argv) < 2:
-        sys.stderr.write("Usage: session-start.py <plugin_name>\n")
+        sys.stderr.write("Usage: session-start.py <plugin_name> [additional_message]\n")
         sys.exit(1)
 
     plugin_name = sys.argv[1]
+    additional_message = sys.argv[2] if len(sys.argv) > 2 else None
     config_filename = derive_config_filename(plugin_name)
 
     try:
@@ -37,6 +38,8 @@ def main():
             additional_context = ""
 
         system_message = f"The {plugin_name} plugin is loaded and ready."
+        if additional_message:
+            system_message += f" {additional_message}"
 
         # Check for version updates
         changelog, _ = check_for_updates(

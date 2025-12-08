@@ -1,6 +1,6 @@
 {
   "name": "SwiftScaffolding",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Swift project scaffolding and code generation tools",
   "author": {
     "name": "Gustavo Ambrozio"
