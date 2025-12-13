@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.2.2",
+            "changes": "Version tracker now silently initializes on first run instead of showing entire version history"
+        },
+        {
             "version": "0.2.1",
             "changes": "Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)"
         },

@@ -81,13 +81,25 @@ def check_for_updates(plugin_dir, config_filename, plugin_name=None):
     claude_dir = os.path.join(project_path, ".claude")
     config_file = os.path.join(claude_dir, config_filename)
 
-    # Load project config
-    config = load_json_file(config_file) or {}
-    last_version = config.get('lastVersion', '')
-
     # Load plugin info and extract versions list
     plugin_info = load_json_file(info_file) or {}
     versions_list = plugin_info.get('versions', [])
+
+    # Load project config - check if file exists first
+    config_exists = os.path.exists(config_file)
+    config = load_json_file(config_file) or {}
+
+    # If no config file exists (first run), just create it with latest version
+    # without showing any changelog - the user doesn't need version history
+    if not config_exists:
+        if versions_list:
+            # Find the latest version
+            latest = max(versions_list, key=lambda x: parse_version(x.get('version', '')))
+            config['lastVersion'] = latest.get('version', '')
+            save_json_file(config_file, config)
+        return "", False
+
+    last_version = config.get('lastVersion', '')
 
     # Find new versions
     new_versions = get_new_versions(versions_list, last_version)
