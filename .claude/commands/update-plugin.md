@@ -1,6 +1,6 @@
 ---
-allowed-tools: AskUserQuestion
 description: Update a plugin in the Claude Code Plugin Marketplace. Follow these steps carefully.
+allowed-tools: AskUserQuestion
 ---
 # Update Plugin Version
 
@@ -8,26 +8,41 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 
 ## Steps to Update a Plugin
 
-1. **Identify the plugin to update**
-   - Use current git changes to determine what plugin changed and only ask the user if you can't determine using the diff. Use the `AskUserQuestion` tool to ask the user if needed.
+1. **Identify what was updated**
+   - Look at git changes
+   - If there are changes in files in the `common` directory, follow the steps in "Updating Common Infrastructure" below.
+
+2. **Identify the plugin to update**
+   - Determine what plugin changed and only ask the user if you can't determine using the diff. Use the `AskUserQuestion` tool to ask the user if needed.
    - Confirm the new version number (use semantic versioning: major.minor.patch). Suggest one based on the current git changes using the `AskUserQuestion` tool.
 
-2. **Update the plugin's manifest** (`<PluginDir>/.claude-plugin/plugin.json`)
+3. **Update the plugin's manifest** (`<PluginDir>/.claude-plugin/plugin.json`)
    - Update the `version` field to the new version
 
-3. **Update the marketplace catalog** (`.claude-plugin/marketplace.json`)
+4. **Update the marketplace catalog** (`.claude-plugin/marketplace.json`)
    - Find the plugin entry in the `plugins` array
    - Update the `version` field to match the new version
 
-4. **Document the changes**
+5. **Document the changes**
    - Update the plugin's `README.md` with the changes made
    - Be clear and concise about what changed in this version
    - Add a new entry to the `versions` array in the plugin's `info.json` file
 
-5. **Verify the updates**
+6. **Verify the updates**
    - Show the user a summary of all changes made
    - List the files that were modified
    - Confirm the version numbers match across all files
+
+7. **Commit the changes**
+   - Commit the changes in the plugin's directory and main marketplace catalog
+
+## Updating Common Infrastructure
+
+1. **Update the common infrastructure**
+   - Commit the changes in the `common` directory
+   - Make sure to copy all the files from the `common` directory to all plugins' `common` directories
+   - Determine if this will be a patch or minor update based on the changes in the `common` directory. When in doubt, ask the user using the `AskUserQuestion` tool.
+   - For every plugin, follow steps 3-7 above
 
 ## Important Notes
 
