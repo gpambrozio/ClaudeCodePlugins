@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/../common/session-start.py"
+            "command": "${CLAUDE_PLUGIN_ROOT}/common/session-start.py"
           }
         ]
       }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/../common/pre-tool-use.py"
+            "command": "${CLAUDE_PLUGIN_ROOT}/common/pre-tool-use.py"
           }
         ]
       }
