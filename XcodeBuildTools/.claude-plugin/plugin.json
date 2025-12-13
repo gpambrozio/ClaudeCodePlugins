@@ -5,7 +5,7 @@
   "author": {
     "name": "Gustavo Ambrozio"
   },
-  "homepage": "https://github.com/gambrozio/ClaudeCodePlugins/XcodeBuildTools",
+  "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/XcodeBuildTools",
   "hooks": "./../common/hooks.json",
   "keywords": [
     "xcode",

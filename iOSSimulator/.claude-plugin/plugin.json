@@ -5,7 +5,7 @@
   "author": {
     "name": "Gustavo Ambrozio"
   },
-  "homepage": "https://github.com/gambrozio/ClaudeCodePlugins/iOSSimulator",
+  "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/iOSSimulator",
   "hooks": "./../common/hooks.json",
   "keywords": [
     "ios",

@@ -5,7 +5,7 @@
   "author": {
     "name": "Gustavo Ambrozio"
   },
-  "homepage": "https://github.com/gambrozio/ClaudeCodePlugins/PluginBase",
+  "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/PluginBase",
   "hooks": "./../common/hooks.json",
   "keywords": [
     "base",

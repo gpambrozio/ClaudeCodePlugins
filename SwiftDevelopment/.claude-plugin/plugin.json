@@ -5,7 +5,7 @@
   "author": {
     "name": "Gustavo Ambrozio"
   },
-  "homepage": "https://github.com/gambrozio/ClaudeCodePlugins/SwiftDevelopment",
+  "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/SwiftDevelopment",
   "hooks": "./../common/hooks.json",
   "keywords": [
     "swift",
