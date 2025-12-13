@@ -1,12 +1,12 @@
 {
   "name": "iOSSimulator",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
   "author": {
     "name": "Gustavo Ambrozio"
   },
   "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/iOSSimulator",
-  "hooks": "./../common/hooks.json",
+  "hooks": "./common/hooks.json",
   "keywords": [
     "ios",
     "simulator",

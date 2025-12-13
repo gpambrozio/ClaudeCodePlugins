@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.3.1",
+            "changes": "Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)"
+        },
+        {
             "version": "0.3.0",
             "changes": "Centralized hooks to common/hooks.json and made scripts self-configuring from plugin.json"
         },

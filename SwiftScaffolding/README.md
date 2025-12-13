@@ -29,6 +29,9 @@ Use the `/scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 
+### 0.3.1
+- Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
+
 ### 0.3.0
 - Centralized hooks to common/hooks.json
 - Made session-start.py self-configuring from plugin.json

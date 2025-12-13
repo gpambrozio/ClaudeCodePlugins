@@ -91,6 +91,9 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.4.1
+- Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
+
 ### 0.4.0
 - Centralized hooks to common/hooks.json
 - Made session-start.py and pre-tool-use.py self-configuring from plugin.json
