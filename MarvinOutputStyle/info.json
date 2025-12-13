@@ -2,6 +2,10 @@
     "welcomeMessage": "Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.",
     "versions": [
         {
+            "version": "1.2.1",
+            "changes": "Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)"
+        },
+        {
             "version": "1.2.0",
             "changes": "Centralized hooks to common/hooks.json and made scripts self-configuring from plugin.json"
         },

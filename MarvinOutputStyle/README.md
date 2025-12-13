@@ -108,6 +108,9 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.2.1
+- Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
+
 ### 1.2.0
 - Centralized hooks to common/hooks.json
 - Made session-start.py self-configuring from plugin.json

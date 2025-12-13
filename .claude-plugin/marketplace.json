@@ -28,7 +28,7 @@
     },
     {
       "name": "MarvinOutputStyle",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
       "source": "./MarvinOutputStyle",
       "author": {
