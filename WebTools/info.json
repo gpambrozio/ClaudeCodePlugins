@@ -1,0 +1,8 @@
+{
+    "versions": [
+        {
+            "version": "0.1.0",
+            "changes": "Initial release with web development utilities"
+        }
+    ]
+}
