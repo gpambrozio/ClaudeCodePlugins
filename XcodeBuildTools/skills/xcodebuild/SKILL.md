@@ -17,6 +17,7 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 2. **Always add** `-skipMacroValidation -skipPackagePluginValidation`
 3. **iOS/watchOS/tvOS**: Must specify destination with simulator ID
 4. **macOS**: Use `-destination 'platform=macOS'` or omit destination
+5. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
 
 ## Build Commands
 
@@ -26,40 +27,22 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 xcrun simctl list devices available | grep "iPhone"
 
 # Build
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  -destination 'id=<simulator-uuid>' \
-  -skipMacroValidation -skipPackagePluginValidation \
-  build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 ```
 
 ### Physical Device
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  -destination 'id=<device-udid>' \
-  -skipMacroValidation -skipPackagePluginValidation \
-  build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<device-udid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 ```
 
 ### macOS
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  -destination 'platform=macOS' \
-  -skipMacroValidation -skipPackagePluginValidation \
-  build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 ```
 
 ### Clean
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  clean 2>&1 | xcsift --format toon
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp clean 2>&1 | xcsift --format toon
 ```
 
 ## Output

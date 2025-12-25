@@ -35,6 +35,12 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.3
+- Added single-line command constraint to xcodebuild and xcode-test skills for consistency
+
+### 0.3.2
+- Version tracker now silently initializes on first run instead of showing entire version history
+
 ### 0.3.1
 - Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
 

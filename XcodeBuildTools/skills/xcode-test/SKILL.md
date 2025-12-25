@@ -11,36 +11,27 @@ Run unit and UI tests with `xcodebuild test` and `xcsift --format toon`.
 
 Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upgrade xcsift` to update).
 
+## Key Constraints
+
+1. **Never use `-sdk` parameter** - causes unnecessary build failures
+2. **Always add** `-skipMacroValidation -skipPackagePluginValidation`
+3. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
+
 ## Test Commands
 
 ### iOS Simulator Tests
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyAppTests \
-  -destination 'id=<simulator-uuid>' \
-  -skipMacroValidation -skipPackagePluginValidation \
-  test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ### macOS Tests
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyAppTests \
-  -destination 'platform=macOS' \
-  -skipMacroValidation -skipPackagePluginValidation \
-  test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ### Run Specific Tests
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyAppTests \
-  -destination 'id=<simulator-uuid>' \
-  -only-testing:MyAppTests/LoginTests/testLoginSuccess \
-  test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -only-testing:MyAppTests/LoginTests/testLoginSuccess test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ### Skip Specific Tests

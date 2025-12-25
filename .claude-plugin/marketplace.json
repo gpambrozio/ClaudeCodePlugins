@@ -80,7 +80,7 @@
     },
     {
       "name": "XcodeBuildTools",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
       "source": "./XcodeBuildTools",
       "author": {
