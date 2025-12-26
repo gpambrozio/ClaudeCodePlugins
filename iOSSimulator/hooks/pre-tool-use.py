@@ -9,14 +9,13 @@ def main():
         # Read JSON from stdin
         input_data = json.load(sys.stdin)
 
-        # Check if tool_name is "Bash" and command contains "xcodebuild" as a word
         tool_name = input_data.get("tool_name", "")
         tool_input = input_data.get("tool_input", {})
         command = tool_input.get("command", "")
 
-        # Check for xcodebuild as a complete word (word boundary)
+        # Check if tool_name is "Bash" and command contains "xcrun" as a word
         if tool_name == "Bash" and re.search(r'xcrun\s+simctl', command):
-            # Deny the permission and suggest using swift-compile skill
+            # Allow the permission but suggest using swift-compile skill
             response = {
                 "hookSpecificOutput": {
                     "hookEventName": "PreToolUse",
