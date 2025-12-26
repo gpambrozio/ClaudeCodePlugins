@@ -36,11 +36,7 @@ If you need to see the full output of the command use the temporary file to cons
 This is how to use this with `xcodebuild` for example:
 
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  -destination 'id=7C54F1A1-94C8-49C4-BDCD-7A5FCE88AEBA' \
-  build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=7C54F1A1-94C8-49C4-BDCD-7A5FCE88AEBA' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### For xcodebuild Commands
@@ -48,7 +44,8 @@ xcodebuild \
 **IMPORTANT Constraints:**
 1. **Never use `-sdk` parameter** - it can cause builds to fail unnecessarily
 2. **Always** use the `-skipMacroValidation -skipPackagePluginValidation` parameters to avoid unnecessary error
-3. **For iOS/watchOS/tvOS targets**: You must specify a destination
+3. **Single line commands** - Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
+4. **For iOS/watchOS/tvOS targets**: You must specify a destination
    - First find available simulators: `xcrun simctl list devices available`
    - Then add: `-destination 'id=<device-uuid>'`
 4. **For macOS targets**: Use `-destination 'platform=macOS'` or omit destination entirely
@@ -71,29 +68,17 @@ If the build fails, analyze the `errors` array to identify issues and suggest fi
 xcrun simctl list devices available | grep "iPhone"
 
 # 2. Build with destination
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  -destination 'id=<device-uuid>' \
-  build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<device-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### Running Tests
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyAppTests \
-  -destination 'id=<device-uuid>' \
-  test 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<device-uuid>' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### Building a macOS App
 ```bash
-xcodebuild \
-  -workspace MyApp.xcworkspace \
-  -scheme MyApp \
-  -destination 'id=<device-uuid>' \
-  build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /path/to/temporary/file | xcsift --format toon --warnings
 ```
 
 ### Swift Package Manager

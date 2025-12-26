@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.3.3",
+            "changes": "Added single-line command constraint and converted all xcodebuild examples to single-line format"
+        },
+        {
             "version": "0.3.2",
             "changes": "Version tracker now silently initializes on first run instead of showing entire version history"
         },

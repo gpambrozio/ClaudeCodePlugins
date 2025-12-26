@@ -52,15 +52,11 @@ Provides guidance for using `xcodebuild` and `swift` commands with [xcsift](http
 **Examples**:
 ```bash
 # Build a workspace
-xcodebuild \
-  -workspace Project.xcworkspace \
-  -scheme ProjectScheme \
-  -destination 'platform=iOS Simulator,name=iPhone 15' \
-  build 2>&1 | xcsift --warnings
+xcodebuild -workspace Project.xcworkspace -scheme ProjectScheme -destination 'id=<device-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | xcsift --format toon --warnings
 
 # Test a Swift package
 cd PackageFolder
-swift test 2>&1 | xcsift --warnings
+swift test 2>&1 | xcsift --format toon --warnings
 ```
 
 ## MCP Servers
@@ -117,6 +113,11 @@ When adding new features:
 - Document any new MCP server requirements
 
 ## Changelog
+
+### 0.3.3
+- Added single-line command constraint to swift-compile skill
+- Converted all xcodebuild examples to single-line format (no backslash continuations)
+- Added missing `-skipMacroValidation -skipPackagePluginValidation` flags to examples
 
 ### 0.3.1
 - Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
