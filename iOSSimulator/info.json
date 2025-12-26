@@ -1,4 +1,12 @@
 {
+    "pre-tool-use-rules": [
+        {
+            "name": "xcrun",
+            "match": "xcrun\\s+simctl",
+            "decision": "deny_once",
+            "message": "Make sure to use the ios-simulator skill to control iOS Simulators."
+        }
+    ],
     "versions": [
         {
             "version": "0.4.3",
