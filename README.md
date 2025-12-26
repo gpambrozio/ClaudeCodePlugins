@@ -25,16 +25,10 @@ Once the marketplace is added, install plugins:
 /plugin marketplace list
 
 # Install a specific plugin
-/plugin install SwiftDevelopment@ClaudeCodePlugins
+/plugin install XcodeBuildTools@ClaudeCodePlugins
 ```
 
 ## Available Plugins
-
-### SwiftDevelopment
-
-Swift and iOS development toolkit with MCP servers and slash commands.
-
-[View Plugin Documentation →](./SwiftDevelopment/README.md)
 
 ### iOSSimulator
 
@@ -159,7 +153,7 @@ When updating a plugin:
 /plugin marketplace add /path/to/ClaudeCodePlugins
 
 # Test plugin installation
-/plugin install SwiftDevelopment@ClaudeCodePlugins
+/plugin install XcodeBuildTools@ClaudeCodePlugins
 
 # Verify plugin works
 /plugin list
@@ -167,11 +161,11 @@ When updating a plugin:
 
 ### Creating New Plugins
 
-Use the SwiftDevelopment plugin as a template:
+Use an existing plugin as a template:
 
 ```bash
-# Copy structure
-cp -r SwiftDevelopment YourNewPlugin
+# Copy structure from an existing plugin
+cp -r XcodeBuildTools YourNewPlugin
 
 # Update metadata in .claude-plugin/plugin.json
 # Customize commands, skills, agents

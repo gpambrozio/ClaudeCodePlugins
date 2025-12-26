@@ -10,23 +10,6 @@
   "repository": "https://github.com/gpambrozio/ClaudeCodePlugins",
   "plugins": [
     {
-      "name": "SwiftDevelopment",
-      "version": "0.3.4",
-      "description": "A collection of MCP servers and slash commands for Swift and iOS development workflows",
-      "source": "./SwiftDevelopment",
-      "author": {
-        "name": "Gustavo Ambrozio"
-      },
-      "keywords": [
-        "swift",
-        "ios",
-        "xcode",
-        "development",
-        "mobile"
-      ],
-      "license": "MIT"
-    },
-    {
       "name": "MarvinOutputStyle",
       "version": "1.2.3",
       "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
