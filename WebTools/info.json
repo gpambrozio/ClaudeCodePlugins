@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.1.1",
+            "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
+        },
+        {
             "version": "0.1.0",
             "changes": "Initial release with web development utilities"
         }

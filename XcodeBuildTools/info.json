@@ -1,5 +1,28 @@
 {
+    "pre-tool-use-rules": [
+        {
+            "name": "xcodebuild_swift_build_test_command_constraint",
+            "match": "^[/a-zA-Z]?(xcodebuild|swift build|swift test)\\s",
+            "not_match": "xcsift",
+            "decision": "deny_once",
+            "message": "Make sure to use the `xcodebuild` skill to compile with xcodebuild or `swift build`/`swift test` to compile with swift."
+        },
+        {
+            "name": "xcsift",
+            "match": "xcsift",
+            "decision": "allow"
+        },
+        {
+            "name": "tee",
+            "match": "tee",
+            "decision": "allow"
+        }
+    ],
     "versions": [
+        {
+            "version": "0.3.4",
+            "changes": "Added configurable pre-tool-use rules with allow/deny/deny_once decisions and regex matching"
+        },
         {
             "version": "0.3.3",
             "changes": "Added single-line command constraint to xcodebuild and xcode-test skills for consistency"

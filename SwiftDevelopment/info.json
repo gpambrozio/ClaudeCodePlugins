@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.3.4",
+            "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
+        },
+        {
             "version": "0.3.3",
             "changes": "Added single-line command constraint and converted all xcodebuild examples to single-line format"
         },

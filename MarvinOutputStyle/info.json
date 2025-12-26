@@ -2,6 +2,10 @@
     "welcomeMessage": "Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.",
     "versions": [
         {
+            "version": "1.2.3",
+            "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
+        },
+        {
             "version": "1.2.2",
             "changes": "Version tracker now silently initializes on first run instead of showing entire version history"
         },

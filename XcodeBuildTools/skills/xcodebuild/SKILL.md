@@ -1,6 +1,6 @@
 ---
 name: xcodebuild
-description: Build Xcode projects for simulator, device, or macOS using xcodebuild with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, or cleaning build products.
+description: Build Xcode projects for simulator, device, or macOS using `xcodebuild` with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, cleaning build products or before you invoke any Bash command with `xcodebuild` or `swift`.
 ---
 
 # Xcodebuild
@@ -18,13 +18,16 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 3. **iOS/watchOS/tvOS**: Must specify destination with simulator ID
 4. **macOS**: Use `-destination 'platform=macOS'` or omit destination
 5. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
+6. **Capture full output just in case** `xcsift` only outputs the most important build information but in some cases you might need to inspect the full output of `xcodebuild`. When using `xcsift` always `tee` to a temporary file and use it if `xcsift`'s output is not enough. In the examples below the path to the temporary file is an example, use what you think is the most appropriate location.
 
-## Build Commands
+## Build Command Examples
+
+These are examples of common operation. Feel free to change them but always remember the constraints above.
 
 ### iOS Simulator
 ```bash
 # Find simulator
-xcrun simctl list devices available | grep "iPhone"
+xcrun simctl list devices available
 
 # Build
 xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
