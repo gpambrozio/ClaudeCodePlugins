@@ -91,6 +91,15 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.4.4
+- Added `not_match` exclusion to allow `xcrun simctl list devices` without triggering deny rule
+
+### 0.4.3
+- Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)
+
+### 0.4.2
+- Version tracker now silently initializes on first run instead of showing entire version history
+
 ### 0.4.1
 - Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
 

@@ -3,11 +3,16 @@
         {
             "name": "xcrun",
             "match": "xcrun\\s+simctl",
+            "not_match": "list devices",
             "decision": "deny_once",
             "message": "Make sure to use the ios-simulator skill to control iOS Simulators."
         }
     ],
     "versions": [
+        {
+            "version": "0.4.4",
+            "changes": "Added not_match exclusion to allow 'xcrun simctl list devices' without triggering deny rule"
+        },
         {
             "version": "0.4.3",
             "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
