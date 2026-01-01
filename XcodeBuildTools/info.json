@@ -20,6 +20,10 @@
     ],
     "versions": [
         {
+            "version": "0.3.5",
+            "changes": "Add --executable flag to xcsift commands for displaying built executable path"
+        },
+        {
             "version": "0.3.4",
             "changes": "Added configurable pre-tool-use rules with allow/deny/deny_once decisions and regex matching"
         },

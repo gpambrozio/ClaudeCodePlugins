@@ -31,4 +31,16 @@ Output JSON with `success` and operation details.
 
 ## App path
 
-If the app was just built with `xcodebuild`, the app path can be found in the output of the build process in the line that starts with `RegisterWithLaunchServices`. If you build with the `xcodebuild` skill, you can `grep` the temporary file used in the `tee` command to find the app path.
+If the app was just built with `xcodebuild`, use the `--executable` flag with `xcsift` to display the executable path:
+
+```bash
+xcodebuild ... 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
+```
+
+Or if you already have the build log:
+
+```bash
+cat /tmp/build.log | xcsift --format toon --warnings --executable
+```
+
+The executable path will be shown in the output after a successful build.

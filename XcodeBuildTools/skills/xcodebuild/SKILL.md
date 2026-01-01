@@ -5,7 +5,9 @@ description: Build Xcode projects for simulator, device, or macOS using `xcodebu
 
 # Xcodebuild
 
-Build Xcode projects and workspaces using `xcodebuild` with `xcsift --format toon` for token-efficient output.
+Build Xcode projects and workspaces using `xcodebuild` with `xcsift --format toon --warnings --executable` for token-efficient output.
+
+The `--executable` flag shows the path to the built executable, which you'll need if you want to run the app afterwards.
 
 ## Prerequisites
 
@@ -30,17 +32,17 @@ These are examples of common operation. Feel free to change them but always reme
 xcrun simctl list devices available
 
 # Build
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
 ```
 
 ### Physical Device
 ```bash
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<device-udid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<device-udid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
 ```
 
 ### macOS
 ```bash
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
 ```
 
 ### Clean
@@ -50,4 +52,4 @@ xcodebuild -workspace MyApp.xcworkspace -scheme MyApp clean 2>&1 | xcsift --form
 
 ## Output
 
-`xcsift --format toon` returns token-optimized output with errors, warnings, and notes. Check `/tmp/build.log` for full output if needed.
+`xcsift --format toon --warnings --executable` returns token-optimized output with errors, warnings, and notes. Check `/tmp/build.log` for full output if needed.

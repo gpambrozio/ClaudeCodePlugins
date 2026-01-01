@@ -35,6 +35,12 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.5
+- Add `--executable` flag to xcsift commands for displaying built executable path
+
+### 0.3.4
+- Added configurable pre-tool-use rules with allow/deny/deny_once decisions and regex matching
+
 ### 0.3.3
 - Added single-line command constraint to xcodebuild and xcode-test skills for consistency
 
