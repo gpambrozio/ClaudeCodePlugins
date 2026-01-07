@@ -1,11 +1,18 @@
 {
     "pre-tool-use-rules": [
         {
-            "name": "xcodebuild_swift_build_test_command_constraint",
-            "match": "^[/a-zA-Z]?(xcodebuild|swift build|swift test)\\s",
+            "name": "xcodebuild_command_constraint",
+            "match": "xcodebuild\\s",
             "not_match": "xcsift",
             "decision": "deny_once",
-            "message": "Make sure to use the `xcodebuild` skill to compile with xcodebuild or `swift build`/`swift test` to compile with swift."
+            "message": "Make sure to use the `xcodebuild` skill to compile with xcodebuild."
+        },
+        {
+            "name": "swift_build_test_command_constraint",
+            "match": "(swift build|swift test)\\s",
+            "not_match": "xcsift",
+            "decision": "deny_once",
+            "message": "Make sure to use the `swift-package` skill to compile with `swift build`/`swift test`."
         },
         {
             "name": "xcsift",
@@ -19,6 +26,10 @@
         }
     ],
     "versions": [
+        {
+            "version": "0.3.6",
+            "changes": "Split pre-tool-use rule into separate rules for xcodebuild and swift build/test, directing to appropriate skills"
+        },
         {
             "version": "0.3.5",
             "changes": "Add --executable flag to xcsift commands for displaying built executable path"
