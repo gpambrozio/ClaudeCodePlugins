@@ -35,6 +35,12 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.7
+- Improved regex pattern for swift build/test detection using word boundaries instead of trailing whitespace
+
+### 0.3.6
+- Split pre-tool-use rule into separate rules for xcodebuild and swift build/test, directing to appropriate skills
+
 ### 0.3.5
 - Add `--executable` flag to xcsift commands for displaying built executable path
 

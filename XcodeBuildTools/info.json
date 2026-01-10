@@ -9,7 +9,7 @@
         },
         {
             "name": "swift_build_test_command_constraint",
-            "match": "(swift build|swift test)\\s",
+            "match": "\\bswift\\s+(build|test)\\b",
             "not_match": "xcsift",
             "decision": "deny_once",
             "message": "Make sure to use the `swift-package` skill to compile with `swift build`/`swift test`."
@@ -26,6 +26,10 @@
         }
     ],
     "versions": [
+        {
+            "version": "0.3.7",
+            "changes": "Improved regex pattern for swift build/test detection using word boundaries instead of trailing whitespace"
+        },
         {
             "version": "0.3.6",
             "changes": "Split pre-tool-use rule into separate rules for xcodebuild and swift build/test, directing to appropriate skills"
