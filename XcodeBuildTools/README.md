@@ -35,6 +35,9 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.8
+- Added guidance to use `-workspace` instead of `-project` when workspace exists (xcodebuild and xcode-test skills)
+
 ### 0.3.7
 - Improved regex pattern for swift build/test detection using word boundaries instead of trailing whitespace
 

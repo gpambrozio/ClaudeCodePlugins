@@ -27,6 +27,10 @@
     ],
     "versions": [
         {
+            "version": "0.3.8",
+            "changes": "Added guidance to use -workspace instead of -project when workspace exists (xcodebuild and xcode-test skills)"
+        },
+        {
             "version": "0.3.7",
             "changes": "Improved regex pattern for swift build/test detection using word boundaries instead of trailing whitespace"
         },

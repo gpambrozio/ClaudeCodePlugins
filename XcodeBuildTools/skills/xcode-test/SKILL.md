@@ -16,6 +16,7 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 1. **Never use `-sdk` parameter** - causes unnecessary build failures
 2. **Always add** `-skipMacroValidation -skipPackagePluginValidation`
 3. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
+4. **Use workspace when available** If the project has a corresponding `xcworkspace` always use the `-workspace` flag to compile, never `-project`
 
 ## Test Commands
 
