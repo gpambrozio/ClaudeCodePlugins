@@ -35,6 +35,9 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.9
+- Added guidance to use `xcrun simctl list devices available` to find valid simulator IDs instead of guessing
+
 ### 0.3.8
 - Added guidance to use `-workspace` instead of `-project` when workspace exists (xcodebuild and xcode-test skills)
 
