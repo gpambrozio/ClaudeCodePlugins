@@ -108,6 +108,15 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.2.4
+- Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)
+
+### 1.2.3
+- Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)
+
+### 1.2.2
+- Version tracker now silently initializes on first run instead of showing entire version history
+
 ### 1.2.1
 - Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
 

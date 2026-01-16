@@ -1,6 +1,6 @@
 {
   "name": "XcodeBuildTools",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
   "author": {
     "name": "Gustavo Ambrozio"

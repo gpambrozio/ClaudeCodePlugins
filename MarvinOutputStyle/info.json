@@ -2,6 +2,10 @@
     "welcomeMessage": "Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.",
     "versions": [
         {
+            "version": "1.2.4",
+            "changes": "Improved skill/bash command matching in common infrastructure (using 'in' instead of 'startswith')"
+        },
+        {
             "version": "1.2.3",
             "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
         },

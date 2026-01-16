@@ -91,6 +91,9 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.4.5
+- Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)
+
 ### 0.4.4
 - Added `not_match` exclusion to allow `xcrun simctl list devices` without triggering deny rule
 

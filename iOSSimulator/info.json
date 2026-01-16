@@ -10,6 +10,10 @@
     ],
     "versions": [
         {
+            "version": "0.4.5",
+            "changes": "Improved skill/bash command matching in common infrastructure (using 'in' instead of 'startswith')"
+        },
+        {
             "version": "0.4.4",
             "changes": "Added not_match exclusion to allow 'xcrun simctl list devices' without triggering deny rule"
         },

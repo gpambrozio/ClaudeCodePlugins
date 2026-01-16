@@ -2,6 +2,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
         {
+            "version": "0.3.4",
+            "changes": "Improved skill/bash command matching in common infrastructure (using 'in' instead of 'startswith')"
+        },
+        {
             "version": "0.3.3",
             "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
         },

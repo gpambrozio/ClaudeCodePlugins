@@ -29,6 +29,15 @@ Use the `/scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 
+### 0.3.4
+- Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)
+
+### 0.3.3
+- Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)
+
+### 0.3.2
+- Version tracker now silently initializes on first run instead of showing entire version history
+
 ### 0.3.1
 - Fixed hooks path to use plugin-local common directory (plugins cannot reference external files)
 

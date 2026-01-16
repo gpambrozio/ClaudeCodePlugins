@@ -1,6 +1,10 @@
 {
     "versions": [
         {
+            "version": "0.1.2",
+            "changes": "Improved skill/bash command matching in common infrastructure (using 'in' instead of 'startswith')"
+        },
+        {
             "version": "0.1.1",
             "changes": "Updated pre-tool-use hook with configurable rules support (allow/deny/deny_once)"
         },

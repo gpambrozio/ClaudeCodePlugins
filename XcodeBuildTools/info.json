@@ -15,6 +15,13 @@
             "message": "Make sure to use the `swift-package` skill to compile with `swift build`/`swift test`."
         },
         {
+            "name": "xcodebuild_with_project",
+            "match": "xcodebuild\\s+.*\\s-project\\s\\.xcodeproj\\s+build",
+            "not_match": "xcworkspace",
+            "decision": "deny_once",
+            "message": "Unless the project doesn't have a workspace, make sure to use the `-workspace` flag instead of `-project` when invoking xcodebuild."
+        },
+        {
             "name": "xcsift",
             "match": "xcsift",
             "decision": "allow"
@@ -26,6 +33,10 @@
         }
     ],
     "versions": [
+        {
+            "version": "0.3.10",
+            "changes": "Added pre-tool-use rule to warn about using -project instead of -workspace; improved skill/bash matching in common infrastructure"
+        },
         {
             "version": "0.3.9",
             "changes": "Added guidance to use xcrun simctl list to find valid simulator IDs instead of guessing"

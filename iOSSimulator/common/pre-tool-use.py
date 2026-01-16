@@ -44,10 +44,10 @@ def main():
         tool_input = input_data.get("tool_input", {})
         command = tool_input.get("command", "")
 
-        if plugin_name and tool_name == "Skill" and tool_input.get("skill", "").startswith(f"{plugin_name}:"):
+        if plugin_name and tool_name == "Skill" and plugin_name in tool_input.get("skill", ""):
             allow()
 
-        if plugin_dir and tool_name == "Bash" and command.startswith(f"{plugin_dir}/skills/"):
+        if plugin_dir and tool_name == "Bash" and f"{plugin_dir}/skills/" in command:
             allow()
 
         # Check pre-tool-use rules from info.json

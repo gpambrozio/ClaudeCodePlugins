@@ -35,6 +35,10 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.10
+- Added pre-tool-use rule to warn about using `-project` instead of `-workspace`
+- Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)
+
 ### 0.3.9
 - Added guidance to use `xcrun simctl list devices available` to find valid simulator IDs instead of guessing
 
