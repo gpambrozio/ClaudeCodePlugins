@@ -13,7 +13,7 @@ List devices and manage apps on physical Apple devices.
 |--------|---------|
 | `list-devices.py` | List connected physical devices |
 | `install-app-device.py` | Install .app bundle on device |
-| `launch-app-device.py` | Launch app by bundle ID |
+| `launch-app-device.py` | Launch app |
 | `stop-app-device.py` | Stop running app |
 
 ## Common Usage
@@ -26,10 +26,10 @@ scripts/list-devices.py
 scripts/install-app-device.py --device-id <udid> --app <path.app>
 
 # Launch app
-scripts/launch-app-device.py --device-id <udid> --bundle-id <id>
+scripts/launch-app-device.py --device-id <udid> --app <path.app>
 
 # Stop app
-scripts/stop-app-device.py --device-id <udid> --bundle-id <id>
+scripts/stop-app-device.py --device-id <udid> --app <path.app>
 ```
 
 Requires: Device trusted, Developer Mode enabled (iOS 16+), proper code signing.

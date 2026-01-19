@@ -3,11 +3,11 @@
 Stop a running app on a connected physical device.
 
 Usage:
-    stop-app-device.py --device-id UDID --bundle-id com.example.MyApp
+    stop-app-device.py --device-id UDID --app /path/to/MyApp.app
 
 Arguments:
-    --device-id UDID      Device UDID (from list-devices.py)
-    --bundle-id BUNDLE    Bundle identifier of the app to stop
+    --device-id UDID    Device UDID (from list-devices.py)
+    --app PATH          Path to .app bundle to stop
 
 Output:
     JSON with termination status
@@ -19,6 +19,23 @@ import subprocess
 import sys
 import tempfile
 import os
+
+
+def get_bundle_id(app_path):
+    """Extract bundle identifier from app's Info.plist."""
+    plist_path = os.path.join(app_path, "Info.plist")
+    try:
+        result = subprocess.run(
+            ["/usr/libexec/PlistBuddy", "-c", "Print :CFBundleIdentifier", plist_path],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return None
+    except Exception:
+        return None
 
 
 def get_app_name_for_bundle_id(device_id, bundle_id):
@@ -136,29 +153,58 @@ def stop_app(device_id, bundle_id):
 def main():
     parser = argparse.ArgumentParser(description="Stop app on a physical device")
     parser.add_argument("--device-id", required=True, help="Device UDID")
-    parser.add_argument("--bundle-id", required=True, help="Bundle identifier of the app")
+    parser.add_argument("--app", required=True, help="Path to .app bundle")
 
     args = parser.parse_args()
 
-    success, message = stop_app(args.device_id, args.bundle_id)
+    device_id = args.device_id
+    app_path = os.path.abspath(args.app)
+
+    # Validate app path
+    if not os.path.isdir(app_path):
+        print(json.dumps({
+            "success": False,
+            "error": f"App bundle not found: {app_path}"
+        }))
+        sys.exit(1)
+
+    if not app_path.endswith('.app'):
+        print(json.dumps({
+            "success": False,
+            "error": "Path must be a .app bundle"
+        }))
+        sys.exit(1)
+
+    # Extract bundle ID from app
+    bundle_id = get_bundle_id(app_path)
+    if not bundle_id:
+        print(json.dumps({
+            "success": False,
+            "error": "Could not extract bundle identifier from app",
+            "app_path": app_path
+        }))
+        sys.exit(1)
+
+    success, message = stop_app(device_id, bundle_id)
 
     if success:
         print(json.dumps({
             "success": True,
             "message": message,
-            "device_id": args.device_id,
-            "bundle_id": args.bundle_id
+            "device_id": device_id,
+            "app_path": app_path,
+            "bundle_id": bundle_id
         }))
     else:
         print(json.dumps({
             "success": False,
             "error": message,
-            "device_id": args.device_id,
-            "bundle_id": args.bundle_id,
+            "device_id": device_id,
+            "app_path": app_path,
+            "bundle_id": bundle_id,
             "hints": [
                 "Ensure the app is running on the device",
-                "Check that the device is connected",
-                "Verify the bundle ID is correct"
+                "Check that the device is connected"
             ]
         }))
         sys.exit(1)

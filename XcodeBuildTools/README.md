@@ -35,6 +35,10 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.11
+- Changed `launch-app-device.py` and `stop-app-device.py` to accept `--app` (path to .app bundle) instead of `--bundle-id`
+- Bundle ID is now automatically extracted from the app's Info.plist using PlistBuddy
+
 ### 0.3.10
 - Added pre-tool-use rule to warn about using `-project` instead of `-workspace`
 - Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)

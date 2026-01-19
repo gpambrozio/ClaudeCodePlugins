@@ -34,6 +34,10 @@
     ],
     "versions": [
         {
+            "version": "0.3.11",
+            "changes": "Changed launch-app-device.py and stop-app-device.py to use --app instead of --bundle-id; bundle ID now auto-extracted via PlistBuddy"
+        },
+        {
             "version": "0.3.10",
             "changes": "Added pre-tool-use rule to warn about using -project instead of -workspace; improved skill/bash matching in common infrastructure"
         },
