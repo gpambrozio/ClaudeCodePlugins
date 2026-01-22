@@ -81,23 +81,6 @@
         "simulator"
       ],
       "license": "MIT"
-    },
-    {
-      "name": "WebTools",
-      "version": "0.1.3",
-      "description": "A collection of tools for web development",
-      "source": "./WebTools",
-      "author": {
-        "name": "Gustavo Ambrozio"
-      },
-      "keywords": [
-        "web",
-        "development",
-        "http",
-        "utilities",
-        "web-tools"
-      ],
-      "license": "MIT"
     }
   ]
 }
