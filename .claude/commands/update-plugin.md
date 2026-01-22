@@ -10,7 +10,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 
 1. **Identify what was updated**
    - Look at git changes
-   - If there are changes in files in the `common` directory, follow the steps in "Updating Common Infrastructure" below.
+   - If there are changes in files in the `common` directory these affect every plugin so we need to update every plugin.
 
 2. **Identify the plugin to update**
    - Determine what plugin changed and only ask the user if you can't determine using the diff. Use the `AskUserQuestion` tool to ask the user if needed.
@@ -35,14 +35,6 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 
 7. **Commit the changes**
    - Commit the changes in the plugin's directory and main marketplace catalog
-
-## Updating Common Infrastructure
-
-1. **Update the common infrastructure**
-   - Commit the changes in the `common` directory
-   - Make sure to copy all the files from the `common` directory to all plugins' `common` directories
-   - Determine if this will be a patch or minor update based on the changes in the `common` directory. When in doubt, ask the user using the `AskUserQuestion` tool.
-   - For every plugin, follow steps 3-7 above
 
 ## Important Notes
 
