@@ -1,6 +1,11 @@
 {
+    "skills": [],
     "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
+        {
+            "version": "0.3.5",
+            "changes": "Added skills array to info.json; improved skill matching in pre-tool-use hook"
+        },
         {
             "version": "0.3.4",
             "changes": "Improved skill/bash command matching in common infrastructure (using 'in' instead of 'startswith')"

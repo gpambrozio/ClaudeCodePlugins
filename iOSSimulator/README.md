@@ -91,6 +91,9 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.4.6
+- Added skills array to info.json; improved skill matching in pre-tool-use hook
+
 ### 0.4.5
 - Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)
 

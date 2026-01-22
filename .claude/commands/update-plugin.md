@@ -27,6 +27,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
    - Update the plugin's `README.md` with the changes made
    - Be clear and concise about what changed in this version
    - Add a new entry to the `versions` array in the plugin's `info.json` file
+   - If the user created a new folder in the plugin's `skills` folder, add the folder name to the `skills` folder in `info.json`. If some folder was renamed on this folder rename it in the array as well.
 
 6. **Verify the updates**
    - Show the user a summary of all changes made

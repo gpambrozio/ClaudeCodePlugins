@@ -37,6 +37,9 @@ def main():
         plugin_json = load_json_file(plugin_json_path) or {}
         plugin_name = plugin_json.get('name', '')
 
+        info_file = os.path.join(plugin_dir, "info.json")
+        info_data = load_json_file(info_file) or {}
+
         # Read JSON from stdin
         input_data = json.load(sys.stdin)
 
@@ -44,16 +47,14 @@ def main():
         tool_input = input_data.get("tool_input", {})
         command = tool_input.get("command", "")
 
-        if plugin_name and tool_name == "Skill" and plugin_name in tool_input.get("skill", ""):
+        if plugin_name and tool_name == "Skill" and tool_input.get("skill", "") in info_data.get('skills', []):
             allow()
 
-        if plugin_dir and tool_name == "Bash" and f"{plugin_dir}/skills/" in command:
+        if tool_name == "Bash" and f"{plugin_dir}/skills/" in command:
             allow()
 
         # Check pre-tool-use rules from info.json
-        if plugin_dir and tool_name == "Bash" and command:
-            info_file = os.path.join(plugin_dir, "info.json")
-            info_data = load_json_file(info_file) or {}
+        if tool_name == "Bash" and command:
             rules = info_data.get('pre-tool-use-rules', [])
 
             for rule in rules:

@@ -29,6 +29,9 @@ Use the `/scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 
+### 0.3.5
+- Added skills array to info.json; improved skill matching in pre-tool-use hook
+
 ### 0.3.4
 - Improved skill/bash command matching in common infrastructure (using `in` instead of `startswith`)
 

@@ -1,6 +1,11 @@
 {
+    "skills": [],
     "welcomeMessage": "Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.",
     "versions": [
+        {
+            "version": "1.2.5",
+            "changes": "Added skills array to info.json; improved skill matching in pre-tool-use hook"
+        },
         {
             "version": "1.2.4",
             "changes": "Improved skill/bash command matching in common infrastructure (using 'in' instead of 'startswith')"

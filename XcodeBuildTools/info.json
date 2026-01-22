@@ -1,4 +1,14 @@
 {
+    "skills": [
+        "device-app",
+        "macos-app",
+        "sim-log",
+        "swift-package",
+        "xcode-doctor",
+        "xcode-project",
+        "xcode-test",
+        "xcodebuild"
+    ],
     "pre-tool-use-rules": [
         {
             "name": "xcodebuild_command_constraint",
@@ -33,6 +43,10 @@
         }
     ],
     "versions": [
+        {
+            "version": "0.3.12",
+            "changes": "Added skills array to info.json; improved skill matching in pre-tool-use hook"
+        },
         {
             "version": "0.3.11",
             "changes": "Changed launch-app-device.py and stop-app-device.py to use --app instead of --bundle-id; bundle ID now auto-extracted via PlistBuddy"
