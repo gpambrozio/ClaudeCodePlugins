@@ -91,6 +91,9 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.4.7
+- Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
+
 ### 0.4.6
 - Added skills array to info.json; improved skill matching in pre-tool-use hook
 

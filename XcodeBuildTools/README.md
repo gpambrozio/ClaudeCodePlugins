@@ -35,6 +35,9 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.13
+- Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
+
 ### 0.3.12
 - Added skills array to info.json; improved skill matching in pre-tool-use hook
 

@@ -108,6 +108,9 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.2.6
+- Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
+
 ### 1.2.5
 - Added skills array to info.json; improved skill matching in pre-tool-use hook
 

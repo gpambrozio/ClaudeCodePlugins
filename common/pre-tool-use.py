@@ -39,6 +39,7 @@ def main():
 
         info_file = os.path.join(plugin_dir, "info.json")
         info_data = load_json_file(info_file) or {}
+        skills = info_data.get('skills', [])
 
         # Read JSON from stdin
         input_data = json.load(sys.stdin)
@@ -47,7 +48,9 @@ def main():
         tool_input = input_data.get("tool_input", {})
         command = tool_input.get("command", "")
 
-        if plugin_name and tool_name == "Skill" and tool_input.get("skill", "") in info_data.get('skills', []):
+        used_skill = tool_input.get("skill", "")
+
+        if plugin_name and tool_name == "Skill" and (used_skill in skills or used_skill.startswith(f"{plugin_name}:")):
             allow()
 
         if tool_name == "Bash" and f"{plugin_dir}/skills/" in command:

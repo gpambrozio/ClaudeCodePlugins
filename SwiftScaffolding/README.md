@@ -29,6 +29,9 @@ Use the `/scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 
+### 0.3.6
+- Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
+
 ### 0.3.5
 - Added skills array to info.json; improved skill matching in pre-tool-use hook
 

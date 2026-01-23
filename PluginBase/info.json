@@ -2,6 +2,10 @@
     "skills": [],
     "versions": [
         {
+            "version": "0.2.6",
+            "changes": "Improved skill matching to support PluginName:skill prefix format in addition to skills array"
+        },
+        {
             "version": "0.2.5",
             "changes": "Added skills array to info.json; improved skill matching in pre-tool-use hook"
         },
