@@ -11,6 +11,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 1. **Identify what was updated**
    - Look at git changes
    - If there are changes in files in the `common` directory these affect every plugin so we need to update every plugin.
+   - If `common/hooks.json` was changed, you must propagate those changes to each plugin's `hooks/hooks.json` file while preserving the unique plugin name in each command (e.g., `session-start.py MarvinOutputStyle` stays unique per plugin).
 
 2. **Identify the plugin to update**
    - Determine what plugin changed and only ask the user if you can't determine using the diff. Use the `AskUserQuestion` tool to ask the user if needed.
@@ -45,3 +46,6 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
   - PATCH version for backwards-compatible bug fixes
 - Ensure all JSON files remain valid after edits
 - The marketplace catalog and plugin manifest versions must match
+- Each plugin has its own `hooks/hooks.json` file with unique command identifiers (plugin name baked into commands). When updating hooks:
+  - The hook structure comes from `common/hooks.json` as reference
+  - Each plugin's hooks.json must include the plugin name in commands (e.g., `${CLAUDE_PLUGIN_ROOT}/common/session-start.py PluginName`)
