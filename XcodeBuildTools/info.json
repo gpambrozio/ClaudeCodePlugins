@@ -44,6 +44,10 @@
     ],
     "versions": [
         {
+            "version": "0.3.15",
+            "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"
+        },
+        {
             "version": "0.3.13",
             "changes": "Improved skill matching to support PluginName:skill prefix format in addition to skills array"
         },

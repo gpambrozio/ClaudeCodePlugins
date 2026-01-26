@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/common/session-start.py \"${CLAUDE_PLUGIN_ROOT}\""
+            "command": "${CLAUDE_PLUGIN_ROOT}/common/session-start.py iOSSimulator"
           }
         ]
       }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/common/pre-tool-use.py \"${CLAUDE_PLUGIN_ROOT}\""
+            "command": "${CLAUDE_PLUGIN_ROOT}/common/pre-tool-use.py iOSSimulator"
           }
         ]
       }

@@ -1,12 +1,11 @@
 {
   "name": "SwiftScaffolding",
-  "version": "0.3.6",
+  "version": "0.3.8",
   "description": "Swift project scaffolding and code generation tools",
   "author": {
     "name": "Gustavo Ambrozio"
   },
   "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/SwiftScaffolding",
-  "hooks": "./common/hooks.json",
   "keywords": [
     "swift",
     "scaffolding",

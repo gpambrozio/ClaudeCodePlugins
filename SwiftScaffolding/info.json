@@ -3,6 +3,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
         {
+            "version": "0.3.8",
+            "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"
+        },
+        {
             "version": "0.3.6",
             "changes": "Improved skill matching to support PluginName:skill prefix format in addition to skills array"
         },

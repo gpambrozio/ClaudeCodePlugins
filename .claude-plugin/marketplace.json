@@ -11,7 +11,7 @@
   "plugins": [
     {
       "name": "MarvinOutputStyle",
-      "version": "1.2.6",
+      "version": "1.2.8",
       "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
       "source": "./MarvinOutputStyle",
       "author": {
@@ -27,7 +27,7 @@
     },
     {
       "name": "iOSSimulator",
-      "version": "0.4.7",
+      "version": "0.4.9",
       "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
       "source": "./iOSSimulator",
       "author": {
@@ -46,7 +46,7 @@
     },
     {
       "name": "SwiftScaffolding",
-      "version": "0.3.6",
+      "version": "0.3.8",
       "description": "Swift project scaffolding and code generation tools",
       "source": "./SwiftScaffolding",
       "author": {
@@ -63,7 +63,7 @@
     },
     {
       "name": "XcodeBuildTools",
-      "version": "0.3.13",
+      "version": "0.3.15",
       "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
       "source": "./XcodeBuildTools",
       "author": {

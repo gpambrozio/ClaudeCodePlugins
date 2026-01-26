@@ -1,12 +1,11 @@
 {
   "name": "XcodeBuildTools",
-  "version": "0.3.13",
+  "version": "0.3.15",
   "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
   "author": {
     "name": "Gustavo Ambrozio"
   },
   "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/XcodeBuildTools",
-  "hooks": "./common/hooks.json",
   "keywords": [
     "xcode",
     "swift",

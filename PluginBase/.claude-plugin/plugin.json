@@ -1,12 +1,11 @@
 {
   "name": "PluginBase",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "The base plugin for all other plugins.",
   "author": {
     "name": "Gustavo Ambrozio"
   },
   "homepage": "https://github.com/gpambrozio/ClaudeCodePlugins/PluginBase",
-  "hooks": "./common/hooks.json",
   "keywords": [
     "base",
     "development"
