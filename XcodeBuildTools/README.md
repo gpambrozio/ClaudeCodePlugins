@@ -27,6 +27,7 @@ brew install xcsift
 | `device-app` | Manage apps on physical Apple devices |
 | `macos-app` | Launch and stop macOS applications |
 | `sim-log` | Capture logs from iOS Simulator apps |
+| `sparkle-integration` | Integrate Sparkle 2.x auto-update framework into macOS apps |
 
 ## Related Plugins
 
@@ -34,6 +35,15 @@ brew install xcsift
 - **SwiftDevelopment** - swift-compile skill with xcsift integration
 
 ## Changelog
+
+### 0.3.16
+- Added `sparkle-integration` skill for integrating Sparkle 2.x auto-update framework into macOS apps
+
+### 0.3.15
+- Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json
+
+### 0.3.14
+- (Version skipped)
 
 ### 0.3.13
 - Improved skill matching to support `PluginName:skill` prefix format in addition to skills array

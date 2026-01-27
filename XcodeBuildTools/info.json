@@ -3,6 +3,7 @@
         "device-app",
         "macos-app",
         "sim-log",
+        "sparkle-integration",
         "swift-package",
         "xcode-doctor",
         "xcode-project",
@@ -43,6 +44,10 @@
         }
     ],
     "versions": [
+        {
+            "version": "0.3.16",
+            "changes": "Added sparkle-integration skill for integrating Sparkle 2.x auto-update framework into macOS apps"
+        },
         {
             "version": "0.3.15",
             "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"

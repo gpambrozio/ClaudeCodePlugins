@@ -63,8 +63,8 @@
     },
     {
       "name": "XcodeBuildTools",
-      "version": "0.3.15",
-      "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs",
+      "version": "0.3.16",
+      "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs, Sparkle auto-update integration",
       "source": "./XcodeBuildTools",
       "author": {
         "name": "Gustavo Ambrozio"
@@ -78,7 +78,9 @@
         "devices",
         "logging",
         "xcodebuild",
-        "simulator"
+        "simulator",
+        "sparkle",
+        "auto-update"
       ],
       "license": "MIT"
     }
