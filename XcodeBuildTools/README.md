@@ -36,6 +36,12 @@ brew install xcsift
 
 ## Changelog
 
+### 0.3.17
+- Improved sparkle-integration security: separate Debug/Release entitlements for `disable-library-validation`
+- Updated UpdaterController to use Swift's `@Observable` instead of `ObservableObject`
+- Added Claude CLI integration for automatic release notes generation in `release.sh`
+- Added validation checks in release script for appcast updates
+
 ### 0.3.16
 - Added `sparkle-integration` skill for integrating Sparkle 2.x auto-update framework into macOS apps
 

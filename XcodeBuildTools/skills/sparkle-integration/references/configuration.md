@@ -41,16 +41,48 @@ Add these keys:
 
 ## Entitlements
 
-Required entitlements:
+**Important:** Create separate entitlement files for Debug and Release builds.
+
+### Release Entitlements (YourApp.entitlements)
+
+Used for Release builds - does NOT include `disable-library-validation` for security:
+
+```xml
+<!-- Required for downloading updates -->
+<key>com.apple.security.network.client</key>
+<true/>
+```
+
+### Debug Entitlements (YourApp.Debug.entitlements)
+
+Used for Debug builds only - includes `disable-library-validation` because Sparkle.framework
+has a different Team ID when loaded via SPM:
 
 ```xml
 <!-- Required for downloading updates -->
 <key>com.apple.security.network.client</key>
 <true/>
 
-<!-- Required because Sparkle.framework has different Team ID via SPM -->
+<!-- DEBUG ONLY: Required because Sparkle.framework has different Team ID via SPM -->
+<!-- See: https://sparkle-project.org/documentation/#1-add-the-sparkle-framework-to-your-project -->
 <key>com.apple.security.cs.disable-library-validation</key>
 <true/>
+```
+
+### Xcode Project Configuration
+
+Update the project to use the correct entitlements per configuration:
+
+1. In Xcode, select your target → Build Settings
+2. Search for "Code Signing Entitlements"
+3. Expand the setting to show Debug/Release rows
+4. Set Debug to: `Config/YourApp.Debug.entitlements`
+5. Set Release to: `Config/YourApp.entitlements`
+
+Or in `.xcodeproj/project.pbxproj`, ensure the Debug configuration uses the Debug entitlements:
+```
+CODE_SIGN_ENTITLEMENTS = Config/YourApp.Debug.entitlements;  /* Debug */
+CODE_SIGN_ENTITLEMENTS = Config/YourApp.entitlements;        /* Release */
 ```
 
 ## XCConfig

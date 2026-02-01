@@ -40,9 +40,9 @@ Add to Info.plist:
 - `SUFeedURL`: `https://USERNAME.github.io/REPO/appcast.xml`
 - `SUPublicEDKey`: Your public key from step 3
 
-Add entitlements:
-- `com.apple.security.network.client`: true
-- `com.apple.security.cs.disable-library-validation`: true (required for SPM)
+Add entitlements (create separate files for Debug/Release):
+- `com.apple.security.network.client`: true (both)
+- `com.apple.security.cs.disable-library-validation`: true (DEBUG ONLY - security risk in Release)
 
 Add to xcconfig:
 - `LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks`

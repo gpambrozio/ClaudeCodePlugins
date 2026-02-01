@@ -5,17 +5,23 @@
 Create `Services/UpdaterController.swift` in your feature package:
 
 ```swift
+import Combine
 import Foundation
 import Sparkle
 
 /// A controller class that manages the Sparkle updater for the application.
 /// This class wraps SPUStandardUpdaterController and provides SwiftUI-friendly bindings.
+///
+/// Uses @Observable (Swift's modern observation) instead of ObservableObject/Combine.
+/// Sparkle's KVO-based properties still require Combine for observation.
+@Observable
 @MainActor
-public final class UpdaterController: ObservableObject {
+public final class UpdaterController {
     private let updaterController: SPUStandardUpdaterController
+    private var cancellable: AnyCancellable?
 
     /// Whether the user can check for updates (not currently checking)
-    @Published public private(set) var canCheckForUpdates = false
+    public private(set) var canCheckForUpdates = false
 
     /// The date of the last update check, if any
     public var lastUpdateCheckDate: Date? {
@@ -23,13 +29,18 @@ public final class UpdaterController: ObservableObject {
     }
 
     public init() {
-        updaterController = SPUStandardUpdaterController(
+        self.updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
-        updaterController.updater.publisher(for: \.canCheckForUpdates)
-            .assign(to: &$canCheckForUpdates)
+        // Observe canCheckForUpdates using Combine (Sparkle uses KVO internally)
+        // Store the cancellable to keep the subscription alive
+        self.cancellable = updaterController.updater.publisher(for: \.canCheckForUpdates)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.canCheckForUpdates = value
+            }
     }
 
     public func checkForUpdates() {
@@ -61,7 +72,7 @@ Create `Views/CheckForUpdatesView.swift`:
 import SwiftUI
 
 public struct CheckForUpdatesView: View {
-    @ObservedObject private var updaterController: UpdaterController
+    private let updaterController: UpdaterController
 
     public init(updaterController: UpdaterController) {
         self.updaterController = updaterController
@@ -78,7 +89,7 @@ public struct CheckForUpdatesView: View {
 
 ## App Integration
 
-In your main app file:
+In your main app file (uses `@State` with `@Observable`, not `@StateObject`):
 
 ```swift
 import SwiftUI
@@ -86,7 +97,7 @@ import YourAppFeature
 
 @main
 struct YourApp: App {
-    @StateObject private var updaterController = UpdaterController()
+    @State private var updaterController = UpdaterController()
 
     var body: some Scene {
         WindowGroup {

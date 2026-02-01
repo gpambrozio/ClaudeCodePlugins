@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.3.17",
+            "changes": "Improved sparkle-integration: separate Debug/Release entitlements, @Observable pattern, Claude CLI release notes generation"
+        },
+        {
             "version": "0.3.16",
             "changes": "Added sparkle-integration skill for integrating Sparkle 2.x auto-update framework into macOS apps"
         },

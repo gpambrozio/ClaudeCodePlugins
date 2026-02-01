@@ -40,13 +40,23 @@ Add to xcconfig:
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
 ```
 
-### Library validation error
+### Library validation error (Debug builds only)
 
-Add entitlement (required for SPM-integrated Sparkle):
+This error occurs in **Debug builds** because Sparkle.framework has a different Team ID when loaded via SPM.
+
+**Solution:** Create separate entitlement files:
+
+1. `YourApp.Debug.entitlements` - includes `disable-library-validation`:
 ```xml
 <key>com.apple.security.cs.disable-library-validation</key>
 <true/>
 ```
+
+2. `YourApp.entitlements` - does NOT include it (for Release builds)
+
+Configure Xcode to use the Debug entitlements for Debug configuration only.
+
+**Security Note:** `disable-library-validation` allows loading libraries with different Team IDs, which is a security risk. Only use it for Debug builds.
 
 ## Testing Auto-Updates
 
