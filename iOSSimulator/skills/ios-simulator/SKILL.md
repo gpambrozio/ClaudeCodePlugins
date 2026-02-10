@@ -43,6 +43,17 @@ scripts/sim-tap.py --x 200 --y 400
 scripts/sim-type.py --text "Hello, World!"
 ```
 
+### Alternative: Find elements by text instead of coordinates
+
+```bash
+# Find a button by its label and get its center coordinates
+scripts/sim-describe-ui.py --find-text "Login" --find-type AXButton --index 0
+# Returns: {"matches": [{"center": {"x": 195, "y": 422}, ...}]}
+
+# Tap using the center coordinates from the find result
+scripts/sim-tap.py --x 195 --y 422
+```
+
 ## Choosing a simulator
 
 If the user asks for a specific simulator, use the `scripts/sim-list.py` to find the most appropriate simulator. If the simulator is not booted, use the `scripts/sim-boot.py` to boot it. Then use the simulator udid for the following commands.
@@ -179,6 +190,8 @@ scripts/sim-record-video.py --udid XXXXXXXX --output /tmp/demo.mp4 --codec hevc
 #### sim-describe-ui.py
 Describe the UI accessibility hierarchy of the iOS app running in the simulator. By default, only shows iOS app elements (not simulator chrome like menus or hardware buttons).
 
+Supports **element finding** to search for specific elements by text, type, or identifier without parsing the full tree manually.
+
 **Note:** This script requires `uv` to run as it manages its own dependencies (pyobjc-framework-ApplicationServices).
 
 ```bash
@@ -198,6 +211,46 @@ scripts/sim-describe-ui.py --point 200,400
 scripts/sim-describe-ui.py --include-chrome
 ```
 
+**Finding elements:**
+```bash
+# Find elements containing text (case-insensitive, fuzzy)
+scripts/sim-describe-ui.py --find-text "Login"
+
+# Find elements with exact text match
+scripts/sim-describe-ui.py --find-exact "Submit"
+
+# Find elements by type (AXRole)
+scripts/sim-describe-ui.py --find-type AXButton
+
+# Find elements by accessibility identifier
+scripts/sim-describe-ui.py --find-id "submitButton"
+
+# Combine filters (AND logic) - find buttons containing "Login"
+scripts/sim-describe-ui.py --find-text "Login" --find-type AXButton
+
+# Get only the first match
+scripts/sim-describe-ui.py --find-text "Login" --index 0
+```
+
+**Find output** returns matching elements with a `center` point ready for sim-tap.py:
+```json
+{
+  "success": true,
+  "count": 1,
+  "matches": [
+    {
+      "AXRole": "AXButton",
+      "AXLabel": "Login",
+      "AXFrame": {"x": 135, "y": 400, "width": 120, "height": 44},
+      "center": {"x": 195, "y": 422},
+      "path": "/AXGroup[]/AXButton[Login]"
+    }
+  ]
+}
+```
+
+Then tap directly: `scripts/sim-tap.py --x 195 --y 422`
+
 **Output includes:**
 - `AXRole`: Element type (AXButton, AXStaticText, AXGroup, etc.)
 - `AXTitle`/`AXLabel`/`AXDescription`: Element text/label
@@ -205,17 +258,8 @@ scripts/sim-describe-ui.py --include-chrome
 - `AXEnabled`/`AXFocused`: Element state
 - `children`: Nested child elements (in nested format)
 
-**Coordinates are ready to use with sim-tap.py:**
-```bash
-# Find a button by label
-scripts/sim-describe-ui.py --format flat | jq '.elements[] | select(.AXDescription == "Login")'
-# Output: {"AXRole": "AXButton", "AXLabel": "Login", "AXFrame": {"x": 180, "y": 500, "width": 120, "height": 44}, ...}
-
-# Tap it directly using the coordinates from AXFrame
-scripts/sim-tap.py --x 180 --y 500
-```
-
 **Use cases:**
+- Find and tap elements by text instead of guessing coordinates from screenshots
 - Discover button labels and identifiers for automation
 - Find exact element positions without guessing from screenshots
 - Debug why taps aren't hitting the expected elements
@@ -725,6 +769,23 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
       "AXLabel": "Login",
       "AXFrame": {"x": 135, "y": 400, "width": 120, "height": 44},
       "AXEnabled": true
+    }
+  ]
+}
+```
+
+#### sim-describe-ui.py (find mode)
+```json
+{
+  "success": true,
+  "count": 2,
+  "matches": [
+    {
+      "AXRole": "AXButton",
+      "AXLabel": "Login",
+      "AXFrame": {"x": 135, "y": 400, "width": 120, "height": 44},
+      "center": {"x": 195, "y": 422},
+      "path": "/AXGroup[]/AXButton[Login]"
     }
   ]
 }

@@ -23,6 +23,13 @@ Options:
     --include-chrome    Include simulator chrome (menus, hardware buttons)
                         By default, only iOS app UI elements are shown
 
+    Finding elements (combinable filters):
+    --find-text <text>  Find elements containing text (case-insensitive, fuzzy)
+    --find-exact <text> Find elements with exact text match
+    --find-type <type>  Find elements by AXRole (e.g., AXButton, AXStaticText)
+    --find-id <id>      Find elements by AXIdentifier
+    --index <n>         Return only the Nth match (0-based). Without this, all matches are returned.
+
 Output:
     JSON object containing the UI element hierarchy with:
     - AXRole: Element type (button, staticText, etc.)
@@ -30,6 +37,10 @@ Output:
     - AXValue: Current value
     - AXFrame: Position and size {x, y, width, height} in simulator coordinates
     - children: Nested child elements (in nested format)
+
+    When using --find-* options, returns matched elements with:
+    - All standard attributes
+    - center: {x, y} center point for use with sim-tap.py
 
 Notes:
     - Requires Accessibility permissions in System Preferences
@@ -268,6 +279,77 @@ def flatten_tree(tree: dict, flat_list: list, parent_path: str = "") -> None:
         flatten_tree(child, flat_list, entry['path'])
 
 
+def calculate_center(frame: dict) -> dict:
+    """Calculate center point from an AXFrame dict."""
+    return {
+        'x': round(frame.get('x', 0) + frame.get('width', 0) / 2),
+        'y': round(frame.get('y', 0) + frame.get('height', 0) / 2)
+    }
+
+
+def element_matches_text(element: dict, text: str, fuzzy: bool = True) -> bool:
+    """Check if an element's text fields contain the search text."""
+    searchable = ' '.join(filter(None, [
+        element.get('AXLabel'),
+        element.get('AXTitle'),
+        element.get('AXDescription'),
+        element.get('AXValue'),
+        element.get('AXPlaceholderValue'),
+    ]))
+    if fuzzy:
+        return text.lower() in searchable.lower()
+    return text in [
+        element.get('AXLabel'),
+        element.get('AXTitle'),
+        element.get('AXDescription'),
+        element.get('AXValue'),
+        element.get('AXPlaceholderValue'),
+    ]
+
+
+def find_elements(tree: dict,
+                  text: Optional[str] = None,
+                  exact_text: Optional[str] = None,
+                  element_type: Optional[str] = None,
+                  identifier: Optional[str] = None) -> list[dict]:
+    """Find elements in the tree matching the given criteria.
+
+    All criteria are combined with AND logic.
+
+    Args:
+        tree: The accessibility tree (nested format)
+        text: Fuzzy text search (case-insensitive substring match)
+        exact_text: Exact text match against label/title/description/value
+        element_type: Match AXRole (e.g., 'AXButton', 'AXStaticText')
+        identifier: Match AXIdentifier exactly
+
+    Returns:
+        List of matching element dicts, each with a 'center' field added.
+    """
+    flat_list: list[dict] = []
+    flatten_tree(tree, flat_list)
+
+    matches = []
+    for element in flat_list:
+        if element_type and element.get('AXRole') != element_type:
+            continue
+        if identifier and element.get('AXIdentifier') != identifier:
+            continue
+        if text and not element_matches_text(element, text, fuzzy=True):
+            continue
+        if exact_text and not element_matches_text(element, exact_text, fuzzy=False):
+            continue
+
+        # Add center point for easy use with sim-tap.py
+        frame = element.get('AXFrame')
+        if frame:
+            element = dict(element)
+            element['center'] = calculate_center(frame)
+        matches.append(element)
+
+    return matches
+
+
 def find_ios_content_group(tree: dict) -> Optional[dict]:
     """Find the iOSContentGroup element in the accessibility tree."""
     if not tree:
@@ -461,6 +543,21 @@ def main():
     parser.add_argument('--include-chrome', action='store_true',
                         help='Include simulator chrome (menus, buttons) in output. '
                              'By default, only iOS app elements are shown.')
+
+    # Element finding options
+    find_group = parser.add_argument_group('element finding',
+                                           'Find specific elements (filters are combined with AND)')
+    find_group.add_argument('--find-text',
+                            help='Find elements containing text (case-insensitive)')
+    find_group.add_argument('--find-exact',
+                            help='Find elements with exact text match')
+    find_group.add_argument('--find-type',
+                            help='Find elements by AXRole (e.g., AXButton, AXStaticText)')
+    find_group.add_argument('--find-id',
+                            help='Find elements by AXIdentifier')
+    find_group.add_argument('--index', type=int, default=None,
+                            help='Return only the Nth match (0-based)')
+
     args = parser.parse_args()
 
     if not HAS_ACCESSIBILITY:
@@ -480,6 +577,8 @@ def main():
         }))
         sys.exit(1)
 
+    has_find = any([args.find_text, args.find_exact, args.find_type, args.find_id])
+
     if args.point:
         # Describe element at specific point
         try:
@@ -491,6 +590,46 @@ def main():
                 'error': 'Invalid point format. Use: --point x,y (e.g., --point 100,200)'
             }))
             sys.exit(1)
+    elif has_find:
+        # Find elements matching criteria
+        ios_only = not args.include_chrome
+        ui_result = describe_simulator_ui(device_name, 'nested', args.max_depth, ios_only)
+        if not ui_result.get('success'):
+            result = ui_result
+        else:
+            tree = ui_result.get('tree', {})
+            matches = find_elements(
+                tree,
+                text=args.find_text,
+                exact_text=args.find_exact,
+                element_type=args.find_type,
+                identifier=args.find_id,
+            )
+
+            if args.index is not None:
+                if 0 <= args.index < len(matches):
+                    matches = [matches[args.index]]
+                else:
+                    matches = []
+
+            result = {
+                'success': len(matches) > 0,
+                'count': len(matches),
+                'matches': matches,
+            }
+            if not matches:
+                criteria = []
+                if args.find_text:
+                    criteria.append(f"text~'{args.find_text}'")
+                if args.find_exact:
+                    criteria.append(f"text='{args.find_exact}'")
+                if args.find_type:
+                    criteria.append(f"type={args.find_type}")
+                if args.find_id:
+                    criteria.append(f"id={args.find_id}")
+                if args.index is not None:
+                    criteria.append(f"index={args.index}")
+                result['error'] = f"No elements found matching: {', '.join(criteria)}"
     else:
         # Describe full UI hierarchy
         ios_only = not args.include_chrome
