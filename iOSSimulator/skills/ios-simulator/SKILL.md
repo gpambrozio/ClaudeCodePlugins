@@ -107,6 +107,67 @@ scripts/sim-shutdown.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 scripts/sim-shutdown.py --all
 ```
 
+#### sim-create.py
+Create a new simulator device dynamically.
+
+```bash
+# Create an iPhone 15 Pro with the latest iOS
+scripts/sim-create.py --device "iPhone 15 Pro"
+
+# Create with a specific iOS version
+scripts/sim-create.py --device "iPhone 16" --runtime "iOS 18.0"
+
+# Create with a custom name
+scripts/sim-create.py --device "iPad Air" --name "Test iPad"
+
+# List available device types
+scripts/sim-create.py --list-types
+
+# List available iOS runtimes
+scripts/sim-create.py --list-runtimes
+```
+
+**Notes:**
+- Device type matching is fuzzy and case-insensitive
+- Defaults to the latest available iOS runtime if `--runtime` is not specified
+- The created device starts in Shutdown state; use `sim-boot.py` to start it
+
+#### sim-delete.py
+Permanently delete simulator devices.
+
+```bash
+# Delete by UDID
+scripts/sim-delete.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+
+# Delete by name
+scripts/sim-delete.py --name "iPhone 15"
+
+# Delete all unavailable (stale) simulators - useful after Xcode updates
+scripts/sim-delete.py --unavailable
+
+# Delete ALL simulators (use with caution)
+scripts/sim-delete.py --all
+```
+
+#### sim-erase.py
+Factory reset a simulator (erase all content and settings while preserving the device UUID).
+
+```bash
+# Erase by UDID
+scripts/sim-erase.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+
+# Erase by name
+scripts/sim-erase.py --name "iPhone 15"
+
+# Erase all simulators
+scripts/sim-erase.py --all
+```
+
+**Notes:**
+- The simulator must be shut down before erasing (use `sim-shutdown.py` first)
+- Faster than delete + create since the UUID is preserved
+- Removes all apps, data, and settings
+
 ### App Management
 
 #### sim-launch.py
@@ -731,6 +792,40 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
   "name": "iPhone 15",
   "runtime": "iOS-17-0"
+}
+```
+
+#### sim-create.py
+```json
+{
+  "success": true,
+  "message": "Created iPhone 15 Pro (iOS 18.0)",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "name": "iPhone 15 Pro",
+  "device_type": "iPhone 15 Pro",
+  "device_type_id": "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro",
+  "runtime": "iOS 18.0",
+  "runtime_id": "com.apple.CoreSimulator.SimRuntime.iOS-18-0"
+}
+```
+
+#### sim-delete.py
+```json
+{
+  "success": true,
+  "message": "Deleted simulator iPhone 15",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "name": "iPhone 15"
+}
+```
+
+#### sim-erase.py
+```json
+{
+  "success": true,
+  "message": "Erased simulator iPhone 15 (factory reset)",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "name": "iPhone 15"
 }
 ```
 
