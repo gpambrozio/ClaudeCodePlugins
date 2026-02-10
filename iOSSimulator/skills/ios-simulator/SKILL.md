@@ -495,6 +495,59 @@ scripts/sim-device-info.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 - Screen scale factor (1x, 2x, or 3x)
 - Screen dimensions in both pixels and points
 
+### Testing & Analysis
+
+#### sim-visual-diff.py
+Compare two screenshots pixel-by-pixel for visual regression testing.
+
+**Requires:** `pip3 install Pillow`
+
+```bash
+# Compare baseline against current screenshot
+scripts/sim-visual-diff.py /tmp/baseline.png /tmp/current.png
+
+# Custom threshold (default: 1.0%)
+scripts/sim-visual-diff.py /tmp/baseline.png /tmp/current.png --threshold 0.5
+
+# Save diff artifacts (diff.png, side-by-side.png)
+scripts/sim-visual-diff.py /tmp/baseline.png /tmp/current.png --output /tmp/diff
+
+# Just compare, skip generating images
+scripts/sim-visual-diff.py /tmp/baseline.png /tmp/current.png --no-artifacts
+```
+
+**Notes:**
+- Exit code 0 = PASS (within threshold), 1 = FAIL (exceeds threshold)
+- Both images must have the same dimensions
+- A noise threshold of 10/255 per pixel ignores compression artifacts
+- The `--output` dir gets `diff.png` (red overlay on differences) and `side-by-side.png`
+
+#### sim-screen-map.py
+Analyze the current screen and categorize elements by type. Provides a token-efficient overview without requiring the agent to parse the full accessibility tree.
+
+**Note:** This script calls `sim-describe-ui.py` internally, so it requires `uv`.
+
+```bash
+# Quick summary of what's on screen
+scripts/sim-screen-map.py
+
+# Include element breakdown by role
+scripts/sim-screen-map.py --verbose
+
+# Include navigation hints
+scripts/sim-screen-map.py --hints
+
+# Both
+scripts/sim-screen-map.py --verbose --hints
+```
+
+**Output includes:**
+- Total and interactive element counts
+- List of buttons with labels
+- Text fields with filled/empty status
+- Navigation structure (nav bar title, tab bar presence)
+- Optional navigation hints for AI agents
+
 ### Privacy & Permissions
 
 #### sim-privacy.py
@@ -1003,6 +1056,43 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
   "success": true,
   "message": "Status bar overrides applied",
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-visual-diff.py
+```json
+{
+  "success": true,
+  "passed": true,
+  "verdict": "PASS",
+  "difference_percentage": 0.23,
+  "threshold_percentage": 1.0,
+  "different_pixels": 2650,
+  "total_pixels": 1149984,
+  "dimensions": [1170, 2532],
+  "baseline": "/tmp/baseline.png",
+  "current": "/tmp/current.png",
+  "artifacts": {
+    "diff_image": "/tmp/diff/diff.png",
+    "side_by_side": "/tmp/diff/side-by-side.png"
+  }
+}
+```
+
+#### sim-screen-map.py
+```json
+{
+  "success": true,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "total_elements": 45,
+  "interactive_elements": 7,
+  "buttons": ["Login", "Cancel", "Forgot Password"],
+  "text_fields": [
+    {"label": "Email", "type": "text", "has_value": false},
+    {"label": "Password", "type": "secure", "has_value": false}
+  ],
+  "navigation": {"nav_title": "Sign In"},
+  "hints": ["Login screen detected - look for text fields for credentials"]
 }
 ```
 
