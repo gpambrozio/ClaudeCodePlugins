@@ -83,7 +83,7 @@ scripts/sim-list.py --raw
 ```
 
 #### sim-boot.py
-Boot a simulator.
+Boot a simulator. By default waits until the simulator is ready to accept commands.
 
 ```bash
 # Boot by name (uses latest runtime)
@@ -94,7 +94,18 @@ scripts/sim-boot.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 
 # Boot without opening Simulator.app window
 scripts/sim-boot.py --name "iPhone 15" --no-open
+
+# Boot without waiting for readiness (faster, but simulator may not be ready)
+scripts/sim-boot.py --name "iPhone 15" --no-wait
+
+# Custom readiness timeout
+scripts/sim-boot.py --name "iPhone 15" --timeout 120
 ```
+
+**Notes:**
+- By default, waits up to 60 seconds for the simulator to be fully ready
+- Reports `boot_time_seconds` and `ready` status in the output
+- Use `--no-wait` if you don't need the simulator to be immediately responsive
 
 #### sim-shutdown.py
 Shutdown simulator(s).
@@ -355,7 +366,7 @@ scripts/sim-type.py --text "user@example.com" --slow
 **Note:** Make sure a text field is focused (tap on it first) before typing.
 
 #### sim-swipe.py
-Perform swipe gestures.
+Perform swipe and other touch gestures.
 
 ```bash
 # Swipe with specific coordinates
@@ -369,7 +380,23 @@ scripts/sim-swipe.py --right   # Swipe right
 
 # Adjust duration
 scripts/sim-swipe.py --up --duration 0.5
+
+# Long press at coordinates (default hold: 2.0 seconds)
+scripts/sim-swipe.py --long-press --x 200 --y 400
+scripts/sim-swipe.py --long-press --x 200 --y 400 --hold 3.0
+
+# Pull to refresh
+scripts/sim-swipe.py --pull-to-refresh
+
+# Slow drag between two points (1.0s duration)
+scripts/sim-swipe.py --drag --from-x 100 --from-y 300 --to-x 300 --to-y 300
 ```
+
+**Notes:**
+- Screen size is auto-detected from the simulator window dimensions
+- `--long-press` holds the touch at the coordinates for the `--hold` duration
+- `--pull-to-refresh` swipes down from near the top of the screen
+- `--drag` is a slow, deliberate swipe (1.0s) suitable for drag-and-drop
 
 #### sim-home.py
 Press the Home button.
@@ -494,6 +521,21 @@ scripts/sim-device-info.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 - Model identifier (e.g., iPhone18,1)
 - Screen scale factor (1x, 2x, or 3x)
 - Screen dimensions in both pixels and points
+
+#### sim-clipboard.py
+Manage the simulator clipboard (pasteboard). Useful for testing paste flows.
+
+```bash
+# Copy text to the simulator clipboard
+scripts/sim-clipboard.py --set "Hello, World!"
+
+# Read current clipboard contents
+scripts/sim-clipboard.py --get
+```
+
+**Notes:**
+- After `--set`, use `sim-keyboard.py` with Cmd+V to paste into a text field
+- Use `--get` to verify clipboard state during testing
 
 ### Testing & Analysis
 
@@ -844,7 +886,20 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
   "message": "Simulator booted successfully",
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
   "name": "iPhone 15",
-  "runtime": "iOS-17-0"
+  "runtime": "iOS-17-0",
+  "boot_time_seconds": 4.2,
+  "ready": true
+}
+```
+
+#### sim-clipboard.py
+```json
+{
+  "success": true,
+  "message": "Text copied to clipboard",
+  "text": "Hello, World!",
+  "length": 13,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 }
 ```
 

@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
-Perform a swipe gesture on an iOS Simulator screen.
+Perform gestures on an iOS Simulator screen.
+
+Supports directional swipes, long press, pull-to-refresh, and slow drag.
 
 Usage:
-    sim-swipe.py --from-x <x> --from-y <y> --to-x <x> --to-y <y> [--duration <sec>]
+    sim-swipe.py --up | --down | --left | --right
+    sim-swipe.py --from-x <x> --from-y <y> --to-x <x> --to-y <y>
+    sim-swipe.py --long-press --x <x> --y <y> [--hold <seconds>]
+    sim-swipe.py --pull-to-refresh
+    sim-swipe.py --drag --from-x <x> --from-y <y> --to-x <x> --to-y <y>
 
 Options:
     --from-x <x>      Starting X coordinate
@@ -13,11 +19,16 @@ Options:
     --duration <sec>  Swipe duration in seconds (default: 0.3)
     --udid <udid>     Simulator UDID (uses booted if not specified)
 
-Shortcuts:
+Directional shortcuts:
     --up              Swipe up (scroll down) from center
     --down            Swipe down (scroll up) from center
     --left            Swipe left from center
     --right           Swipe right from center
+
+Additional gestures:
+    --long-press      Long press at --x, --y for --hold seconds (default: 2.0)
+    --pull-to-refresh Pull down from top of screen to trigger refresh
+    --drag            Slow drag between --from-x/y and --to-x/y (1.0s duration)
 
 Output:
     JSON object with success status
@@ -127,8 +138,35 @@ def swipe_with_quartz(start_x, start_y, end_x, end_y, duration=0.3, steps=20):
     CGEventPost(kCGHIDEventTap, event)
 
 
+def long_press_with_quartz(x, y, hold_duration=2.0):
+    """Perform a long press (tap and hold) using Quartz mouse events."""
+    event = CGEventCreateMouseEvent(None, kCGEventLeftMouseDown, (x, y), 0)
+    CGEventPost(kCGHIDEventTap, event)
+
+    time.sleep(hold_duration)
+
+    event = CGEventCreateMouseEvent(None, kCGEventLeftMouseUp, (x, y), 0)
+    CGEventPost(kCGHIDEventTap, event)
+
+
+def get_screen_size_from_window(window_info):
+    """Estimate the iOS screen size from the simulator window dimensions."""
+    TITLE_BAR_HEIGHT = 28
+    DEVICE_TOP_BEZEL = 50
+    LEFT_BEZEL = 20
+    RIGHT_BEZEL = 20
+    BOTTOM_BEZEL = 50
+
+    width = window_info['width'] - LEFT_BEZEL - RIGHT_BEZEL
+    height = window_info['height'] - TITLE_BAR_HEIGHT - DEVICE_TOP_BEZEL - BOTTOM_BEZEL
+
+    if width > 0 and height > 0:
+        return width, height
+    return 390, 700  # fallback
+
+
 def main():
-    parser = argparse.ArgumentParser(description='Swipe on iOS Simulator screen')
+    parser = argparse.ArgumentParser(description='Perform gestures on iOS Simulator screen')
     parser.add_argument('--from-x', type=int, help='Starting X coordinate')
     parser.add_argument('--from-y', type=int, help='Starting Y coordinate')
     parser.add_argument('--to-x', type=int, help='Ending X coordinate')
@@ -141,6 +179,18 @@ def main():
     parser.add_argument('--down', action='store_true', help='Swipe down from center')
     parser.add_argument('--left', action='store_true', help='Swipe left from center')
     parser.add_argument('--right', action='store_true', help='Swipe right from center')
+
+    # Additional gestures
+    parser.add_argument('--long-press', action='store_true',
+                        help='Long press at --x, --y for --hold seconds')
+    parser.add_argument('--x', type=int, help='X coordinate for long press')
+    parser.add_argument('--y', type=int, help='Y coordinate for long press')
+    parser.add_argument('--hold', type=float, default=2.0,
+                        help='Hold duration for long press in seconds (default: 2.0)')
+    parser.add_argument('--pull-to-refresh', action='store_true',
+                        help='Pull down from top to trigger refresh')
+    parser.add_argument('--drag', action='store_true',
+                        help='Slow drag between --from-x/y and --to-x/y')
 
     args = parser.parse_args()
 
@@ -171,15 +221,82 @@ def main():
         }))
         sys.exit(1)
 
-    # Calculate screen dimensions (approximate - varies by device)
-    # For a typical iPhone, assume ~390x844 point screen
-    screen_width = 390
-    screen_height = 700
+    # Auto-detect screen size from window dimensions
+    screen_width, screen_height = get_screen_size_from_window(window_info)
     center_x = screen_width // 2
     center_y = screen_height // 2
     swipe_distance = 300
 
-    # Handle shortcut directions
+    # --- Long press ---
+    if args.long_press:
+        if args.x is None or args.y is None:
+            print(json.dumps({
+                'success': False,
+                'error': '--long-press requires --x and --y coordinates'
+            }))
+            sys.exit(1)
+
+        wx, wy = screen_to_window_coords(args.x, args.y, window_info)
+        long_press_with_quartz(wx, wy, args.hold)
+
+        print(json.dumps({
+            'success': True,
+            'message': f'Long pressed at ({args.x}, {args.y}) for {args.hold}s',
+            'gesture': 'long_press',
+            'x': args.x,
+            'y': args.y,
+            'hold': args.hold,
+            'udid': udid
+        }))
+        return
+
+    # --- Pull to refresh ---
+    if args.pull_to_refresh:
+        from_x, from_y = center_x, 80
+        to_x, to_y = center_x, screen_height // 2
+
+        start_wx, start_wy = screen_to_window_coords(from_x, from_y, window_info)
+        end_wx, end_wy = screen_to_window_coords(to_x, to_y, window_info)
+
+        swipe_with_quartz(start_wx, start_wy, end_wx, end_wy, duration=0.5, steps=25)
+
+        print(json.dumps({
+            'success': True,
+            'message': 'Performed pull to refresh',
+            'gesture': 'pull_to_refresh',
+            'from': {'x': from_x, 'y': from_y},
+            'to': {'x': to_x, 'y': to_y},
+            'udid': udid
+        }))
+        return
+
+    # --- Drag (slow swipe) ---
+    if args.drag:
+        if not all([args.from_x is not None, args.from_y is not None,
+                    args.to_x is not None, args.to_y is not None]):
+            print(json.dumps({
+                'success': False,
+                'error': '--drag requires --from-x, --from-y, --to-x, --to-y'
+            }))
+            sys.exit(1)
+
+        start_wx, start_wy = screen_to_window_coords(args.from_x, args.from_y, window_info)
+        end_wx, end_wy = screen_to_window_coords(args.to_x, args.to_y, window_info)
+
+        swipe_with_quartz(start_wx, start_wy, end_wx, end_wy, duration=1.0, steps=40)
+
+        print(json.dumps({
+            'success': True,
+            'message': f'Dragged from ({args.from_x}, {args.from_y}) to ({args.to_x}, {args.to_y})',
+            'gesture': 'drag',
+            'from': {'x': args.from_x, 'y': args.from_y},
+            'to': {'x': args.to_x, 'y': args.to_y},
+            'duration': 1.0,
+            'udid': udid
+        }))
+        return
+
+    # --- Directional swipes ---
     if args.up:
         from_x, from_y = center_x, center_y + swipe_distance // 2
         to_x, to_y = center_x, center_y - swipe_distance // 2
@@ -199,7 +316,7 @@ def main():
     else:
         print(json.dumps({
             'success': False,
-            'error': 'Specify --from-x, --from-y, --to-x, --to-y or use --up/--down/--left/--right'
+            'error': 'Specify a gesture: --up/--down/--left/--right, --long-press, --pull-to-refresh, --drag, or --from-x/y --to-x/y'
         }))
         sys.exit(1)
 
@@ -213,6 +330,7 @@ def main():
     print(json.dumps({
         'success': True,
         'message': f'Swiped from ({from_x}, {from_y}) to ({to_x}, {to_y})',
+        'gesture': 'swipe',
         'from': {'x': from_x, 'y': from_y},
         'to': {'x': to_x, 'y': to_y},
         'duration': args.duration,
