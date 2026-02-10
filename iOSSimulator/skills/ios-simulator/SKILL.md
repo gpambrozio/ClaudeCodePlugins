@@ -361,9 +361,15 @@ scripts/sim-type.py --text "Hello, World!"
 
 # Type slowly (more reliable for some apps)
 scripts/sim-type.py --text "user@example.com" --slow
+
+# Clear existing text and type new text
+scripts/sim-type.py --clear --text "new value"
+
+# Just clear the text field
+scripts/sim-type.py --clear
 ```
 
-**Note:** Make sure a text field is focused (tap on it first) before typing.
+**Note:** Make sure a text field is focused (tap on it first) before typing. Use `--clear` to replace existing text.
 
 #### sim-swipe.py
 Perform swipe and other touch gestures.
@@ -413,7 +419,7 @@ scripts/sim-shake.py
 ```
 
 #### sim-keyboard.py
-Send keyboard shortcuts and special keys.
+Send keyboard shortcuts, special keys, combos, and hardware buttons.
 
 ```bash
 # Press Home button
@@ -433,7 +439,30 @@ scripts/sim-keyboard.py app-switcher
 
 # Custom key with modifiers
 scripts/sim-keyboard.py --key "a" --modifiers "cmd,shift"
+
+# Key combinations (shorthand for --key + --modifiers)
+scripts/sim-keyboard.py --combo cmd+a        # Select all
+scripts/sim-keyboard.py --combo cmd+c        # Copy
+scripts/sim-keyboard.py --combo cmd+v        # Paste
+scripts/sim-keyboard.py --combo ctrl+cmd+z   # Shake gesture
+
+# Clear text field (Cmd+A then Delete)
+scripts/sim-keyboard.py --clear
+
+# Dismiss the software keyboard
+scripts/sim-keyboard.py --dismiss
+
+# Hardware buttons
+scripts/sim-keyboard.py volume-up
+scripts/sim-keyboard.py volume-down
+scripts/sim-keyboard.py ringer              # Toggle mute
 ```
+
+**Notes:**
+- `--combo` parses `modifier+key` format (e.g., `cmd+a`, `cmd+shift+h`)
+- `--clear` is a shortcut for select-all + delete, useful before typing new text
+- `--dismiss` toggles the software keyboard (same as `keyboard` shortcut)
+- Hardware buttons (volume, ringer) use Simulator's Device menu
 
 ### System Features
 
@@ -985,8 +1014,19 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
 ```json
 {
   "success": true,
-  "message": "Typed 12 characters",
+  "message": "Cleared and typed 12 characters",
   "text_length": 12,
+  "cleared": true,
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-keyboard.py
+```json
+{
+  "success": true,
+  "message": "Sent combo: cmd+a",
+  "combo": "cmd+a",
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 }
 ```
