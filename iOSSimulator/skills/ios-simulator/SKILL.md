@@ -434,6 +434,106 @@ scripts/sim-device-info.py --udid "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 - Screen scale factor (1x, 2x, or 3x)
 - Screen dimensions in both pixels and points
 
+### Privacy & Permissions
+
+#### sim-privacy.py
+Manage app privacy permissions (camera, location, photos, etc.). Essential for testing permission flows.
+
+```bash
+# Grant camera access to an app
+scripts/sim-privacy.py --grant camera --bundle-id com.example.myapp
+
+# Grant multiple permissions at once
+scripts/sim-privacy.py --grant camera,photos,microphone --bundle-id com.example.myapp
+
+# Revoke location permission
+scripts/sim-privacy.py --revoke location --bundle-id com.example.myapp
+
+# Reset a permission (app will prompt again)
+scripts/sim-privacy.py --reset camera --bundle-id com.example.myapp
+
+# Reset all permissions for an app
+scripts/sim-privacy.py --reset-all --bundle-id com.example.myapp
+
+# List all supported services
+scripts/sim-privacy.py --list
+```
+
+**Supported Services:**
+| Service | Description |
+|---------|-------------|
+| `camera` | Camera access |
+| `microphone` | Microphone access |
+| `location` | Location services |
+| `contacts` | Contacts access |
+| `photos` | Photos library access |
+| `calendar` | Calendar access |
+| `health` | Health data access |
+| `reminders` | Reminders access |
+| `motion` | Motion & fitness |
+| `keyboard` | Keyboard access |
+| `mediaLibrary` | Media library |
+| `calls` | Call history |
+| `siri` | Siri access |
+
+### Push Notifications
+
+#### sim-push.py
+Send simulated push notifications to apps on the simulator.
+
+```bash
+# Simple notification with title and body
+scripts/sim-push.py --bundle-id com.example.myapp --title "New Message" --body "Hello!"
+
+# Notification with badge
+scripts/sim-push.py --bundle-id com.example.myapp --title "Updates" --body "3 new items" --badge 3
+
+# Silent notification (no sound)
+scripts/sim-push.py --bundle-id com.example.myapp --title "Alert" --body "Check this" --no-sound
+
+# Custom JSON payload (inline)
+scripts/sim-push.py --bundle-id com.example.myapp --payload '{"aps":{"alert":"Custom","category":"ACTION"}}'
+
+# Custom JSON payload from file
+scripts/sim-push.py --bundle-id com.example.myapp --payload-file notification.json
+```
+
+**Notes:**
+- The app must be installed on the simulator
+- Payloads are automatically wrapped in an `aps` dictionary if the key is missing
+- Use `--payload` or `--payload-file` for complex payloads with custom data
+
+### Log Monitoring
+
+#### sim-logs.py
+Stream and filter simulator logs with severity classification and deduplication.
+
+```bash
+# Capture logs for 10 seconds (default)
+scripts/sim-logs.py --bundle-id com.example.myapp
+
+# Capture for specific duration
+scripts/sim-logs.py --bundle-id com.example.myapp --duration 30s
+
+# Follow mode (stream until Ctrl+C)
+scripts/sim-logs.py --bundle-id com.example.myapp --follow
+
+# Filter by severity
+scripts/sim-logs.py --bundle-id com.example.myapp --severity error,warning --duration 10s
+
+# Save logs to file
+scripts/sim-logs.py --bundle-id com.example.myapp --duration 30s --output /tmp/logs
+
+# Include recent log lines in output
+scripts/sim-logs.py --bundle-id com.example.myapp --duration 10s --verbose
+```
+
+**Notes:**
+- Without `--duration` or `--follow`, defaults to 10 seconds of capture
+- Errors and warnings are deduplicated in the output
+- In `--follow` mode, matching logs are printed to stdout in real time
+- The `--output` option saves both raw logs and a JSON summary
+
 ## Automation Workflow Example
 
 Here's a typical workflow to automate UI testing:
@@ -808,5 +908,54 @@ All scripts output JSON to stdout. Every response includes a `success` boolean f
   "success": true,
   "message": "Status bar overrides applied",
   "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+}
+```
+
+#### sim-privacy.py
+```json
+{
+  "success": true,
+  "action": "grant",
+  "bundle_id": "com.example.myapp",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "message": "Grant camera, photos for com.example.myapp",
+  "results": [
+    {"service": "camera", "description": "Camera access", "success": true},
+    {"service": "photos", "description": "Photos library access", "success": true}
+  ]
+}
+```
+
+#### sim-push.py
+```json
+{
+  "success": true,
+  "message": "Push notification sent to com.example.myapp",
+  "bundle_id": "com.example.myapp",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "payload": {
+    "aps": {
+      "alert": {"title": "New Message", "body": "Hello!"},
+      "sound": "default"
+    }
+  }
+}
+```
+
+#### sim-logs.py
+```json
+{
+  "success": true,
+  "bundle_id": "com.example.myapp",
+  "udid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  "statistics": {
+    "total_lines": 142,
+    "errors": 2,
+    "warnings": 5,
+    "info": 38,
+    "debug": 97
+  },
+  "errors": ["2025-01-15 10:30:01 MyApp[1234] Error: Failed to load resource"],
+  "warnings": ["2025-01-15 10:30:02 MyApp[1234] Warning: Deprecated API usage"]
 }
 ```
