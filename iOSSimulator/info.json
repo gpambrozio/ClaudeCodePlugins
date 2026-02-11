@@ -13,6 +13,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.0",
+            "changes": "Major feature update: 10 new scripts (sim-create, sim-delete, sim-erase, sim-privacy, sim-push, sim-logs, sim-clipboard, sim-visual-diff, sim-screen-map, sim-describe-ui element finding), improved sim-boot (readiness verification), sim-swipe (long-press, pull-to-refresh, drag), sim-keyboard (--clear, --dismiss, --combo, hardware buttons), sim-type (--clear). Restructured SKILL.md with progressive disclosure and references."
+        },
+        {
             "version": "0.4.9",
             "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"
         },

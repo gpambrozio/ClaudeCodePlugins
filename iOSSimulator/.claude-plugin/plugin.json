@@ -1,6 +1,6 @@
 {
   "name": "iOSSimulator",
-  "version": "0.4.9",
+  "version": "0.5.0",
   "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
   "author": {
     "name": "Gustavo Ambrozio"

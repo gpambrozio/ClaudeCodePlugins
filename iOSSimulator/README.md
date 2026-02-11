@@ -51,24 +51,34 @@ python3 scripts/sim-type.py --text "Hello!"
 | Script | Description |
 |--------|-------------|
 | `sim-list.py` | List available simulators |
-| `sim-boot.py` | Boot a simulator |
+| `sim-boot.py` | Boot a simulator (with readiness verification) |
 | `sim-shutdown.py` | Shutdown simulator(s) |
+| `sim-create.py` | Create new simulator devices |
+| `sim-delete.py` | Delete simulator devices |
+| `sim-erase.py` | Factory reset (preserves UUID) |
 | `sim-screenshot.py` | Take a screenshot |
-| `sim-describe-ui.py` | Describe UI accessibility hierarchy (requires uv) |
+| `sim-record-video.py` | Record simulator screen video |
+| `sim-describe-ui.py` | UI hierarchy + element finding (requires uv) |
+| `sim-screen-map.py` | Token-efficient screen overview |
 | `sim-launch.py` | Launch an app |
 | `sim-terminate.py` | Terminate an app |
 | `sim-install.py` | Install an app |
 | `sim-tap.py` | Tap at screen coordinates |
-| `sim-type.py` | Type text |
-| `sim-swipe.py` | Swipe gesture |
+| `sim-type.py` | Type text (with --clear support) |
+| `sim-swipe.py` | Swipe, long-press, drag, pull-to-refresh |
 | `sim-home.py` | Press Home button |
 | `sim-shake.py` | Simulate shake gesture |
-| `sim-keyboard.py` | Send keyboard shortcuts |
+| `sim-keyboard.py` | Shortcuts, combos, hardware buttons |
 | `sim-openurl.py` | Open URL/deep link |
 | `sim-location.py` | Set GPS location |
 | `sim-appearance.py` | Set dark/light mode |
-| `sim-record-video.py` | Record simulator screen video |
 | `sim-statusbar.py` | Override status bar for screenshots |
+| `sim-clipboard.py` | Clipboard get/set |
+| `sim-privacy.py` | App permission management |
+| `sim-push.py` | Send push notifications |
+| `sim-logs.py` | Stream and filter logs |
+| `sim-visual-diff.py` | Screenshot comparison (requires Pillow) |
+| `sim-device-info.py` | Device details and screen dimensions |
 
 ## How It Works
 
@@ -90,6 +100,14 @@ Claude can view screenshots! The recommended workflow:
 5. Repeat for complex workflows
 
 ## Changelog
+
+### 0.5.0
+- **10 new scripts:** sim-create, sim-delete, sim-erase, sim-privacy, sim-push, sim-logs, sim-clipboard, sim-visual-diff, sim-screen-map, sim-describe-ui element finding
+- **Improved sim-boot:** readiness verification with --no-wait and --timeout
+- **Improved sim-swipe:** long-press, pull-to-refresh, drag gestures, auto screen size detection
+- **Improved sim-keyboard:** --clear, --dismiss, --combo for key combinations, hardware buttons (volume, ringer)
+- **Improved sim-type:** --clear to clear text before typing
+- **Restructured SKILL.md:** progressive disclosure with references/ directory for detailed docs and JSON schemas
 
 ### 0.4.7
 - Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
