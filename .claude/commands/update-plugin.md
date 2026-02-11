@@ -10,6 +10,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 
 1. **Identify what was updated**
    - Look at git changes
+   - If there are no changes but the branch differs from remote then compare local with remote.
    - If there are changes in files in the `common` directory these affect every plugin so we need to update every plugin.
    - If `common/hooks.json` was changed, you must propagate those changes to each plugin's `hooks/hooks.json` file while preserving the unique plugin name in each command (e.g., `session-start.py MarvinOutputStyle` stays unique per plugin).
 
