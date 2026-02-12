@@ -22,7 +22,7 @@ import sys
 import argparse
 import time
 
-from sim_utils import get_booted_simulator_udid
+from sim_utils import get_booted_simulator_udid, preserve_focus
 
 
 def simulate_shake():
@@ -52,21 +52,22 @@ def main():
         }))
         sys.exit(1)
 
-    # Simulate shake
-    success, error = simulate_shake()
+    with preserve_focus():
+        # Simulate shake
+        success, error = simulate_shake()
 
-    if success:
-        print(json.dumps({
-            'success': True,
-            'message': 'Shake gesture simulated',
-            'udid': udid
-        }))
-    else:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to simulate shake'
-        }))
-        sys.exit(1)
+        if success:
+            print(json.dumps({
+                'success': True,
+                'message': 'Shake gesture simulated',
+                'udid': udid
+            }))
+        else:
+            print(json.dumps({
+                'success': False,
+                'error': error.strip() if error else 'Failed to simulate shake'
+            }))
+            sys.exit(1)
 
 
 if __name__ == '__main__':

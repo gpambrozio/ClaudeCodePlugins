@@ -42,14 +42,7 @@ import sys
 import argparse
 import time
 
-from sim_utils import get_booted_simulator_udid
-
-
-def activate_simulator():
-    """Bring Simulator.app to front."""
-    script = 'tell application "Simulator" to activate'
-    subprocess.run(['osascript', '-e', script], capture_output=True)
-    time.sleep(0.1)
+from sim_utils import get_booted_simulator_udid, activate_simulator, preserve_focus
 
 
 # Predefined shortcuts
@@ -237,108 +230,109 @@ def main():
         }))
         sys.exit(1)
 
-    # --- Clear text field ---
-    if args.clear:
-        success, error = clear_text_field()
+    with preserve_focus():
+        # --- Clear text field ---
+        if args.clear:
+            success, error = clear_text_field()
+            if success:
+                print(json.dumps({
+                    'success': True,
+                    'message': 'Cleared text field',
+                    'action': 'clear',
+                    'udid': udid
+                }))
+            else:
+                print(json.dumps({
+                    'success': False,
+                    'error': error.strip() if error else 'Failed to clear text field'
+                }))
+                sys.exit(1)
+            return
+
+        # --- Dismiss keyboard ---
+        if args.dismiss:
+            shortcut = SHORTCUTS['keyboard']
+            success, error = send_keystroke(
+                shortcut['key'], shortcut.get('modifiers'))
+            if success:
+                print(json.dumps({
+                    'success': True,
+                    'message': 'Toggled software keyboard',
+                    'action': 'dismiss',
+                    'udid': udid
+                }))
+            else:
+                print(json.dumps({
+                    'success': False,
+                    'error': error.strip() if error else 'Failed to dismiss keyboard'
+                }))
+                sys.exit(1)
+            return
+
+        # --- Key combo ---
+        if args.combo:
+            success, error = send_combo(args.combo)
+            if success:
+                print(json.dumps({
+                    'success': True,
+                    'message': f'Sent combo: {args.combo}',
+                    'combo': args.combo,
+                    'udid': udid
+                }))
+            else:
+                print(json.dumps({
+                    'success': False,
+                    'error': error.strip() if error else f'Failed to send combo: {args.combo}'
+                }))
+                sys.exit(1)
+            return
+
+        # --- Named key or shortcut ---
+        key = args.key or args.key_positional
+        if not key:
+            # List available shortcuts
+            all_keys = list(SHORTCUTS.keys()) + ['app-switcher', 'volume-up', 'volume-down', 'ringer']
+            print(json.dumps({
+                'success': True,
+                'message': 'Available shortcuts',
+                'shortcuts': all_keys
+            }))
+            return
+
+        # Handle special cases
+        if key == 'app-switcher':
+            success, error = send_app_switcher()
+        elif key in ('volume-up', 'volume-down', 'ringer'):
+            success, error = send_hardware_button(key)
+        elif key in SHORTCUTS:
+            shortcut = SHORTCUTS[key]
+            success, error = send_keystroke(
+                shortcut['key'],
+                shortcut.get('modifiers'),
+                shortcut.get('keycode', False)
+            )
+        else:
+            # Custom key with optional modifiers
+            modifiers = None
+            if args.modifiers:
+                modifiers = [MODIFIER_MAP.get(m.strip().lower(), m.strip() + ' down')
+                             for m in args.modifiers.split(',')]
+
+            success, error = send_keystroke(key, modifiers)
+
         if success:
             print(json.dumps({
                 'success': True,
-                'message': 'Cleared text field',
-                'action': 'clear',
+                'message': f'Sent key: {key}',
+                'key': key,
                 'udid': udid
             }))
         else:
             print(json.dumps({
                 'success': False,
-                'error': error.strip() if error else 'Failed to clear text field'
+                'error': error.strip() if error else 'Failed to send keystroke'
             }))
             sys.exit(1)
-        return
-
-    # --- Dismiss keyboard ---
-    if args.dismiss:
-        shortcut = SHORTCUTS['keyboard']
-        success, error = send_keystroke(
-            shortcut['key'], shortcut.get('modifiers'))
-        if success:
-            print(json.dumps({
-                'success': True,
-                'message': 'Toggled software keyboard',
-                'action': 'dismiss',
-                'udid': udid
-            }))
-        else:
-            print(json.dumps({
-                'success': False,
-                'error': error.strip() if error else 'Failed to dismiss keyboard'
-            }))
-            sys.exit(1)
-        return
-
-    # --- Key combo ---
-    if args.combo:
-        success, error = send_combo(args.combo)
-        if success:
-            print(json.dumps({
-                'success': True,
-                'message': f'Sent combo: {args.combo}',
-                'combo': args.combo,
-                'udid': udid
-            }))
-        else:
-            print(json.dumps({
-                'success': False,
-                'error': error.strip() if error else f'Failed to send combo: {args.combo}'
-            }))
-            sys.exit(1)
-        return
-
-    # --- Named key or shortcut ---
-    key = args.key or args.key_positional
-    if not key:
-        # List available shortcuts
-        all_keys = list(SHORTCUTS.keys()) + ['app-switcher', 'volume-up', 'volume-down', 'ringer']
-        print(json.dumps({
-            'success': True,
-            'message': 'Available shortcuts',
-            'shortcuts': all_keys
-        }))
-        return
-
-    # Handle special cases
-    if key == 'app-switcher':
-        success, error = send_app_switcher()
-    elif key in ('volume-up', 'volume-down', 'ringer'):
-        success, error = send_hardware_button(key)
-    elif key in SHORTCUTS:
-        shortcut = SHORTCUTS[key]
-        success, error = send_keystroke(
-            shortcut['key'],
-            shortcut.get('modifiers'),
-            shortcut.get('keycode', False)
-        )
-    else:
-        # Custom key with optional modifiers
-        modifiers = None
-        if args.modifiers:
-            modifiers = [MODIFIER_MAP.get(m.strip().lower(), m.strip() + ' down')
-                         for m in args.modifiers.split(',')]
-
-        success, error = send_keystroke(key, modifiers)
-
-    if success:
-        print(json.dumps({
-            'success': True,
-            'message': f'Sent key: {key}',
-            'key': key,
-            'udid': udid
-        }))
-    else:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to send keystroke'
-        }))
-        sys.exit(1)
 
 
 if __name__ == '__main__':
