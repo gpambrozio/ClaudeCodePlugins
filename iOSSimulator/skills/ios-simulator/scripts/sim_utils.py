@@ -18,6 +18,9 @@ try:
         CGWindowListCopyWindowInfo,
         kCGWindowListOptionOnScreenOnly,
         kCGNullWindowID,
+        CGEventCreate,
+        CGEventGetLocation,
+        CGWarpMouseCursorPosition,
     )
     HAS_QUARTZ = True
 except ImportError:
@@ -251,13 +254,30 @@ def restore_frontmost_app(app_name):
         )
 
 
+def get_mouse_position():
+    """Get current mouse cursor position."""
+    if not HAS_QUARTZ:
+        return None
+    event = CGEventCreate(None)
+    pos = CGEventGetLocation(event)
+    return (pos.x, pos.y)
+
+
+def restore_mouse_position(position):
+    """Restore mouse cursor to a saved position."""
+    if position and HAS_QUARTZ:
+        CGWarpMouseCursorPosition(position)
+
+
 @contextmanager
 def preserve_focus():
-    """Context manager: saves frontmost app, yields, then restores it."""
+    """Context manager: saves frontmost app and mouse position, yields, then restores both."""
     previous_app = get_frontmost_app()
+    previous_mouse = get_mouse_position()
     try:
         yield
     finally:
+        restore_mouse_position(previous_mouse)
         restore_frontmost_app(previous_app)
 
 
