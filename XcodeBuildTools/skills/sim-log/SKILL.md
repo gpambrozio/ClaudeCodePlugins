@@ -3,6 +3,8 @@ name: sim-log
 description: Capture logs from iOS Simulator apps. Use when debugging simulator apps, monitoring app output, or capturing logs for analysis.
 ---
 
+> This skill has no equivalent in the Xcode MCP server.
+
 # Simulator Log Capture
 
 Stream logs from apps running in iOS Simulator.

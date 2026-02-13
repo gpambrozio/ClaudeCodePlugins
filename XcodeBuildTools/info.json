@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.4.0",
+            "changes": "Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server and delegates overlapping tools (build, test, project inspection, docs). Adds auto-approve hook for MCP authorization dialog"
+        },
+        {
             "version": "0.3.17",
             "changes": "Improved sparkle-integration: separate Debug/Release entitlements, @Observable pattern, Claude CLI release notes generation"
         },

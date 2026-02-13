@@ -3,6 +3,8 @@ name: xcode-test
 description: Run Xcode unit tests and UI tests using xcodebuild with xcsift for token-efficient output. Use when running tests for iOS/macOS projects, filtering specific test cases, or checking test results.
 ---
 
+> **Xcode MCP**: If `RunAllTests` / `RunSomeTests` / `GetTestList` are in your tool list, prefer those over this skill.
+
 # Xcode Test
 
 Run unit and UI tests with `xcodebuild test` and `xcsift --format toon`.
