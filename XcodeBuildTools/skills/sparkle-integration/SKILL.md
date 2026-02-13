@@ -3,6 +3,8 @@ name: sparkle-integration
 description: Integrate Sparkle 2.x auto-update framework into macOS apps. Use when adding auto-update functionality for macOS applications.
 ---
 
+> This skill has no equivalent in the Xcode MCP server.
+
 # Sparkle Auto-Update Integration
 
 Integrate Sparkle 2.x into macOS apps with workspace + SPM architecture, release automation, and GitHub Pages hosting.

@@ -3,6 +3,8 @@ name: xcodebuild
 description: Build Xcode projects for simulator, device, or macOS using `xcodebuild` with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, cleaning build products or before you invoke any Bash command with `xcodebuild` or `swift`.
 ---
 
+> **Xcode MCP**: If `BuildProject` / `GetBuildLog` are in your tool list, prefer those over this skill.
+
 # Xcodebuild
 
 Build Xcode projects and workspaces using `xcodebuild` with `xcsift --format toon --warnings --executable` for token-efficient output.

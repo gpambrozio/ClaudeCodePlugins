@@ -3,6 +3,8 @@ name: device-app
 description: Manage apps on physical Apple devices (iPhone, iPad, Watch, TV, Vision Pro). Use when listing connected devices, installing apps on physical devices, launching or stopping apps on devices.
 ---
 
+> This skill has no equivalent in the Xcode MCP server.
+
 # Device App Management
 
 List devices and manage apps on physical Apple devices.
