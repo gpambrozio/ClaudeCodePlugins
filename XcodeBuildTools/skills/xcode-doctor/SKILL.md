@@ -3,6 +3,8 @@ name: xcode-doctor
 description: Diagnose Xcode development environment health. Use when encountering build errors, setting up a new Mac, troubleshooting missing tools, or verifying Xcode installation.
 ---
 
+> This skill has no equivalent in the Xcode MCP server.
+
 # Xcode Doctor
 
 Diagnose your development environment.

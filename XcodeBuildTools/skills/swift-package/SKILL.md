@@ -3,6 +3,8 @@ name: swift-package
 description: Build, test, run, and manage Swift Package Manager projects. Use when working with Package.swift projects, running "swift build", "swift test", or "swift run", managing package executables, or cleaning SPM build artifacts.
 ---
 
+> **Xcode MCP**: If the package is open in Xcode and `BuildProject` is in your tool list, prefer that over this skill.
+
 # Swift Package
 
 Manage Swift Package Manager projects.

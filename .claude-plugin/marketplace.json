@@ -63,8 +63,8 @@
     },
     {
       "name": "XcodeBuildTools",
-      "version": "0.3.17",
-      "description": "Xcode development tools: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs, Sparkle auto-update integration",
+      "version": "0.4.0",
+      "description": "Xcode development tools with Xcode MCP compatibility: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs, Sparkle auto-update integration",
       "source": "./XcodeBuildTools",
       "author": {
         "name": "Gustavo Ambrozio"

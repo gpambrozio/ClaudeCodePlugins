@@ -29,12 +29,44 @@ brew install xcsift
 | `sim-log` | Capture logs from iOS Simulator apps |
 | `sparkle-integration` | Integrate Sparkle 2.x auto-update framework into macOS apps |
 
+## Xcode MCP Compatibility
+
+Starting with v0.4.0, XcodeBuildTools automatically detects Xcode 26.3+'s native MCP server and delegates overlapping capabilities when available.
+
+### Tool Delegation
+
+| Domain | Xcode MCP Tool | XcodeBuildTools Fallback |
+|--------|---------------|------------------------|
+| Building | `BuildProject`, `GetBuildLog` | `xcodebuild` skill |
+| Testing | `RunAllTests`, `RunSomeTests`, `GetTestList` | `xcode-test` skill |
+| Project inspection | `XcodeGlob`, `XcodeLS`, `XcodeListWindows` | `xcode-project` skill |
+| SPM (Xcode open) | `BuildProject` | `swift-package` skill |
+| Documentation | `DocumentationSearch` | `sosumi` MCP server |
+
+Skills with **no MCP equivalent** (always used directly): `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`.
+
+### Auto-Approve Hook
+
+The plugin includes an async hook that automatically clicks "Allow" on Xcode's MCP authorization dialog. It:
+- Runs only when Xcode is active and `mcpbridge` exists
+- Uses a PID-based lock file to avoid re-running for the same Xcode instance
+- Times out silently after 10 seconds if no dialog appears
+
+**Prerequisite**: Grant Accessibility access to your terminal app in System Settings > Privacy & Security > Accessibility. The script will prompt you if this is missing.
+
 ## Related Plugins
 
 - **iOSSimulator** - Simulator control, screenshots, video, status bar
 - **SwiftDevelopment** - swift-compile skill with xcsift integration
 
 ## Changelog
+
+### 0.4.0
+- Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server at session start
+- Conditional tool delegation: prefers Xcode MCP tools for build, test, project inspection, and documentation when available
+- Auto-approve hook: automatically clicks "Allow" on Xcode's MCP authorization dialog (async, PID-locked)
+- Future-proofing: generic fallback instruction for new Xcode MCP tools beyond the known set
+- MCP notes added to all 9 skills indicating delegation preference or uniqueness
 
 ### 0.3.17
 - Improved sparkle-integration security: separate Debug/Release entitlements for `disable-library-validation`
