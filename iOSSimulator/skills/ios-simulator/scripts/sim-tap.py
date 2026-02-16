@@ -26,9 +26,12 @@ import sys
 import argparse
 import time
 
-from sim_utils import get_booted_simulator
+from sim_utils import (
+    get_booted_simulator, get_simulator_window_info, activate_simulator,
+    screen_to_window_coords, preserve_focus,
+)
 
-# Check if we're on macOS and can use Quartz
+# CGEvent imports for mouse event posting (script-specific)
 try:
     from Quartz import (
         CGEventCreateMouseEvent,
@@ -38,61 +41,10 @@ try:
         kCGEventLeftMouseUp,
         kCGHIDEventTap,
         kCGMouseEventClickState,
-        CGWindowListCopyWindowInfo,
-        kCGWindowListOptionOnScreenOnly,
-        kCGNullWindowID
     )
     HAS_QUARTZ = True
 except ImportError:
     HAS_QUARTZ = False
-
-
-def get_simulator_window_info(device_name=None):
-    """Get Simulator window position and size."""
-    if not HAS_QUARTZ:
-        return None
-
-    window_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID)
-
-    for window in window_list:
-        owner = window.get('kCGWindowOwnerName', '')
-        name = window.get('kCGWindowName', '')
-
-        # Look for Simulator windows
-        if owner == 'Simulator':
-            # If device_name specified, try to match it
-            if device_name and device_name not in name:
-                continue
-
-            bounds = window.get('kCGWindowBounds', {})
-            return {
-                'x': bounds.get('X', 0),
-                'y': bounds.get('Y', 0),
-                'width': bounds.get('Width', 0),
-                'height': bounds.get('Height', 0),
-                'name': name
-            }
-    return None
-
-
-def set_point_accurate_mode():
-    """Set Simulator to Point Accurate mode (Cmd+2) for correct coordinate mapping."""
-    script = '''
-    tell application "Simulator" to activate
-    delay 0.2
-    tell application "System Events"
-        tell process "Simulator"
-            keystroke "2" using {command down}
-        end tell
-    end tell
-    '''
-    subprocess.run(['osascript', '-e', script], capture_output=True)
-    time.sleep(0.1)
-
-
-def activate_simulator():
-    """Bring Simulator.app to front and ensure Point Accurate mode."""
-    set_point_accurate_mode()  # This also activates the simulator
 
 
 def tap_with_quartz(window_x, window_y, duration=0.1):
@@ -148,58 +100,47 @@ def main():
         }))
         sys.exit(1)
 
-    # Activate Simulator
-    activate_simulator()
+    with preserve_focus():
+        activate_simulator(point_accurate=True)
 
-    if HAS_QUARTZ:
-        # Get window info
-        window_info = get_simulator_window_info(device_name)
-        if not window_info:
-            print(json.dumps({
-                'success': False,
-                'error': 'Could not find Simulator window. Is it visible?'
-            }))
-            sys.exit(1)
+        if HAS_QUARTZ:
+            window_info = get_simulator_window_info(device_name)
+            if not window_info:
+                print(json.dumps({
+                    'success': False,
+                    'error': 'Could not find Simulator window. Is it visible?'
+                }))
+                sys.exit(1)
 
-        # Calculate window coordinates
-        # The simulator screen starts below the window title bar and device chrome
-        # These offsets are approximate - the bezel varies by device
-        TITLE_BAR_HEIGHT = 28
-        DEVICE_TOP_BEZEL = 50  # Approximate bezel height
+            window_x, window_y = screen_to_window_coords(args.x, args.y, window_info)
+            tap_with_quartz(window_x, window_y, args.duration)
 
-        window_x = window_info['x'] + args.x + 20  # Left bezel
-        window_y = window_info['y'] + TITLE_BAR_HEIGHT + DEVICE_TOP_BEZEL + args.y
-
-        # Perform tap
-        tap_with_quartz(window_x, window_y, args.duration)
-
-        print(json.dumps({
-            'success': True,
-            'message': f'Tapped at ({args.x}, {args.y})',
-            'screen_x': args.x,
-            'screen_y': args.y,
-            'window_x': window_x,
-            'window_y': window_y,
-            'udid': udid
-        }))
-    else:
-        # Fallback to AppleScript
-        success = tap_with_applescript(args.x, args.y)
-        if success:
             print(json.dumps({
                 'success': True,
-                'message': f'Tapped at approximately ({args.x}, {args.y})',
+                'message': f'Tapped at ({args.x}, {args.y})',
                 'screen_x': args.x,
                 'screen_y': args.y,
-                'method': 'applescript',
+                'window_x': window_x,
+                'window_y': window_y,
                 'udid': udid
             }))
         else:
-            print(json.dumps({
-                'success': False,
-                'error': 'Failed to tap using AppleScript'
-            }))
-            sys.exit(1)
+            success = tap_with_applescript(args.x, args.y)
+            if success:
+                print(json.dumps({
+                    'success': True,
+                    'message': f'Tapped at approximately ({args.x}, {args.y})',
+                    'screen_x': args.x,
+                    'screen_y': args.y,
+                    'method': 'applescript',
+                    'udid': udid
+                }))
+            else:
+                print(json.dumps({
+                    'success': False,
+                    'error': 'Failed to tap using AppleScript'
+                }))
+                sys.exit(1)
 
 
 if __name__ == '__main__':

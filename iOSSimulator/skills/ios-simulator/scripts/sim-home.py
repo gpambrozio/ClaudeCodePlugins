@@ -22,7 +22,7 @@ import sys
 import argparse
 import time
 
-from sim_utils import get_booted_simulator_udid
+from sim_utils import get_booted_simulator_udid, preserve_focus
 
 
 def press_home():
@@ -52,21 +52,22 @@ def main():
         }))
         sys.exit(1)
 
-    # Press Home
-    success, error = press_home()
+    with preserve_focus():
+        # Press Home
+        success, error = press_home()
 
-    if success:
-        print(json.dumps({
-            'success': True,
-            'message': 'Home button pressed',
-            'udid': udid
-        }))
-    else:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to press Home button'
-        }))
-        sys.exit(1)
+        if success:
+            print(json.dumps({
+                'success': True,
+                'message': 'Home button pressed',
+                'udid': udid
+            }))
+        else:
+            print(json.dumps({
+                'success': False,
+                'error': error.strip() if error else 'Failed to press Home button'
+            }))
+            sys.exit(1)
 
 
 if __name__ == '__main__':

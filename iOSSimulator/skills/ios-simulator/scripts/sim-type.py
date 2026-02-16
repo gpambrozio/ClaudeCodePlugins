@@ -29,14 +29,7 @@ import sys
 import argparse
 import time
 
-from sim_utils import get_booted_simulator_udid
-
-
-def activate_simulator():
-    """Bring Simulator.app to front."""
-    script = 'tell application "Simulator" to activate'
-    subprocess.run(['osascript', '-e', script], capture_output=True)
-    time.sleep(0.2)
+from sim_utils import get_booted_simulator_udid, activate_simulator, preserve_focus
 
 
 def type_text(text):
@@ -124,47 +117,48 @@ def main():
         }))
         sys.exit(1)
 
-    # Clear field first if requested
-    if args.clear:
-        clear_success, clear_error = clear_text_field()
-        if not clear_success:
-            print(json.dumps({
-                'success': False,
-                'error': clear_error.strip() if clear_error else 'Failed to clear text field'
-            }))
-            sys.exit(1)
-        if not text:
-            # Just clearing, no text to type
+    with preserve_focus():
+        # Clear field first if requested
+        if args.clear:
+            clear_success, clear_error = clear_text_field()
+            if not clear_success:
+                print(json.dumps({
+                    'success': False,
+                    'error': clear_error.strip() if clear_error else 'Failed to clear text field'
+                }))
+                sys.exit(1)
+            if not text:
+                # Just clearing, no text to type
+                print(json.dumps({
+                    'success': True,
+                    'message': 'Cleared text field',
+                    'udid': udid
+                }))
+                return
+            time.sleep(0.1)
+
+        # Type the text
+        if args.slow:
+            success = type_text_slow(text)
+            error = None
+        else:
+            success, error = type_text(text)
+
+        if success:
+            msg = f'Cleared and typed {len(text)} characters' if args.clear else f'Typed {len(text)} characters'
             print(json.dumps({
                 'success': True,
-                'message': 'Cleared text field',
+                'message': msg,
+                'text_length': len(text),
+                'cleared': args.clear,
                 'udid': udid
             }))
-            return
-        time.sleep(0.1)
-
-    # Type the text
-    if args.slow:
-        success = type_text_slow(text)
-        error = None
-    else:
-        success, error = type_text(text)
-
-    if success:
-        msg = f'Cleared and typed {len(text)} characters' if args.clear else f'Typed {len(text)} characters'
-        print(json.dumps({
-            'success': True,
-            'message': msg,
-            'text_length': len(text),
-            'cleared': args.clear,
-            'udid': udid
-        }))
-    else:
-        print(json.dumps({
-            'success': False,
-            'error': error.strip() if error else 'Failed to type text'
-        }))
-        sys.exit(1)
+        else:
+            print(json.dumps({
+                'success': False,
+                'error': error.strip() if error else 'Failed to type text'
+            }))
+            sys.exit(1)
 
 
 if __name__ == '__main__':

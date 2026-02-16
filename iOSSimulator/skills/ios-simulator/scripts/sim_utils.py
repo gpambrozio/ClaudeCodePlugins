@@ -8,7 +8,30 @@ to reduce code duplication and ensure consistent behavior.
 
 import subprocess
 import json
+import time
+from contextlib import contextmanager
 from typing import Optional, Tuple
+
+# Quartz window detection (macOS-only, used by sim-tap and sim-swipe)
+try:
+    from Quartz import (
+        CGWindowListCopyWindowInfo,
+        kCGWindowListOptionOnScreenOnly,
+        kCGNullWindowID,
+        CGEventCreate,
+        CGEventGetLocation,
+        CGWarpMouseCursorPosition,
+    )
+    HAS_QUARTZ = True
+except ImportError:
+    HAS_QUARTZ = False
+
+# Simulator window chrome offsets (Point Accurate mode)
+TITLE_BAR_HEIGHT = 28
+DEVICE_TOP_BEZEL = 50
+LEFT_BEZEL = 20
+RIGHT_BEZEL = 20
+BOTTOM_BEZEL = 50
 
 
 def run_simctl(*args) -> Tuple[bool, str, str]:
@@ -107,8 +130,155 @@ def find_simulator_by_name(name: str, runtime: Optional[str] = None) -> Optional
 
 
 def open_simulator_app() -> None:
-    """Open the Simulator.app to show the booted simulator."""
-    subprocess.run(['open', '-a', 'Simulator'], capture_output=True)
+    """Open the Simulator.app to show the booted simulator.
+
+    Uses -g flag to open in background without stealing focus.
+    """
+    subprocess.run(['open', '-g', '-a', 'Simulator'], capture_output=True)
+
+
+def get_simulator_window_info(device_name=None):
+    """Get Simulator window position and size.
+
+    On macOS 26.3+, kCGWindowName is always empty for non-system apps
+    (privacy hardening), so we match by owner name only and pick the
+    largest Simulator window by area. The device_name parameter is kept
+    for backward compatibility but is no longer used for matching.
+    """
+    if not HAS_QUARTZ:
+        return None
+
+    window_list = CGWindowListCopyWindowInfo(
+        kCGWindowListOptionOnScreenOnly, kCGNullWindowID
+    )
+
+    candidates = []
+    for window in window_list:
+        owner = window.get('kCGWindowOwnerName', '')
+        if owner != 'Simulator':
+            continue
+
+        bounds = window.get('kCGWindowBounds', {})
+        width = bounds.get('Width', 0)
+        height = bounds.get('Height', 0)
+
+        # Skip small windows (menu bars, toolbars, floating panels)
+        if width < 100 or height < 100:
+            continue
+
+        candidates.append({
+            'x': bounds.get('X', 0),
+            'y': bounds.get('Y', 0),
+            'width': width,
+            'height': height,
+            'name': window.get('kCGWindowName', ''),
+            'area': width * height,
+        })
+
+    if not candidates:
+        return None
+
+    # Pick the largest window (the device window is always biggest)
+    best = max(candidates, key=lambda w: w['area'])
+    del best['area']
+    return best
+
+
+def set_point_accurate_mode():
+    """Set Simulator to Point Accurate mode (Cmd+2) for correct coordinate mapping."""
+    script = '''
+    tell application "Simulator" to activate
+    delay 0.2
+    tell application "System Events"
+        tell process "Simulator"
+            keystroke "2" using {command down}
+        end tell
+    end tell
+    '''
+    subprocess.run(['osascript', '-e', script], capture_output=True)
+    time.sleep(0.1)
+
+
+def activate_simulator(point_accurate=False):
+    """Bring Simulator.app to front.
+
+    Args:
+        point_accurate: If True, also switch to Point Accurate mode (Cmd+2).
+                       Used by sim-tap and sim-swipe for correct coordinate mapping.
+    """
+    if point_accurate:
+        set_point_accurate_mode()
+    else:
+        script = 'tell application "Simulator" to activate'
+        subprocess.run(['osascript', '-e', script], capture_output=True)
+        time.sleep(0.1)
+
+
+def screen_to_window_coords(screen_x, screen_y, window_info):
+    """Convert simulator screen coordinates to window coordinates.
+
+    Takes screen-point coordinates (as shown in the simulator UI) and
+    converts them to absolute window coordinates for Quartz mouse events.
+    """
+    window_x = window_info['x'] + screen_x + LEFT_BEZEL
+    window_y = window_info['y'] + TITLE_BAR_HEIGHT + DEVICE_TOP_BEZEL + screen_y
+    return window_x, window_y
+
+
+def get_screen_size_from_window(window_info):
+    """Estimate the iOS screen size from the simulator window dimensions."""
+    width = window_info['width'] - LEFT_BEZEL - RIGHT_BEZEL
+    height = window_info['height'] - TITLE_BAR_HEIGHT - DEVICE_TOP_BEZEL - BOTTOM_BEZEL
+
+    if width > 0 and height > 0:
+        return width, height
+    return 390, 700  # fallback
+
+
+def get_frontmost_app():
+    """Get the name of the current frontmost application."""
+    result = subprocess.run(
+        ['osascript', '-e',
+         'tell application "System Events" to get name of first process whose frontmost is true'],
+        capture_output=True, text=True,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def restore_frontmost_app(app_name):
+    """Restore the previously frontmost application."""
+    if app_name and app_name != 'Simulator':
+        subprocess.run(
+            ['osascript', '-e', f'tell application "{app_name}" to activate'],
+            capture_output=True,
+        )
+
+
+def get_mouse_position():
+    """Get current mouse cursor position."""
+    if not HAS_QUARTZ:
+        return None
+    event = CGEventCreate(None)
+    pos = CGEventGetLocation(event)
+    return (pos.x, pos.y)
+
+
+def restore_mouse_position(position):
+    """Restore mouse cursor to a saved position."""
+    if position and HAS_QUARTZ:
+        CGWarpMouseCursorPosition(position)
+
+
+@contextmanager
+def preserve_focus():
+    """Context manager: saves frontmost app and mouse position, yields, then restores both."""
+    previous_app = get_frontmost_app()
+    previous_mouse = get_mouse_position()
+    try:
+        yield
+    finally:
+        restore_mouse_position(previous_mouse)
+        restore_frontmost_app(previous_app)
 
 
 # Common simctl error patterns and their handling

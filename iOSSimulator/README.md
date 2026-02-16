@@ -101,6 +101,12 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.6.0
+- **Focus preservation:** Simulator scripts no longer steal focus from your editor/terminal during interactions
+- **Cursor restoration:** Mouse cursor position is saved and restored after simulator interactions
+- **macOS 26.3 fix:** Fixed Quartz window detection for reliable frontmost-window tracking
+- Added `preserve_focus` context manager to `sim_utils.py` used by all interaction scripts
+
 ### 0.5.0
 - **10 new scripts:** sim-create, sim-delete, sim-erase, sim-privacy, sim-push, sim-logs, sim-clipboard, sim-visual-diff, sim-screen-map, sim-describe-ui element finding
 - **Improved sim-boot:** readiness verification with --no-wait and --timeout
