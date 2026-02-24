@@ -50,7 +50,7 @@ scripts/swift-package-stop.py --pid <pid> [--force]
 
 ```bash
 # Clean build artifacts
-swift package clean
+$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift package clean
 
 # Or remove .build directory directly
 rm -rf /path/to/package/.build

@@ -65,6 +65,8 @@ mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS" "$SANDBOX_BIN"
 
 # --- Write path file for skill file discovery ---
 # Skill files use $(cat /tmp/claude-sandbox-$(echo $PPID)) to find the sandbox.
+# NOTE: $(echo $PPID) instead of bare $PPID is intentional — $PPID expands to
+# empty in command position when used with pipes in Claude Code's zsh eval.
 # This indirection lets the hook respect custom DerivedData locations while
 # keeping skill file paths stable.
 echo "$SANDBOX_BASE" > "/tmp/claude-sandbox-$SESSION_PID"
