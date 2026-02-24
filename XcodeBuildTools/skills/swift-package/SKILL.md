@@ -15,20 +15,22 @@ For build/test output parsing: `brew install xcsift`
 
 ## Build & Test (with xcsift)
 
+Always use the sandbox wrapper to isolate the SPM cache from Xcode:
+
 ```bash
 cd /path/to/package
 
 # Build
-swift build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 
 # Build release
-swift build -c release 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift build -c release 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
 
 # Test
-swift test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 
 # Test with filter
-swift test --filter "testLogin" 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift test --filter "testLogin" 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
 ```
 
 ## Run & Process Management
