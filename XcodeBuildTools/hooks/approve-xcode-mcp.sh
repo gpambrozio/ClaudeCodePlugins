@@ -4,31 +4,22 @@
 #
 # Runs as an async hook (async: true in hooks.json) so it doesn't block startup.
 #   1. Pre-checks: Xcode must be running and mcpbridge must exist
-#   2. Lock file prevents redundant runs for the same Xcode instance
-#   3. Checks Accessibility permissions (notifies + opens Settings if missing)
-#   4. Polls Xcode's windows for the auth dialog (up to 10 seconds)
-#   5. Clicks "Allow" when found, or exits silently on timeout
+#   2. Checks Accessibility permissions (notifies + opens Settings if missing)
+#   3. Polls Xcode's windows for the auth dialog (up to 15 seconds)
+#   4. Clicks "Allow" when found, or exits silently on timeout
 #
 # Prerequisite (one-time):
 #   System Settings > Privacy & Security > Accessibility
 #   → Add your terminal app (Terminal.app, iTerm2, etc.)
 
 # --- Pre-checks: bail early if Xcode or mcpbridge aren't available ---
-XCODE_PID=$(pgrep -x Xcode 2>/dev/null)
-if [[ -z "$XCODE_PID" ]]; then
+if ! pgrep -x Xcode &>/dev/null; then
     exit 0
 fi
 
 if ! xcrun --find mcpbridge &>/dev/null; then
     exit 0
 fi
-
-# --- Lock file keyed on Xcode PID (prevents re-runs for same instance) ---
-LOCK_FILE="${TMPDIR:-/tmp}/xcode-mcp-approve-${XCODE_PID}.lock"
-if [[ -f "$LOCK_FILE" ]]; then
-    exit 0
-fi
-touch "$LOCK_FILE"
 
 # --- Check Accessibility permissions ---
 if ! osascript -e 'tell application "System Events" to get name of first process' &>/dev/null; then
@@ -38,18 +29,17 @@ if ! osascript -e 'tell application "System Events" to get name of first process
             subtitle "Missing Accessibility permissions"
     '
     open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-    rm -f "$LOCK_FILE"
     exit 0
 fi
 
 # --- Give MCP bridge time to connect and trigger the dialog ---
 sleep 2
 
-# --- Poll for up to 10s for the MCP auth dialog and click Allow ---
+# --- Poll for up to 15s for the MCP auth dialog and click Allow ---
 osascript <<'APPLESCRIPT' >/dev/null 2>&1
 tell application "System Events"
     tell process "Xcode"
-        repeat 10 times
+        repeat 15 times
             repeat with xcodeWindow in windows
                 try
                     repeat with dialogText in static texts of xcodeWindow
