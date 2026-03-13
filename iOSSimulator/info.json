@@ -13,6 +13,10 @@
     ],
     "versions": [
         {
+            "version": "0.6.1",
+            "changes": "Removed auto-update hook from SessionStart"
+        },
+        {
             "version": "0.6.0",
             "changes": "Focus preservation: scripts no longer steal focus from your editor/terminal during simulator interactions. Added preserve_focus context manager to sim_utils.py that saves and restores the frontmost window and mouse cursor position. Fixed Quartz window detection on macOS 26.3."
         },

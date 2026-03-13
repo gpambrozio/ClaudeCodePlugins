@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.4.1",
+            "changes": "Removed auto-update hook from SessionStart"
+        },
+        {
             "version": "0.4.0",
             "changes": "Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server and delegates overlapping tools (build, test, project inspection, docs). Adds auto-approve hook for MCP authorization dialog"
         },

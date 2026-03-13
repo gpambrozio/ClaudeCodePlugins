@@ -61,6 +61,9 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.4.1
+- Removed auto-update hook from SessionStart
+
 ### 0.4.0
 - Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server at session start
 - Conditional tool delegation: prefers Xcode MCP tools for build, test, project inspection, and documentation when available
