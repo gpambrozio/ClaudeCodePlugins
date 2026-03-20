@@ -15,7 +15,7 @@ For build/test output parsing: `brew install xcsift`
 
 ## Build & Test (with xcsift)
 
-Always use the sandbox wrapper to isolate the SPM cache from Xcode:
+**Always use the sandbox** Use `$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift` instead of bare `swift`. This isolates DerivedData and SPM caches from Xcode.
 
 ```bash
 cd /path/to/package

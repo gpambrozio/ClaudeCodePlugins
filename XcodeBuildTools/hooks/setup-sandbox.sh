@@ -71,21 +71,30 @@ mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS" "$SANDBOX_BIN"
 # keeping skill file paths stable.
 echo "$SANDBOX_BASE" > "/tmp/claude-sandbox-$SESSION_PID"
 
-# --- APFS clone system SPM cache if sandbox packages dir is empty ---
-# cp -c creates instant copy-on-write clones on APFS: zero extra disk until
-# writes diverge. Falls back to regular copy on non-APFS volumes.
-if [[ -z "$(ls -A "$SANDBOX_PKGS" 2>/dev/null)" ]]; then
+# --- Lazy SPM cache seeding helper ---
+# Written into wrapper scripts so the APFS clone only runs on first build,
+# not on every session start. cp -c creates copy-on-write clones on APFS
+# (zero extra disk until writes diverge); silently skipped on non-APFS volumes.
+SEED_SPM_SNIPPET=$(cat << 'SEED'
+if [[ ! -f "SANDBOX_PKGS/.seeded" ]]; then
     system_spm="$HOME/Library/Caches/org.swift.swiftpm"
     if [[ -d "$system_spm" ]]; then
-        cp -cpR "$system_spm/" "$SANDBOX_PKGS/" 2>/dev/null || true
+        cp -cpR "$system_spm/" "SANDBOX_PKGS/" 2>/dev/null || true
     fi
+    touch "SANDBOX_PKGS/.seeded"
 fi
+SEED
+)
+# Substitute the actual sandbox packages path into the snippet
+SEED_SPM_SNIPPET="${SEED_SPM_SNIPPET//SANDBOX_PKGS/$SANDBOX_PKGS}"
 
 # --- Create xcodebuild wrapper ---
 # Injects -derivedDataPath and -clonedSourcePackagesDirPath so CLI builds
 # use isolated storage instead of Xcode's default DerivedData.
+# Seeds SPM cache from system cache on first invocation.
 cat > "$SANDBOX_BIN/xcodebuild" << WRAPPER
 #!/bin/bash
+$SEED_SPM_SNIPPET
 exec /usr/bin/xcodebuild \\
     -derivedDataPath "$SANDBOX_BUILD" \\
     -clonedSourcePackagesDirPath "$SANDBOX_PKGS" \\
@@ -96,10 +105,12 @@ chmod +x "$SANDBOX_BIN/xcodebuild"
 # --- Create swift wrapper (subcommand-aware) ---
 # Only injects --cache-path for subcommands that accept SwiftPM flags
 # (build, test, run). Other subcommands (package, repl, --version) pass through.
+# Seeds SPM cache from system cache on first build invocation.
 cat > "$SANDBOX_BIN/swift" << WRAPPER
 #!/bin/bash
 case "\${1:-}" in
     build|test|run)
+        $SEED_SPM_SNIPPET
         exec /usr/bin/swift "\$@" \\
             --cache-path "$SANDBOX_PKGS"
         ;;
