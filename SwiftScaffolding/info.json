@@ -3,6 +3,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
         {
+            "version": "0.3.9",
+            "changes": "Removed auto-update hook from SessionStart"
+        },
+        {
             "version": "0.3.8",
             "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"
         },

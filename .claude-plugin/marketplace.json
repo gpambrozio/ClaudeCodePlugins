@@ -10,8 +10,18 @@
   "repository": "https://github.com/gpambrozio/ClaudeCodePlugins",
   "plugins": [
     {
+      "name": "superpowers",
+      "description": "Superpowers teaches Claude brainstorming, subagent driven development with built in code review, systematic debugging, and red/green TDD. Additionally, it teaches Claude how to author and test new skills.",
+      "category": "development",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/obra/superpowers.git"
+      },
+      "homepage": "https://github.com/obra/superpowers.git"
+    },
+    {
       "name": "MarvinOutputStyle",
-      "version": "1.2.8",
+      "version": "1.2.9",
       "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
       "source": "./MarvinOutputStyle",
       "author": {
@@ -27,7 +37,7 @@
     },
     {
       "name": "iOSSimulator",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
       "source": "./iOSSimulator",
       "author": {
@@ -46,7 +56,7 @@
     },
     {
       "name": "SwiftScaffolding",
-      "version": "0.3.8",
+      "version": "0.3.9",
       "description": "Swift project scaffolding and code generation tools",
       "source": "./SwiftScaffolding",
       "author": {
@@ -63,7 +73,7 @@
     },
     {
       "name": "XcodeBuildTools",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "description": "Xcode development tools with Xcode MCP compatibility: build/test/run Swift packages, discover projects and schemes, build for simulator/device/macOS, run tests, manage device apps, capture simulator logs, Sparkle auto-update integration",
       "source": "./XcodeBuildTools",
       "author": {

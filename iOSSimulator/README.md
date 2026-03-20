@@ -101,6 +101,9 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.6.1
+- Removed auto-update hook from SessionStart
+
 ### 0.6.0
 - **Focus preservation:** Simulator scripts no longer steal focus from your editor/terminal during interactions
 - **Cursor restoration:** Mouse cursor position is saved and restored after simulator interactions

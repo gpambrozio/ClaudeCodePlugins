@@ -3,6 +3,10 @@
     "welcomeMessage": "Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.",
     "versions": [
         {
+            "version": "1.2.9",
+            "changes": "Removed auto-update hook from SessionStart"
+        },
+        {
             "version": "1.2.8",
             "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"
         },

@@ -49,6 +49,10 @@
             "changes": "Build isolation sandbox: CLI builds now use isolated DerivedData and SPM cache via wrapper scripts, preventing conflicts with Xcode. Always active — transparent when Xcode MCP handles builds, automatic when falling back to CLI."
         },
         {
+            "version": "0.4.1",
+            "changes": "Removed auto-update hook from SessionStart"
+        },
+        {
             "version": "0.4.0",
             "changes": "Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server and delegates overlapping tools (build, test, project inspection, docs). Adds auto-approve hook for MCP authorization dialog"
         },

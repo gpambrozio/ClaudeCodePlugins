@@ -29,6 +29,9 @@ Use the `/scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 
+### 0.3.9
+- Removed auto-update hook from SessionStart
+
 ### 0.3.6
 - Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
 

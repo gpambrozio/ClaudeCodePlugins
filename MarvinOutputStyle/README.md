@@ -108,6 +108,9 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.2.9
+- Removed auto-update hook from SessionStart
+
 ### 1.2.6
 - Improved skill matching to support `PluginName:skill` prefix format in addition to skills array
 

@@ -2,6 +2,10 @@
     "skills": [],
     "versions": [
         {
+            "version": "0.2.8",
+            "changes": "Removed auto-update hook from SessionStart"
+        },
+        {
             "version": "0.2.7",
             "changes": "Fixed hook deduplication issue when multiple plugins installed - each plugin now has its own hooks.json"
         },
