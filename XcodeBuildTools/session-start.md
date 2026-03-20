@@ -8,11 +8,11 @@ The `XcodeBuildTools` plugin provides specialized tools for Xcode build and test
 
 ## Build Isolation
 
-Each session gets an isolated build sandbox inside Xcode's DerivedData, keyed by `$PPID`. **Always use the sandbox wrappers** instead of bare `xcodebuild` or `swift` commands:
+Each session gets an isolated build sandbox keyed by `$PPID`. **Always use the sandbox wrappers** instead of bare `xcodebuild` or `swift` commands:
 
 ```
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild ...
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift build ...
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild ...
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build ...
 ```
 
 This ensures DerivedData and SPM caches are isolated from Xcode and from other Claude sessions. The sandbox wrappers transparently inject `-derivedDataPath`, `-clonedSourcePackagesDirPath`, and `--cache-path` flags — no other changes to your commands are needed.

@@ -19,28 +19,28 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 2. **Always add** `-skipMacroValidation -skipPackagePluginValidation`
 3. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
 4. **Use workspace when available** If the project has a corresponding `xcworkspace` always use the `-workspace` flag to compile, never `-project`
-5. **Always use the sandbox** Use `$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild` instead of bare `xcodebuild`. This isolates DerivedData and SPM caches from Xcode.
+5. **Always use the sandbox** Use `$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild` instead of bare `xcodebuild`. This isolates DerivedData and SPM caches from Xcode.
 
 ## Test Commands
 
 ### iOS Simulator Tests
 ```bash
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
 ```
 
 ### macOS Tests
 ```bash
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
 ```
 
 ### Run Specific Tests
 ```bash
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -only-testing:MyAppTests/LoginTests/testLoginSuccess test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -only-testing:MyAppTests/LoginTests/testLoginSuccess test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
 ```
 
 ### Skip Specific Tests
 ```bash
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --format toon --warnings
 ```
 
 ## Test Specification Format
@@ -49,4 +49,4 @@ $(cat /tmp/claude-sandbox-$(echo $PPID))/bin/xcodebuild ... -skip-testing:MyAppT
 - Test class: `MyAppTests/LoginTests`
 - Test method: `MyAppTests/LoginTests/testLoginSuccess`
 
-Output shows test results, errors, and failures. Check `/tmp/test.log` for details.
+Output shows test results, errors, and failures. Check `${TMPDIR:-/tmp}/test.log` for details.

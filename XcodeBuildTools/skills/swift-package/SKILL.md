@@ -15,22 +15,22 @@ For build/test output parsing: `brew install xcsift`
 
 ## Build & Test (with xcsift)
 
-**Always use the sandbox** Use `$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift` instead of bare `swift`. This isolates DerivedData and SPM caches from Xcode.
+**Always use the sandbox** Use `$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift` instead of bare `swift`. This isolates DerivedData and SPM caches from Xcode.
 
 ```bash
 cd /path/to/package
 
 # Build
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings
 
 # Build release
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift build -c release 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings
 
 # Test
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift test 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
 
 # Test with filter
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift test --filter "testLogin" 2>&1 | tee /tmp/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
 ```
 
 ## Run & Process Management
@@ -50,7 +50,7 @@ scripts/swift-package-stop.py --pid <pid> [--force]
 
 ```bash
 # Clean build artifacts
-$(cat /tmp/claude-sandbox-$(echo $PPID))/bin/swift package clean
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift package clean
 
 # Or remove .build directory directly
 rm -rf /path/to/package/.build

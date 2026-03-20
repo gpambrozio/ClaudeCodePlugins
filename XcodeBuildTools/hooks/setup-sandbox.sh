@@ -9,10 +9,10 @@
 # Each Claude Code session gets its own sandbox keyed by PPID (the Claude
 # process PID). Multiple sessions can build concurrently without conflicts.
 #
-# The sandbox lives inside Xcode's DerivedData directory so that nuking
-# DerivedData also cleans up all sandbox state — matching developer expectations.
+# The sandbox lives under $TMPDIR so it auto-cleans on reboot — no stale
+# build artifacts survive a restart even if PID-based cleanup misses them.
 #
-# Runs as a SessionStart hook; outputs JSON for Claude Code.
+# Runs as a SessionStart hook.
 
 set -euo pipefail
 
@@ -27,7 +27,7 @@ fi
 
 # --- Per-session sandbox paths ---
 SESSION_PID="${PPID:-$$}"
-SANDBOX_ROOT="$DERIVED_DATA/claude-sandbox"
+SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
 SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_PID"
 SANDBOX_BUILD="$SANDBOX_BASE/build"
 SANDBOX_PKGS="$SANDBOX_BASE/packages"
@@ -55,7 +55,7 @@ if [[ -d "$SANDBOX_ROOT" ]]; then
 
         if [[ "$is_alive" == "false" ]]; then
             rm -rf "$session_dir"
-            rm -f "/tmp/claude-sandbox-$pid"
+            rm -f "${TMPDIR:-/tmp}/claude-sandbox-$pid"
         fi
     done
 fi
@@ -64,12 +64,12 @@ fi
 mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS" "$SANDBOX_BIN"
 
 # --- Write path file for skill file discovery ---
-# Skill files use $(cat /tmp/claude-sandbox-$(echo $PPID)) to find the sandbox.
+# Skill files use $(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID)) to find the sandbox.
 # NOTE: $(echo $PPID) instead of bare $PPID is intentional — $PPID expands to
 # empty in command position when used with pipes in Claude Code's zsh eval.
 # This indirection lets the hook respect custom DerivedData locations while
 # keeping skill file paths stable.
-echo "$SANDBOX_BASE" > "/tmp/claude-sandbox-$SESSION_PID"
+echo "$SANDBOX_BASE" > "${TMPDIR:-/tmp}/claude-sandbox-$SESSION_PID"
 
 # --- Lazy SPM cache seeding helper ---
 # Written into wrapper scripts so the APFS clone only runs on first build,
@@ -121,5 +121,3 @@ esac
 WRAPPER
 chmod +x "$SANDBOX_BIN/swift"
 
-# --- Output hook response ---
-printf '{"systemMessage":""}\n'
