@@ -8,6 +8,7 @@ and returns changelog information for any new versions.
 
 import json
 import os
+import sys
 
 
 def parse_version(version_str):
@@ -64,20 +65,21 @@ def migrate_config_from_project_dir(config_filename, new_config_file):
     Args:
         config_filename: Name of the config file (e.g., "testPlugin.json")
         new_config_file: Full path to the new config file location
-
-    Returns:
-        bool: True if a file was migrated, False otherwise
     """
+    # Sanitize config_filename to prevent path traversal
+    if os.sep in config_filename or '/' in config_filename:
+        return
+
     if os.path.exists(new_config_file):
-        return False
+        return
 
     project_path = os.environ.get('CLAUDE_PROJECT_DIR', '')
     if not project_path:
-        return False
+        return
 
     old_config_file = os.path.join(project_path, ".claude", config_filename)
     if not os.path.exists(old_config_file):
-        return False
+        return
 
     # Migrate: copy old config to new location, then remove old file
     old_data = load_json_file(old_config_file)
@@ -85,10 +87,8 @@ def migrate_config_from_project_dir(config_filename, new_config_file):
         if save_json_file(new_config_file, old_data):
             try:
                 os.remove(old_config_file)
-            except OSError:
-                pass
-            return True
-    return False
+            except OSError as e:
+                print(f"Warning: could not remove old config file {old_config_file}: {e}", file=sys.stderr)
 
 
 def check_for_updates(plugin_dir, config_filename, plugin_name=None):
