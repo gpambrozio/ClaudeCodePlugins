@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.1",
+            "changes": "Restored auto-update hook; version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory"
+        },
+        {
             "version": "0.5.0",
             "changes": "Build isolation sandbox: CLI builds now use isolated DerivedData and SPM cache via wrapper scripts, preventing conflicts with Xcode. Always active — transparent when Xcode MCP handles builds, automatic when falling back to CLI."
         },
