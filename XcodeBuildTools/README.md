@@ -61,6 +61,13 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.1
+- Restored auto-update hook
+- Version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory
+
+### 0.5.0
+- Build isolation sandbox: CLI builds use isolated DerivedData and SPM cache via wrapper scripts
+
 ### 0.4.1
 - Removed auto-update hook from SessionStart
 

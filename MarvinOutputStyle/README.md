@@ -108,6 +108,10 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.3.0
+- Restored auto-update hook
+- Version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory
+
 ### 1.2.9
 - Removed auto-update hook from SessionStart
 

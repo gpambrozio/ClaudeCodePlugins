@@ -8,6 +8,7 @@ and returns changelog information for any new versions.
 
 import json
 import os
+import sys
 
 
 def parse_version(version_str):
@@ -56,13 +57,47 @@ def save_json_file(file_path, data):
         return False
 
 
+def migrate_config_from_project_dir(config_filename, new_config_file):
+    """
+    Migrate a config file from the old .claude/ project directory to the new
+    CLAUDE_PLUGIN_DATA location, if it exists and hasn't been migrated yet.
+
+    Args:
+        config_filename: Name of the config file (e.g., "testPlugin.json")
+        new_config_file: Full path to the new config file location
+    """
+    # Sanitize config_filename to prevent path traversal
+    if os.sep in config_filename or '/' in config_filename:
+        return
+
+    if os.path.exists(new_config_file):
+        return
+
+    project_path = os.environ.get('CLAUDE_PROJECT_DIR', '')
+    if not project_path:
+        return
+
+    old_config_file = os.path.join(project_path, ".claude", config_filename)
+    if not os.path.exists(old_config_file):
+        return
+
+    # Migrate: copy old config to new location, then remove old file
+    old_data = load_json_file(old_config_file)
+    if old_data is not None:
+        if save_json_file(new_config_file, old_data):
+            try:
+                os.remove(old_config_file)
+            except OSError as e:
+                print(f"Warning: could not remove old config file {old_config_file}: {e}", file=sys.stderr)
+
+
 def check_for_updates(plugin_dir, config_filename, plugin_name=None):
     """
     Check for plugin updates and return changelog if there are new versions.
 
     Args:
         plugin_dir: Path to the plugin directory (containing info.json)
-        config_filename: Name of the config file to store in .claude/ (e.g., "testPlugin.json")
+        config_filename: Name of the config file to store in CLAUDE_PLUGIN_DATA (e.g., "testPlugin.json")
         plugin_name: Optional name for the changelog header (defaults to "Plugin")
 
     Returns:
@@ -70,16 +105,18 @@ def check_for_updates(plugin_dir, config_filename, plugin_name=None):
                changelog (empty string if no updates) and updated is a boolean
                indicating whether the config was updated
     """
-    project_path = os.environ.get('CLAUDE_PROJECT_DIR', '')
-    if not project_path:
+    data_dir = os.environ.get('CLAUDE_PLUGIN_DATA', '')
+    if not data_dir:
         return "", False
 
     info_file = os.path.join(plugin_dir, "info.json")
     if not os.path.exists(info_file):
         return "", False
 
-    claude_dir = os.path.join(project_path, ".claude")
-    config_file = os.path.join(claude_dir, config_filename)
+    config_file = os.path.join(data_dir, config_filename)
+
+    # Migrate from old .claude/ project directory if needed
+    migrate_config_from_project_dir(config_filename, config_file)
 
     # Load plugin info and extract versions list
     plugin_info = load_json_file(info_file) or {}
