@@ -6,6 +6,17 @@ The `XcodeBuildTools` plugin provides specialized tools for Xcode build and test
 
 **IMPORTANT**: Whenever you need to build or test an Xcode project/workspace, compile or test Swift packages, or anytime you would use `swift`/`xcodebuild` commands, **always** use the `xcodebuild` skill instead. This skill provides token-efficient, AI-friendly compilation output.
 
+## Build Isolation
+
+Each session gets an isolated build sandbox keyed by `$PPID`. **Always use the sandbox wrappers** instead of bare `xcodebuild` or `swift` commands:
+
+```
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild ...
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build ...
+```
+
+This ensures DerivedData and SPM caches are isolated from Xcode and from other Claude sessions. The sandbox wrappers transparently inject `-derivedDataPath`, `-clonedSourcePackagesDirPath`, and `--cache-path` flags — no other changes to your commands are needed.
+
 <!-- IF_XCODE_MCP -->
 ## Xcode MCP Tool Delegation
 

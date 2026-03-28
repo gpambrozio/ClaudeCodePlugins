@@ -24,6 +24,7 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 5. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
 6. **Capture full output just in case** `xcsift` only outputs the most important build information but in some cases you might need to inspect the full output of `xcodebuild`. When using `xcsift` always `tee` to a temporary file and use it if `xcsift`'s output is not enough. In the examples below the path to the temporary file is an example, use what you think is the most appropriate location.
 7. **Always use workspace when building** Always use the `-workspace` flag to build, never `-project`
+8. **Always use the sandbox** Use `$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild` instead of bare `xcodebuild`. This isolates DerivedData and SPM caches from Xcode.
 
 ## Build Command Examples
 
@@ -35,24 +36,24 @@ These are examples of common operation. Feel free to change them but always reme
 xcrun simctl list devices available
 
 # Build
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 ```
 
 ### Physical Device
 ```bash
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<device-udid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'id=<device-udid>' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 ```
 
 ### macOS
 ```bash
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee /tmp/build.log | xcsift --format toon --warnings --executable
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyApp -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 ```
 
 ### Clean
 ```bash
-xcodebuild -workspace MyApp.xcworkspace -scheme MyApp clean 2>&1 | xcsift --format toon
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyApp clean 2>&1 | xcsift --format toon
 ```
 
 ## Output
 
-`xcsift --format toon --warnings --executable` returns token-optimized output with errors, warnings, and notes. Check `/tmp/build.log` for full output if needed.
+`xcsift --format toon --warnings --executable` returns token-optimized output with errors, warnings, and notes. Check `${TMPDIR:-/tmp}/build.log` for full output if needed.
