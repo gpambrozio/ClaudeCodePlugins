@@ -61,6 +61,9 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.2
+- Add `--executable` flag to xcsift in `swift-package` and `xcode-test` skills for consistent executable path output across all skills
+
 ### 0.5.1
 - Restored auto-update hook
 - Version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory

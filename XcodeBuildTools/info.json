@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.2",
+            "changes": "Add --executable flag to xcsift in swift-package and xcode-test skills for consistent executable path output"
+        },
+        {
             "version": "0.5.1",
             "changes": "Restored auto-update hook; version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory"
         },
