@@ -21,16 +21,16 @@ For build/test output parsing: `brew install xcsift`
 cd /path/to/package
 
 # Build
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 
 # Build release
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 
 # Test
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 
 # Test with filter
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 ```
 
 ## Run & Process Management
@@ -56,4 +56,4 @@ $(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift package clean
 rm -rf /path/to/package/.build
 ```
 
-Output from `xcsift --format toon`: token-optimized output with errors and warnings. Check log files for full output.
+Output from `xcsift --format toon --executable`: token-optimized output with errors, warnings, and executable path. Check log files for full output.

@@ -7,7 +7,7 @@ description: Run Xcode unit tests and UI tests using xcodebuild with xcsift for 
 
 # Xcode Test
 
-Run unit and UI tests with `xcodebuild test` and `xcsift --format toon`.
+Run unit and UI tests with `xcodebuild test` and `xcsift --format toon --executable`.
 
 ## Prerequisites
 
@@ -25,22 +25,22 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 
 ### iOS Simulator Tests
 ```bash
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 ```
 
 ### macOS Tests
 ```bash
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'platform=macOS' -skipMacroValidation -skipPackagePluginValidation test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 ```
 
 ### Run Specific Tests
 ```bash
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -only-testing:MyAppTests/LoginTests/testLoginSuccess test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild -workspace MyApp.xcworkspace -scheme MyAppTests -destination 'id=<simulator-uuid>' -only-testing:MyAppTests/LoginTests/testLoginSuccess test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 ```
 
 ### Skip Specific Tests
 ```bash
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --format toon --warnings
+$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/xcodebuild ... -skip-testing:MyAppTests/SlowTests test 2>&1 | xcsift --format toon --warnings --executable
 ```
 
 ## Test Specification Format
