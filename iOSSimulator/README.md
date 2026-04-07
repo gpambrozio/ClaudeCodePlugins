@@ -101,6 +101,9 @@ Claude can view screenshots! The recommended workflow:
 
 ## Changelog
 
+### 0.6.3
+- Removed auto-update hook from SessionStart to prevent configuration issues
+
 ### 0.6.2
 - Restored auto-update hook
 - Version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory

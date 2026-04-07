@@ -13,6 +13,10 @@
     ],
     "versions": [
         {
+            "version": "0.6.3",
+            "changes": "Removed auto-update hook from SessionStart to prevent configuration issues"
+        },
+        {
             "version": "0.6.2",
             "changes": "Restored auto-update hook; version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory"
         },

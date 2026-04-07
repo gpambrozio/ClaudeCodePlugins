@@ -2,6 +2,10 @@
     "skills": [],
     "versions": [
         {
+            "version": "0.2.10",
+            "changes": "Removed auto-update hook from SessionStart to prevent configuration issues"
+        },
+        {
             "version": "0.2.9",
             "changes": "Restored auto-update hook; version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory"
         },

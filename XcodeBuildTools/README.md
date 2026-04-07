@@ -61,6 +61,9 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.3
+- Removed auto-update hook from SessionStart to prevent configuration issues
+
 ### 0.5.2
 - Add `--executable` flag to xcsift in `swift-package` and `xcode-test` skills for consistent executable path output across all skills
 

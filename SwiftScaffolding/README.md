@@ -29,6 +29,9 @@ Use the `/scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 
+### 0.4.1
+- Removed auto-update hook from SessionStart to prevent configuration issues
+
 ### 0.4.0
 - Restored auto-update hook
 - Version tracking now uses CLAUDE_PLUGIN_DATA with migration from old .claude/ directory
