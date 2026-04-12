@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# xcodebuild wrapper — Injects sandbox isolation flags
+#
+# Reads the per-session sandbox path from the pointer file written by
+# setup-sandbox.sh, then execs the real xcodebuild with -derivedDataPath
+# and -clonedSourcePackagesDirPath so CLI builds use isolated storage.
+#
+# On first invocation, seeds the sandbox SPM cache from the system cache
+# using APFS copy-on-write clones (zero extra disk until writes diverge).
+
+set -euo pipefail
+
+SESSION_PID="${PPID:-$$}"
+PATH_FILE="${TMPDIR:-/tmp}/claude-sandbox-$SESSION_PID"
+
+if [[ ! -f "$PATH_FILE" ]]; then
+    # No sandbox — pass through to real xcodebuild
+    exec /usr/bin/xcodebuild "$@"
+fi
+
+SANDBOX_BASE=$(cat "$PATH_FILE")
+SANDBOX_BUILD="$SANDBOX_BASE/build"
+SANDBOX_PKGS="$SANDBOX_BASE/packages"
+
+# Lazy SPM cache seeding — only on first build
+if [[ ! -f "$SANDBOX_PKGS/.seeded" ]]; then
+    system_spm="$HOME/Library/Caches/org.swift.swiftpm"
+    if [[ -d "$system_spm" ]]; then
+        cp -cpR "$system_spm/" "$SANDBOX_PKGS/" 2>/dev/null || true
+    fi
+    touch "$SANDBOX_PKGS/.seeded"
+fi
+
+exec /usr/bin/xcodebuild \
+    -derivedDataPath "$SANDBOX_BUILD" \
+    -clonedSourcePackagesDirPath "$SANDBOX_PKGS" \
+    "$@"
