@@ -61,6 +61,11 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.4
+- Sandbox wrappers are now static `bin/xcodebuild-sandbox` and `bin/swift-sandbox` scripts (added to PATH automatically), replacing dynamically generated scripts in `$TMPDIR`
+- Added `SessionEnd` hook (`teardown-sandbox.sh`) to clean up sandbox directories when the session ends
+- Simplified `setup-sandbox.sh` — only creates directories and pointer file
+
 ### 0.5.3
 - Removed auto-update hook from SessionStart to prevent configuration issues
 
