@@ -2,28 +2,29 @@
 #
 # swift wrapper — Injects sandbox isolation for SPM subcommands
 #
-# Reads the per-session sandbox path from the pointer file written by
-# setup-sandbox.sh, then injects --cache-path for subcommands that accept
-# SwiftPM flags (build, test, run). Other subcommands pass through unmodified.
+# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (set by
+# the PreToolUse inject-session-id.py hook), then injects --cache-path
+# for subcommands that accept SwiftPM flags (build, test, run). Other
+# subcommands pass through unmodified.
 #
 # On first build invocation, seeds the sandbox SPM cache from the system
 # cache using APFS copy-on-write clones (zero extra disk until writes diverge).
 
 set -euo pipefail
 
-SESSION_PID="${PPID:-$$}"
-PATH_FILE="${TMPDIR:-/tmp}/claude-sandbox-$SESSION_PID"
+SESSION_ID="${CLAUDE_SESSION_ID:-}"
 
-if [[ ! -f "$PATH_FILE" ]]; then
-    # No sandbox — pass through to real swift
+if [[ -z "$SESSION_ID" ]]; then
+    echo "[swift-sandbox] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
     exec /usr/bin/swift "$@"
 fi
 
-SANDBOX_BASE=$(cat "$PATH_FILE")
+SANDBOX_BASE="${TMPDIR:-/tmp}/claude-sandbox/$SESSION_ID"
 SANDBOX_PKGS="$SANDBOX_BASE/packages"
 
 case "${1:-}" in
     build|test|run)
+        mkdir -p "$SANDBOX_PKGS"
         # Lazy SPM cache seeding — only on first build
         if [[ ! -f "$SANDBOX_PKGS/.seeded" ]]; then
             system_spm="$HOME/Library/Caches/org.swift.swiftpm"

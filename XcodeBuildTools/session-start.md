@@ -8,7 +8,7 @@ The `XcodeBuildTools` plugin provides specialized tools for Xcode build and test
 
 ## Build Isolation
 
-Each session gets an isolated build sandbox keyed by `$PPID`. **Always use the sandbox wrappers** instead of bare `xcodebuild` or `swift` commands:
+Each session gets an isolated build sandbox keyed by its Claude session ID. **Always use the sandbox wrappers** instead of bare `xcodebuild` or `swift` commands:
 
 ```
 xcodebuild-sandbox ...

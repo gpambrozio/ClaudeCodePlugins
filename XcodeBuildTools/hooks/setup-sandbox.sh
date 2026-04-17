@@ -4,60 +4,36 @@
 #
 # Creates per-session sandbox directories for DerivedData and SPM cache,
 # isolating CLI builds from Xcode's own storage. The wrapper scripts in
-# bin/ (xcodebuild, swift) read the sandbox path at runtime and inject
-# the appropriate isolation flags.
+# bin/ (xcodebuild-sandbox, swift-sandbox) read $CLAUDE_SESSION_ID at
+# runtime and inject the appropriate isolation flags.
 #
-# Each Claude Code session gets its own sandbox keyed by PPID (the Claude
-# process PID). Multiple sessions can build concurrently without conflicts.
+# Each Claude Code session gets its own sandbox keyed by the session ID
+# from the SessionStart hook's stdin payload. The same ID is propagated
+# into Bash tool invocations by hooks/inject-session-id.py, which makes
+# it stable across contexts (unlike $PPID).
 #
-# The sandbox lives under $TMPDIR so it auto-cleans on reboot — no stale
-# build artifacts survive a restart even if PID-based cleanup misses them.
-#
-# Runs as a SessionStart hook. Cleaned up by teardown-sandbox.sh on SessionEnd.
+# The sandbox lives under $TMPDIR so it auto-cleans on reboot; macOS
+# also purges $TMPDIR entries untouched for 3+ days. The SessionEnd hook
+# (teardown-sandbox.sh) handles explicit cleanup.
 
 set -euo pipefail
 
-# --- Per-session sandbox paths ---
-SESSION_PID="${PPID:-$$}"
-SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
-SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_PID"
-SANDBOX_BUILD="$SANDBOX_BASE/build"
-SANDBOX_PKGS="$SANDBOX_BASE/packages"
+# --- Read session_id from hook stdin payload ---
+input=$(cat)
+SESSION_ID=$(printf '%s' "$input" | /usr/bin/python3 -c \
+    'import sys,json; print(json.load(sys.stdin).get("session_id",""))')
 
-# --- Clean up stale sessions ---
-# Iterate all PID dirs under claude-sandbox/. If the owning process is dead
-# (or the PID was reused by a non-Claude process), remove that session's sandbox.
-if [[ -d "$SANDBOX_ROOT" ]]; then
-    for session_dir in "$SANDBOX_ROOT"/*/; do
-        [[ -d "$session_dir" ]] || continue
-        pid=$(basename "$session_dir")
-        # Skip non-numeric directory names
-        [[ "$pid" =~ ^[0-9]+$ ]] || continue
-        # Skip our own session
-        [[ "$pid" == "$SESSION_PID" ]] && continue
+if [[ -z "$SESSION_ID" ]]; then
+    echo "[setup-sandbox] Error: no session_id in hook payload" >&2
+    exit 0
+fi
 
-        is_alive=false
-        if kill -0 "$pid" 2>/dev/null; then
-            pid_cmd=$(ps -o command= -p "$pid" 2>/dev/null || echo "")
-            if [[ "$pid_cmd" == *claude* || "$pid_cmd" == *node* ]]; then
-                is_alive=true
-            fi
-        fi
-
-        if [[ "$is_alive" == "false" ]]; then
-            rm -rf "$session_dir"
-            rm -f "${TMPDIR:-/tmp}/claude-sandbox-$pid"
-        fi
-    done
+# Validate session ID shape — defensive, protects downstream rm -rf
+if ! [[ "$SESSION_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "[setup-sandbox] Error: invalid session_id: $SESSION_ID" >&2
+    exit 0
 fi
 
 # --- Create sandbox directories ---
-mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS"
-
-# --- Write path file for skill file discovery ---
-# Skill files use $(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID)) to find the sandbox.
-# NOTE: $(echo $PPID) instead of bare $PPID is intentional — $PPID expands to
-# empty in command position when used with pipes in Claude Code's zsh eval.
-# This indirection lets the hook respect custom DerivedData locations while
-# keeping skill file paths stable.
-echo "$SANDBOX_BASE" > "${TMPDIR:-/tmp}/claude-sandbox-$SESSION_PID"
+SANDBOX_BASE="${TMPDIR:-/tmp}/claude-sandbox/$SESSION_ID"
+mkdir -p "$SANDBOX_BASE/build" "$SANDBOX_BASE/packages"

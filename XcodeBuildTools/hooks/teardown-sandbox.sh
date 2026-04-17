@@ -1,26 +1,27 @@
 #!/bin/bash
 #
-# teardown-sandbox.sh — Remove isolated Xcode build environment on session stop
+# teardown-sandbox.sh — Remove isolated Xcode build environment on session end
 #
-# Cleans up the per-session sandbox created by setup-sandbox.sh:
-#   - ${TMPDIR}/claude-sandbox/$PPID/  (build, packages, bin directories)
-#   - ${TMPDIR}/claude-sandbox-$PPID   (path pointer file)
-#
-# Runs as a Stop hook.
+# Reads session_id from the SessionEnd hook stdin payload and removes the
+# matching $TMPDIR/claude-sandbox/<session_id>/ directory created by
+# setup-sandbox.sh.
 
 set -euo pipefail
 
-SESSION_PID="${PPID:-$$}"
-SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
-SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_PID"
-PATH_FILE="${TMPDIR:-/tmp}/claude-sandbox-$SESSION_PID"
+input=$(cat)
+SESSION_ID=$(printf '%s' "$input" | /usr/bin/python3 -c \
+    'import sys,json; print(json.load(sys.stdin).get("session_id",""))')
 
-# Remove session sandbox directory
-if [[ -d "$SANDBOX_BASE" ]]; then
-    rm -rf "$SANDBOX_BASE"
+if [[ -z "$SESSION_ID" ]]; then
+    exit 0
 fi
 
-# Remove path pointer file
-if [[ -f "$PATH_FILE" ]]; then
-    rm -f "$PATH_FILE"
+# Validate session ID shape before using it in a path for rm -rf
+if ! [[ "$SESSION_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    exit 0
+fi
+
+SANDBOX_BASE="${TMPDIR:-/tmp}/claude-sandbox/$SESSION_ID"
+if [[ -d "$SANDBOX_BASE" ]]; then
+    rm -rf "$SANDBOX_BASE"
 fi
