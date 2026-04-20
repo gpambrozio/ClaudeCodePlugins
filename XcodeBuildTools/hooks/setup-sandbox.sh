@@ -2,122 +2,125 @@
 #
 # setup-sandbox.sh — Create isolated Xcode build environment (per-session)
 #
-# Creates wrapper scripts for xcodebuild and swift that transparently inject
-# -derivedDataPath / -clonedSourcePackagesDirPath / --cache-path flags,
-# isolating CLI builds from Xcode's own DerivedData and SPM cache.
+# Creates per-session sandbox directories for DerivedData and SPM cache,
+# isolating CLI builds from Xcode's own storage. The wrapper scripts in
+# bin/ (xcodebuild-sandbox, swift-sandbox) read $CLAUDE_SESSION_ID at
+# runtime and inject the appropriate isolation flags.
 #
-# Each Claude Code session gets its own sandbox keyed by PPID (the Claude
-# process PID). Multiple sessions can build concurrently without conflicts.
+# Each Claude Code session gets its own sandbox keyed by the session ID
+# from the SessionStart hook's stdin payload. The same ID is propagated
+# into Bash tool invocations by hooks/inject-session-id.py, which makes
+# it stable across contexts (unlike $PPID).
 #
-# The sandbox lives under $TMPDIR so it auto-cleans on reboot — no stale
-# build artifacts survive a restart even if PID-based cleanup misses them.
+# The sandbox lives under $TMPDIR so it auto-cleans on reboot; macOS
+# also purges $TMPDIR entries untouched for 3+ days. The SessionEnd hook
+# (teardown-sandbox.py) handles explicit cleanup for logout/exit reasons
+# but is skipped for /clear — on /clear, Claude Code keeps running
+# (same $PPID) and just resets conversation state, so this script
+# inherits the prior session's sandbox by renaming it to the new
+# session_id rather than creating a fresh one.
 #
-# Runs as a SessionStart hook.
+# As a safety net for sessions that exit without firing SessionEnd
+# (crashes, force-quit), this script also sweeps peer sandbox
+# directories whose owner PID is dead or has been recycled to a
+# different process.
 
 set -euo pipefail
 
-# --- Locate Xcode's DerivedData ---
-# Respect custom DerivedData location if the developer configured one.
-CUSTOM_DD=$(defaults read com.apple.dt.Xcode IDECustomDerivedDataLocation 2>/dev/null || echo "")
-if [[ -n "$CUSTOM_DD" ]]; then
-    DERIVED_DATA="$CUSTOM_DD"
-else
-    DERIVED_DATA="$HOME/Library/Developer/Xcode/DerivedData"
+# --- Read session_id from hook stdin payload ---
+input=$(cat)
+SESSION_ID=$(printf '%s' "$input" | /usr/bin/python3 -c \
+    'import sys,json; print(json.load(sys.stdin).get("session_id",""))')
+
+if [[ -z "$SESSION_ID" ]]; then
+    echo "[setup-sandbox] Error: no session_id in hook payload" >&2
+    exit 0
 fi
 
-# --- Per-session sandbox paths ---
-SESSION_PID="${PPID:-$$}"
+# Validate session ID shape — defensive, protects downstream rm -rf
+if ! [[ "$SESSION_ID" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "[setup-sandbox] Error: invalid session_id: $SESSION_ID" >&2
+    exit 0
+fi
+
 SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
-SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_PID"
-SANDBOX_BUILD="$SANDBOX_BASE/build"
-SANDBOX_PKGS="$SANDBOX_BASE/packages"
-SANDBOX_BIN="$SANDBOX_BASE/bin"
+SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_ID"
 
-# --- Clean up stale sessions ---
-# Iterate all PID dirs under claude-sandbox/. If the owning process is dead
-# (or the PID was reused by a non-Claude process), remove that session's sandbox.
+# --- Inherit prior session's sandbox on /clear ---
+# $PPID in a SessionStart hook is Claude itself (no intermediate shell
+# — that was the Bash-tool context's problem, not ours). After /clear,
+# Claude is the same process, so any peer dir whose owner.pid matches
+# our PID belongs to us and should be renamed to the new session_id
+# instead of being recreated. Same-filesystem mv is O(1).
+existing=""
 if [[ -d "$SANDBOX_ROOT" ]]; then
-    for session_dir in "$SANDBOX_ROOT"/*/; do
-        [[ -d "$session_dir" ]] || continue
-        pid=$(basename "$session_dir")
-        # Skip non-numeric directory names
-        [[ "$pid" =~ ^[0-9]+$ ]] || continue
-        # Skip our own session
-        [[ "$pid" == "$SESSION_PID" ]] && continue
-
-        is_alive=false
-        if kill -0 "$pid" 2>/dev/null; then
-            pid_cmd=$(ps -o command= -p "$pid" 2>/dev/null || echo "")
-            if [[ "$pid_cmd" == *claude* || "$pid_cmd" == *node* ]]; then
-                is_alive=true
-            fi
-        fi
-
-        if [[ "$is_alive" == "false" ]]; then
-            rm -rf "$session_dir"
-            rm -f "${TMPDIR:-/tmp}/claude-sandbox-$pid"
+    for peer in "$SANDBOX_ROOT"/*; do
+        [[ -d "$peer" ]] || continue
+        [[ -f "$peer/owner.pid" ]] || continue
+        peer_pid=""
+        { read -r peer_pid; } < "$peer/owner.pid" 2>/dev/null || continue
+        if [[ "$peer_pid" == "$PPID" ]]; then
+            existing="$peer"
+            break
         fi
     done
 fi
 
-# --- Create sandbox directories ---
-mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS" "$SANDBOX_BIN"
-
-# --- Write path file for skill file discovery ---
-# Skill files use $(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID)) to find the sandbox.
-# NOTE: $(echo $PPID) instead of bare $PPID is intentional — $PPID expands to
-# empty in command position when used with pipes in Claude Code's zsh eval.
-# This indirection lets the hook respect custom DerivedData locations while
-# keeping skill file paths stable.
-echo "$SANDBOX_BASE" > "${TMPDIR:-/tmp}/claude-sandbox-$SESSION_PID"
-
-# --- Lazy SPM cache seeding helper ---
-# Written into wrapper scripts so the APFS clone only runs on first build,
-# not on every session start. cp -c creates copy-on-write clones on APFS
-# (zero extra disk until writes diverge); silently skipped on non-APFS volumes.
-SEED_SPM_SNIPPET=$(cat << 'SEED'
-if [[ ! -f "SANDBOX_PKGS/.seeded" ]]; then
-    system_spm="$HOME/Library/Caches/org.swift.swiftpm"
-    if [[ -d "$system_spm" ]]; then
-        cp -cpR "$system_spm/" "SANDBOX_PKGS/" 2>/dev/null || true
-    fi
-    touch "SANDBOX_PKGS/.seeded"
+if [[ -n "$existing" && "$existing" != "$SANDBOX_BASE" ]]; then
+    # Target shouldn't exist (session_ids are unique), but be defensive.
+    [[ -e "$SANDBOX_BASE" ]] && rm -rf -- "$SANDBOX_BASE"
+    mv "$existing" "$SANDBOX_BASE"
 fi
-SEED
-)
-# Substitute the actual sandbox packages path into the snippet
-SEED_SPM_SNIPPET="${SEED_SPM_SNIPPET//SANDBOX_PKGS/$SANDBOX_PKGS}"
 
-# --- Create xcodebuild wrapper ---
-# Injects -derivedDataPath and -clonedSourcePackagesDirPath so CLI builds
-# use isolated storage instead of Xcode's default DerivedData.
-# Seeds SPM cache from system cache on first invocation.
-cat > "$SANDBOX_BIN/xcodebuild" << WRAPPER
-#!/bin/bash
-$SEED_SPM_SNIPPET
-exec /usr/bin/xcodebuild \\
-    -derivedDataPath "$SANDBOX_BUILD" \\
-    -clonedSourcePackagesDirPath "$SANDBOX_PKGS" \\
-    "\$@"
-WRAPPER
-chmod +x "$SANDBOX_BIN/xcodebuild"
+# --- Ensure sandbox dirs and owner.pid marker are in place ---
+# The hook is marked async in hooks.json so Claude doesn't wait for the
+# peer sweep; creating build/packages and writing owner.pid *before* the
+# sweep guarantees the wrappers find everything they need even if a Bash
+# tool fires while the sweep is still running. The marker also closes
+# the window where a racing sibling setup could see our dir without
+# owner.pid and treat it as abandoned.
+# Line 1: PID. Line 2: `ps -o comm=` output for PID-recycling detection.
+mkdir -p "$SANDBOX_BASE/build" "$SANDBOX_BASE/packages"
+{
+    printf '%s\n' "$PPID"
+    ps -p "$PPID" -o comm= 2>/dev/null || true
+} > "$SANDBOX_BASE/owner.pid"
 
-# --- Create swift wrapper (subcommand-aware) ---
-# Only injects --cache-path for subcommands that accept SwiftPM flags
-# (build, test, run). Other subcommands (package, repl, --version) pass through.
-# Seeds SPM cache from system cache on first build invocation.
-cat > "$SANDBOX_BIN/swift" << WRAPPER
-#!/bin/bash
-case "\${1:-}" in
-    build|test|run)
-        $SEED_SPM_SNIPPET
-        exec /usr/bin/swift "\$@" \\
-            --cache-path "$SANDBOX_PKGS"
-        ;;
-    *)
-        exec /usr/bin/swift "\$@"
-        ;;
-esac
-WRAPPER
-chmod +x "$SANDBOX_BIN/swift"
+# --- Sweep stale peer sandboxes (dead or recycled owner PIDs) ---
+# Peers without an owner.pid are skipped — either legacy dirs from
+# before this change or a racing setup mid-write. macOS' 3-day $TMPDIR
+# purge collects them eventually.
+if [[ -d "$SANDBOX_ROOT" ]]; then
+    for peer in "$SANDBOX_ROOT"/*; do
+        [[ -d "$peer" ]] || continue
+        [[ "$peer" == "$SANDBOX_BASE" ]] && continue
 
+        peer_pid_file="$peer/owner.pid"
+        [[ -f "$peer_pid_file" ]] || continue
+
+        peer_pid=""
+        peer_comm=""
+        { read -r peer_pid && IFS= read -r peer_comm; } \
+            < "$peer_pid_file" 2>/dev/null || continue
+        [[ "$peer_pid" =~ ^[0-9]+$ ]] || continue
+
+        # Dead PID → sweep.
+        if ! kill -0 "$peer_pid" 2>/dev/null; then
+            rm -rf -- "$peer"
+            continue
+        fi
+
+        # Owned by *us* but isn't our current sandbox — duplicate left
+        # over from an earlier /clear whose rename never completed.
+        if [[ "$peer_pid" == "$PPID" ]]; then
+            rm -rf -- "$peer"
+            continue
+        fi
+
+        # Live PID but recycled to a different process → sweep.
+        current_comm=$(ps -p "$peer_pid" -o comm= 2>/dev/null || true)
+        if [[ "$current_comm" != "$peer_comm" ]]; then
+            rm -rf -- "$peer"
+        fi
+    done
+fi

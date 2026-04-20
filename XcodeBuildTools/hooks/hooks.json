@@ -9,12 +9,24 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/setup-sandbox.sh"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/setup-sandbox.sh",
+            "async": true
           },
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/approve-xcode-mcp.sh",
             "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "logout|prompt_input_exit|other",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/teardown-sandbox.py"
           }
         ]
       }
@@ -26,6 +38,15 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/common/pre-tool-use.py XcodeBuildTools"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/inject-session-id.py"
           }
         ]
       }

@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.4",
+            "changes": "Static sandbox wrappers (bin/xcodebuild-sandbox, bin/swift-sandbox) replace dynamically generated scripts; sandbox keyed by Claude session_id (injected via PreToolUse hook as $CLAUDE_SESSION_ID) instead of $PPID; added SessionEnd hook for sandbox cleanup"
+        },
+        {
             "version": "0.5.3",
             "changes": "Removed auto-update hook from SessionStart to prevent configuration issues"
         },

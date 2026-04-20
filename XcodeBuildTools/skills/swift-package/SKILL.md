@@ -15,22 +15,22 @@ For build/test output parsing: `brew install xcsift`
 
 ## Build & Test (with xcsift)
 
-**Always use the sandbox** Use `$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift` instead of bare `swift`. This isolates DerivedData and SPM caches from Xcode.
+**Always use the sandbox** Use `swift-sandbox` instead of bare `swift`. This isolates DerivedData and SPM caches from Xcode.
 
 ```bash
 cd /path/to/package
 
 # Build
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
+swift-sandbox build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 
 # Build release
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
+swift-sandbox build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 
 # Test
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
+swift-sandbox test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 
 # Test with filter
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
+swift-sandbox test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 ```
 
 ## Run & Process Management
@@ -50,7 +50,7 @@ scripts/swift-package-stop.py --pid <pid> [--force]
 
 ```bash
 # Clean build artifacts
-$(cat ${TMPDIR:-/tmp}/claude-sandbox-$(echo $PPID))/bin/swift package clean
+swift-sandbox package clean
 
 # Or remove .build directory directly
 rm -rf /path/to/package/.build
