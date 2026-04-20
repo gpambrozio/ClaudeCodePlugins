@@ -61,6 +61,9 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.5
+- `inject-session-id` PreToolUse hook now only exports `CLAUDE_SESSION_ID` when a Bash command actually references `xcodebuild-sandbox` or `swift-sandbox` — no more prefixing every unrelated Bash invocation
+
 ### 0.5.4
 - Sandbox wrappers are now static `bin/xcodebuild-sandbox` and `bin/swift-sandbox` scripts (added to PATH automatically), replacing dynamically generated scripts in `$TMPDIR`
 - Sandbox keyed by Claude session ID (`$CLAUDE_SESSION_ID`, injected into every Bash invocation via a `PreToolUse` hook) instead of `$PPID` — the latter is not stable across hook and Bash-tool execution contexts

@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.5",
+            "changes": "inject-session-id PreToolUse hook now only exports CLAUDE_SESSION_ID when a Bash command references xcodebuild-sandbox or swift-sandbox, instead of prefixing every Bash command"
+        },
+        {
             "version": "0.5.4",
             "changes": "Static sandbox wrappers (bin/xcodebuild-sandbox, bin/swift-sandbox) replace dynamically generated scripts; sandbox keyed by Claude session_id (injected via PreToolUse hook as $CLAUDE_SESSION_ID) instead of $PPID; added SessionEnd hook for sandbox cleanup"
         },

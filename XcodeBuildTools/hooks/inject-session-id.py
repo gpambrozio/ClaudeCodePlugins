@@ -14,6 +14,12 @@ import json
 import re
 import sys
 
+# Match xcodebuild-sandbox / swift-sandbox only when they appear as a
+# standalone token (not as a substring of something like my-swift-sandbox).
+SANDBOX_BIN_RE = re.compile(
+    r"(?:^|[^A-Za-z0-9_-])(?:xcodebuild-sandbox|swift-sandbox)(?:$|[^A-Za-z0-9_-])"
+)
+
 
 def main():
     try:
@@ -30,6 +36,9 @@ def main():
 
         command = input_data.get("tool_input", {}).get("command", "")
         if not command:
+            sys.exit(0)
+
+        if not SANDBOX_BIN_RE.search(command):
             sys.exit(0)
 
         new_command = f"export CLAUDE_SESSION_ID='{session_id}'; {command}"
