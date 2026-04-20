@@ -40,13 +40,17 @@ fi
 SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
 SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_ID"
 
-# --- Claim the sandbox dir with an owner PID marker before anything else ---
-# Writing the marker *before* the peer sweep closes the window where a
-# racing sibling setup could see our dir without owner.pid and treat it
-# as abandoned. $PPID in a SessionStart hook is Claude itself (no
-# intermediate shell — that was the Bash-tool context's problem, not ours).
+# --- Create sandbox dirs and claim with an owner PID marker ---
+# The hook is marked async in hooks.json so Claude doesn't wait for the
+# peer sweep; creating build/packages and writing owner.pid *before* the
+# sweep guarantees the wrappers find everything they need even if a Bash
+# tool fires while the sweep is still running. Writing owner.pid before
+# the sweep also closes the window where a racing sibling setup could
+# see our dir without a marker and treat it as abandoned. $PPID in a
+# SessionStart hook is Claude itself (no intermediate shell — that was
+# the Bash-tool context's problem, not ours).
 # Line 1: PID. Line 2: `ps -o comm=` output for PID-recycling detection.
-mkdir -p "$SANDBOX_BASE"
+mkdir -p "$SANDBOX_BASE/build" "$SANDBOX_BASE/packages"
 {
     printf '%s\n' "$PPID"
     ps -p "$PPID" -o comm= 2>/dev/null || true
@@ -83,6 +87,3 @@ if [[ -d "$SANDBOX_ROOT" ]]; then
         fi
     done
 fi
-
-# --- Create sandbox subdirectories ---
-mkdir -p "$SANDBOX_BASE/build" "$SANDBOX_BASE/packages"
