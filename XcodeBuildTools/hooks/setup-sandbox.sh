@@ -14,10 +14,16 @@
 #
 # The sandbox lives under $TMPDIR so it auto-cleans on reboot; macOS
 # also purges $TMPDIR entries untouched for 3+ days. The SessionEnd hook
-# (teardown-sandbox.sh) handles explicit cleanup. As a safety net for
-# sessions that exit without firing SessionEnd (crashes, force-quit),
-# this script also sweeps peer sandbox directories whose owner PID is
-# dead or has been recycled to a different process.
+# (teardown-sandbox.py) handles explicit cleanup for logout/exit reasons
+# but is skipped for /clear — on /clear, Claude Code keeps running
+# (same $PPID) and just resets conversation state, so this script
+# inherits the prior session's sandbox by renaming it to the new
+# session_id rather than creating a fresh one.
+#
+# As a safety net for sessions that exit without firing SessionEnd
+# (crashes, force-quit), this script also sweeps peer sandbox
+# directories whose owner PID is dead or has been recycled to a
+# different process.
 
 set -euo pipefail
 
@@ -40,15 +46,39 @@ fi
 SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
 SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_ID"
 
-# --- Create sandbox dirs and claim with an owner PID marker ---
+# --- Inherit prior session's sandbox on /clear ---
+# $PPID in a SessionStart hook is Claude itself (no intermediate shell
+# — that was the Bash-tool context's problem, not ours). After /clear,
+# Claude is the same process, so any peer dir whose owner.pid matches
+# our PID belongs to us and should be renamed to the new session_id
+# instead of being recreated. Same-filesystem mv is O(1).
+existing=""
+if [[ -d "$SANDBOX_ROOT" ]]; then
+    for peer in "$SANDBOX_ROOT"/*; do
+        [[ -d "$peer" ]] || continue
+        [[ -f "$peer/owner.pid" ]] || continue
+        peer_pid=""
+        { read -r peer_pid; } < "$peer/owner.pid" 2>/dev/null || continue
+        if [[ "$peer_pid" == "$PPID" ]]; then
+            existing="$peer"
+            break
+        fi
+    done
+fi
+
+if [[ -n "$existing" && "$existing" != "$SANDBOX_BASE" ]]; then
+    # Target shouldn't exist (session_ids are unique), but be defensive.
+    [[ -e "$SANDBOX_BASE" ]] && rm -rf -- "$SANDBOX_BASE"
+    mv "$existing" "$SANDBOX_BASE"
+fi
+
+# --- Ensure sandbox dirs and owner.pid marker are in place ---
 # The hook is marked async in hooks.json so Claude doesn't wait for the
 # peer sweep; creating build/packages and writing owner.pid *before* the
 # sweep guarantees the wrappers find everything they need even if a Bash
-# tool fires while the sweep is still running. Writing owner.pid before
-# the sweep also closes the window where a racing sibling setup could
-# see our dir without a marker and treat it as abandoned. $PPID in a
-# SessionStart hook is Claude itself (no intermediate shell — that was
-# the Bash-tool context's problem, not ours).
+# tool fires while the sweep is still running. The marker also closes
+# the window where a racing sibling setup could see our dir without
+# owner.pid and treat it as abandoned.
 # Line 1: PID. Line 2: `ps -o comm=` output for PID-recycling detection.
 mkdir -p "$SANDBOX_BASE/build" "$SANDBOX_BASE/packages"
 {
@@ -76,6 +106,13 @@ if [[ -d "$SANDBOX_ROOT" ]]; then
 
         # Dead PID → sweep.
         if ! kill -0 "$peer_pid" 2>/dev/null; then
+            rm -rf -- "$peer"
+            continue
+        fi
+
+        # Owned by *us* but isn't our current sandbox — duplicate left
+        # over from an earlier /clear whose rename never completed.
+        if [[ "$peer_pid" == "$PPID" ]]; then
             rm -rf -- "$peer"
             continue
         fi
