@@ -87,7 +87,21 @@ When updating a plugin:
 1. Update version in plugin's `plugin.json`
 2. Update version in marketplace catalog entry (`.claude-plugin/marketplace.json`)
 3. Update `lastUpdated` timestamp in marketplace.json
-4. Document changes in plugin's README.md
+4. Document changes in plugin's README.md and the `versions` array in the plugin's `info.json`
+5. Commit and push the version bump
+6. Tag the release (see "Tagging Plugin Releases" below)
+
+### Tagging Plugin Releases
+
+Every version bump must be tagged so Claude Code can resolve it for plugin dependencies (https://code.claude.com/docs/en/plugin-dependencies#tag-plugin-releases-for-version-resolution).
+
+- **Tag format**: `{PluginName}--v{version}` — e.g. `XcodeBuildTools--v0.5.6`. `{PluginName}` must match the plugin's folder name and the `name` in `plugin.json` exactly; `{version}` must match the `version` in `plugin.json` at the tagged commit.
+- **What to tag**: the commit that contains the updated `plugin.json` version. For direct pushes to `main`, that's the bump commit itself. For PRs, tag after the PR merges — use the merge commit on `main` (or the squash commit) that carries the new version.
+- **Push the tag**: `git push origin {PluginName}--v{version}`. Tags are not pushed by default, so this is a separate step from `git push`.
+- **One tag per bumped plugin**: changes under `common/` affect every plugin; if you bump multiple plugins in one PR, create and push one tag per bumped plugin.
+- **Verify**: `git tag -l '{PluginName}*' --sort=-v:refname` should show the new tag; `git show {tag}:{PluginName}/.claude-plugin/plugin.json` should print the matching version.
+
+The `/update-plugin` skill automates these steps end-to-end.
 
 ### Testing Locally
 
@@ -195,13 +209,14 @@ if __name__ == "__main__":
 
 ## Git Workflow
 
-The repository uses amend-and-force-push for iterative commits:
+### Normal commits
 
-```bash
-# Make changes
-git add <files>
-git commit --amend --no-edit
-git push --force origin main
-```
+Commits usually land on `main` directly or via a PR merge. Amend-and-force-push (`git commit --amend --no-edit && git push --force origin main`) is only appropriate for WIP that hasn't been tagged or referenced elsewhere — never amend a commit that a release tag points at.
 
-This keeps a clean commit history during initial development.
+### Release tagging is mandatory
+
+Any commit that bumps a plugin's `version` in `plugin.json` must be followed by a `{PluginName}--v{version}` tag pushed to `origin`. See "Tagging Plugin Releases" above. This applies to:
+
+- **Direct pushes to `main`**: tag the bump commit immediately after `git push`.
+- **Merged PRs**: after the PR lands on `main`, tag the resulting merge/squash commit. Do not tag inside the PR branch — tags should live on `main`.
+- **Missed tags**: if a version bump was pushed without a tag, add the tag retroactively pointing at the historical bump commit (`git tag {tag} <sha> && git push origin {tag}`) rather than bumping the version again.
