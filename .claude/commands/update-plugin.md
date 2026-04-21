@@ -39,6 +39,14 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 7. **Commit the changes**
    - Commit the changes in the plugin's directory and main marketplace catalog
 
+8. **Tag the plugin release**
+   - After the commit lands, create a git tag so Claude Code can resolve this version when other plugins depend on it.
+   - Tag format: `{PluginName}--v{version}` (e.g., `SwiftDevelopment--v0.5.5`). The `{PluginName}` must match the plugin's folder name and the `name` field in `plugin.json` exactly, and `{version}` must match the `version` field in the `plugin.json` at that commit.
+   - The tag must point to the commit that contains the updated `plugin.json` version.
+   - Push the tag to the remote: `git push origin {PluginName}--v{version}`.
+   - If this update touched `common/` and bumped multiple plugins, create and push one tag per bumped plugin.
+   - Reference: https://code.claude.com/docs/en/plugin-dependencies#tag-plugin-releases-for-version-resolution
+
 ## Important Notes
 
 - Follow semantic versioning:
@@ -47,6 +55,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
   - PATCH version for backwards-compatible bug fixes
 - Ensure all JSON files remain valid after edits
 - The marketplace catalog and plugin manifest versions must match
+- The git tag version must also match (plugin.json version, marketplace.json version, and the `v{version}` portion of the tag are all the same string)
 - Each plugin has its own `hooks/hooks.json` file with unique command identifiers (plugin name baked into commands). When updating hooks:
   - The hook structure comes from `common/hooks.json` as reference
   - Each plugin's hooks.json must include the plugin name in commands (e.g., `${CLAUDE_PLUGIN_ROOT}/common/session-start.py PluginName`)
