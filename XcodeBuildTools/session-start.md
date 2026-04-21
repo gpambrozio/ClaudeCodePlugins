@@ -8,14 +8,14 @@ The `XcodeBuildTools` plugin provides specialized tools for Xcode build and test
 
 ## Build Isolation
 
-Each session gets an isolated build sandbox keyed by its Claude session ID. **Always use the sandbox wrappers** instead of bare `xcodebuild` or `swift` commands:
+Each session gets an isolated build sandbox keyed by its Claude session ID. The plugin ships sandboxing wrappers for `xcodebuild` and `swift` in its `bin/` directory, which is on `PATH` ahead of `/usr/bin`. Any invocation — direct (`xcodebuild ...`, `swift build ...`) or nested inside a build script (Makefile, fastlane, shell script) — is sandboxed transparently.
 
-```
-xcodebuild-sandbox ...
-swift-sandbox build ...
-```
+The wrappers inject `-derivedDataPath`, `-clonedSourcePackagesDirPath`, and `--cache-path` flags so DerivedData and SPM caches stay isolated from Xcode and from other Claude sessions. No changes to commands are needed.
 
-This ensures DerivedData and SPM caches are isolated from Xcode and from other Claude sessions. The sandbox wrappers transparently inject `-derivedDataPath`, `-clonedSourcePackagesDirPath`, and `--cache-path` flags — no other changes to your commands are needed.
+Two sandbox paths are also exported in every Bash invocation for scripts that need to reach into the sandbox without reconstructing the path formula:
+
+- `$SANDBOX_DERIVED_DATA` — DerivedData root (for built `.app` bundles, xcresult files, test bundles)
+- `$SANDBOX_PACKAGES` — cloned SPM packages / SwiftPM cache
 
 <!-- IF_XCODE_MCP -->
 ## Xcode MCP Tool Delegation

@@ -15,22 +15,22 @@ For build/test output parsing: `brew install xcsift`
 
 ## Build & Test (with xcsift)
 
-**Always use the sandbox** Use `swift-sandbox` instead of bare `swift`. This isolates DerivedData and SPM caches from Xcode.
+**Build isolation is automatic** The plugin ships a `swift` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the per-session sandbox. Just call `swift` normally.
 
 ```bash
 cd /path/to/package
 
 # Build
-swift-sandbox build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
+swift build 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 
 # Build release
-swift-sandbox build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
+swift build -c release 2>&1 | tee ${TMPDIR:-/tmp}/build.log | xcsift --format toon --warnings --executable
 
 # Test
-swift-sandbox test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
+swift test 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 
 # Test with filter
-swift-sandbox test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
+swift test --filter "testLogin" 2>&1 | tee ${TMPDIR:-/tmp}/test.log | xcsift --format toon --warnings --executable
 ```
 
 ## Run & Process Management
@@ -50,7 +50,7 @@ scripts/swift-package-stop.py --pid <pid> [--force]
 
 ```bash
 # Clean build artifacts
-swift-sandbox package clean
+swift package clean
 
 # Or remove .build directory directly
 rm -rf /path/to/package/.build

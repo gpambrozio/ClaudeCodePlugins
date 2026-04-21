@@ -2,10 +2,14 @@
 #
 # swift wrapper — Injects sandbox isolation for SPM subcommands
 #
-# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (set by
-# the PreToolUse inject-session-id.py hook), then injects --cache-path
-# for subcommands that accept SwiftPM flags (build, test, run). Other
-# subcommands pass through unmodified.
+# Shadows /usr/bin/swift via the plugin's bin/ directory on PATH, so both
+# direct Claude invocations and nested calls from build scripts
+# (Makefiles, fastlane, shell scripts, etc.) are sandboxed transparently.
+#
+# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (exported
+# by the PreToolUse inject-session-id.py hook into every Bash command),
+# then injects --cache-path for subcommands that accept SwiftPM flags
+# (build, test, run). Other subcommands pass through unmodified.
 #
 # On first build invocation, seeds the sandbox SPM cache from the system
 # cache using APFS copy-on-write clones (zero extra disk until writes diverge).
@@ -15,7 +19,7 @@ set -euo pipefail
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
 
 if [[ -z "$SESSION_ID" ]]; then
-    echo "[swift-sandbox] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
+    echo "[swift-wrapper] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
     exec /usr/bin/swift "$@"
 fi
 

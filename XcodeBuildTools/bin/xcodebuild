@@ -2,10 +2,15 @@
 #
 # xcodebuild wrapper — Injects sandbox isolation flags
 #
-# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (set by
-# the PreToolUse inject-session-id.py hook), then execs the real
-# xcodebuild with -derivedDataPath and -clonedSourcePackagesDirPath so
-# CLI builds use isolated storage.
+# Shadows /usr/bin/xcodebuild via the plugin's bin/ directory on PATH, so
+# both direct Claude invocations and nested calls from build scripts
+# (Makefiles, fastlane, shell scripts, etc.) are sandboxed transparently.
+#
+# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (exported
+# by the PreToolUse inject-session-id.py hook into every Bash command),
+# then execs the real xcodebuild at /usr/bin/xcodebuild with
+# -derivedDataPath and -clonedSourcePackagesDirPath so CLI builds use
+# isolated storage.
 #
 # On first invocation, seeds the sandbox SPM cache from the system cache
 # using APFS copy-on-write clones (zero extra disk until writes diverge).
@@ -15,7 +20,7 @@ set -euo pipefail
 SESSION_ID="${CLAUDE_SESSION_ID:-}"
 
 if [[ -z "$SESSION_ID" ]]; then
-    echo "[xcodebuild-sandbox] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
+    echo "[xcodebuild-wrapper] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
     exec /usr/bin/xcodebuild "$@"
 fi
 

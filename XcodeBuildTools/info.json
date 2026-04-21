@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.6",
+            "changes": "Sandbox wrappers renamed bin/xcodebuild-sandbox -> bin/xcodebuild and bin/swift-sandbox -> bin/swift to shadow /usr/bin, so nested xcodebuild/swift calls from Makefiles, fastlane, and other build scripts are sandboxed transparently. inject-session-id hook now prepends the plugin bin/ to PATH (Claude Code appends plugin bins, which left the wrappers behind /usr/bin), exports CLAUDE_SESSION_ID, and exports SANDBOX_DERIVED_DATA / SANDBOX_PACKAGES pointing at the per-session DerivedData and SPM paths for scripts that need to read build products or cached checkouts."
+        },
+        {
             "version": "0.5.5",
             "changes": "inject-session-id PreToolUse hook now only exports CLAUDE_SESSION_ID when a Bash command references xcodebuild-sandbox or swift-sandbox, instead of prefixing every Bash command"
         },

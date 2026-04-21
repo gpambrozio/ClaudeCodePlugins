@@ -4,8 +4,8 @@
 #
 # Creates per-session sandbox directories for DerivedData and SPM cache,
 # isolating CLI builds from Xcode's own storage. The wrapper scripts in
-# bin/ (xcodebuild-sandbox, swift-sandbox) read $CLAUDE_SESSION_ID at
-# runtime and inject the appropriate isolation flags.
+# bin/ (xcodebuild, swift) read $CLAUDE_SESSION_ID at runtime and inject
+# the appropriate isolation flags.
 #
 # Each Claude Code session gets its own sandbox keyed by the session ID
 # from the SessionStart hook's stdin payload. The same ID is propagated

@@ -61,6 +61,12 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.6
+- Sandbox wrappers renamed `bin/xcodebuild-sandbox` → `bin/xcodebuild` and `bin/swift-sandbox` → `bin/swift`. They now shadow `/usr/bin/xcodebuild` and `/usr/bin/swift`, so nested calls from Makefiles, fastlane lanes, and other build scripts are sandboxed transparently — not just direct Claude invocations
+- `inject-session-id` PreToolUse hook now prepends the plugin's `bin/` to `PATH` (Claude Code appends plugin bin dirs, which left the wrappers behind `/usr/bin`) and exports `CLAUDE_SESSION_ID` on every Bash command so indirect invocations (e.g. `./build.sh`) inherit both the wrappers and the sandbox key
+- Hook also exports `SANDBOX_DERIVED_DATA` and `SANDBOX_PACKAGES` pointing at the per-session DerivedData and cloned SPM paths — scripts that need to locate built `.app` bundles, xcresults, test products, or package checkouts can use them instead of reconstructing the formula
+- Skills updated to use bare `xcodebuild` / `swift` names
+
 ### 0.5.5
 - `inject-session-id` PreToolUse hook now only exports `CLAUDE_SESSION_ID` when a Bash command actually references `xcodebuild-sandbox` or `swift-sandbox` — no more prefixing every unrelated Bash invocation
 
