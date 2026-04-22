@@ -4,7 +4,6 @@
 #
 # Prefixes every Bash command with:
 #   export PATH="<plugin>/bin:$PATH";
-#   export CLAUDE_SESSION_ID='<id>';
 #   export SANDBOX_DERIVED_DATA="${TMPDIR:-/tmp}/claude-sandbox/<id>/build";
 #   export SANDBOX_PACKAGES="${TMPDIR:-/tmp}/claude-sandbox/<id>/packages";
 #   …
@@ -16,18 +15,19 @@
 # the wrappers the first match so nested calls from Makefiles, fastlane,
 # and other build scripts get sandboxed transparently.
 #
-# Why the session-id export: the wrappers key the per-session sandbox
-# off $CLAUDE_SESSION_ID (seeded by setup-sandbox.sh). $PPID is not stable
-# across hook and Bash-tool execution contexts, so we can't use it as a
-# session key — the hook stdin payload's session_id is the stable handle.
-#
-# Why SANDBOX_DERIVED_DATA / SANDBOX_PACKAGES: build scripts and tools
-# that want to read build products (tests, bundle inspection, codesign,
-# xcresult parsing) or inspect cached SPM checkouts need the paths the
-# xcodebuild/swift wrappers will use. Exposing them as env vars means
-# scripts don't have to reconstruct the formula. The `${TMPDIR:-/tmp}`
-# expansion happens in the Bash tool's shell, so it picks up the tool
-# context's TMPDIR rather than the hook's.
+# Why SANDBOX_DERIVED_DATA / SANDBOX_PACKAGES: the bin/ wrappers read
+# them directly to pick up -derivedDataPath / -clonedSourcePackagesDirPath
+# / --cache-path. Build scripts and tools that need to read build
+# products (tests, bundle inspection, codesign, xcresult parsing) or
+# inspect cached SPM checkouts can use the same vars instead of
+# reconstructing the formula. For fresh sandboxes the value defers to
+# bash-side `${TMPDIR:-/tmp}` expansion so the tool context's TMPDIR
+# applies; for sandboxes inherited across /clear (`${TMPDIR}/claude-
+# sandbox/<id>` is a symlink into the original anchor), we resolve the
+# symlink here and embed the anchor's real path — SPM and Xcode
+# persist whichever path they're given into state files, so handing
+# them the anchor keeps those state files pointing at a stable
+# directory even if the symlink is later swept.
 #
 # Why unconditional (not regex-gated): build scripts invoke xcodebuild
 # and swift without those tokens appearing in the outer Bash command, so
@@ -68,18 +68,46 @@ def main():
             bin_dir = os.path.join(plugin_root, "bin")
             prefix_parts.append(f"export PATH={shlex.quote(bin_dir)}:$PATH;")
 
-        prefix_parts.append(f"export CLAUDE_SESSION_ID='{session_id}';")
+        # If the per-session sandbox is a symlink (the /clear-inherit
+        # case — see setup-sandbox.sh), resolve it so the exported paths
+        # point at the anchor's real directory instead of the symlink.
+        # SPM and Xcode persist whichever absolute path they're given
+        # into state files; handing them the anchor keeps those state
+        # files pointing at a stable directory even if this session's
+        # symlink is swept while the anchor lives on.
+        tmpdir = os.environ.get("TMPDIR", "/tmp")
+        sandbox_fs_path = os.path.join(tmpdir, "claude-sandbox", session_id)
+        anchor = None
+        try:
+            if os.path.islink(sandbox_fs_path):
+                resolved = os.path.realpath(sandbox_fs_path)
+                if os.path.isdir(resolved):
+                    anchor = resolved
+        except OSError:
+            pass
 
-        # Double-quoted so ${TMPDIR:-/tmp} expands in the Bash tool's
-        # shell. session_id is already validated against [A-Za-z0-9_-]+
-        # so safe to embed.
-        sandbox_base = f"${{TMPDIR:-/tmp}}/claude-sandbox/{session_id}"
-        prefix_parts.append(
-            f'export SANDBOX_DERIVED_DATA="{sandbox_base}/build";'
-        )
-        prefix_parts.append(
-            f'export SANDBOX_PACKAGES="{sandbox_base}/packages";'
-        )
+        if anchor is not None:
+            # Real absolute path from realpath. shlex.quote handles the
+            # unlikely case of shell-special chars in $TMPDIR.
+            quoted_base = shlex.quote(anchor)
+            prefix_parts.append(
+                f"export SANDBOX_DERIVED_DATA={quoted_base}/build;"
+            )
+            prefix_parts.append(
+                f"export SANDBOX_PACKAGES={quoted_base}/packages;"
+            )
+        else:
+            # Fresh sandbox (or not yet created). Defer to bash-side
+            # ${TMPDIR:-/tmp} expansion so the tool context's TMPDIR
+            # applies. session_id is already validated against
+            # [A-Za-z0-9_-]+ so safe to embed.
+            sandbox_base = f"${{TMPDIR:-/tmp}}/claude-sandbox/{session_id}"
+            prefix_parts.append(
+                f'export SANDBOX_DERIVED_DATA="{sandbox_base}/build";'
+            )
+            prefix_parts.append(
+                f'export SANDBOX_PACKAGES="{sandbox_base}/packages";'
+            )
 
         new_command = " ".join(prefix_parts) + " " + command
 

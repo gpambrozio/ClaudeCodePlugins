@@ -6,27 +6,25 @@
 # both direct Claude invocations and nested calls from build scripts
 # (Makefiles, fastlane, shell scripts, etc.) are sandboxed transparently.
 #
-# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (exported
-# by the PreToolUse inject-session-id.py hook into every Bash command),
-# then execs the real xcodebuild at /usr/bin/xcodebuild with
-# -derivedDataPath and -clonedSourcePackagesDirPath so CLI builds use
-# isolated storage.
+# Reads $SANDBOX_DERIVED_DATA and $SANDBOX_PACKAGES (exported by the
+# PreToolUse inject-session-id.py hook into every Bash command) and
+# passes them to /usr/bin/xcodebuild as -derivedDataPath and
+# -clonedSourcePackagesDirPath. If neither env var is set (e.g. the
+# wrapper was invoked from a shell outside a Claude Bash tool context),
+# the wrapper falls through to an unsandboxed exec.
 #
 # On first invocation, seeds the sandbox SPM cache from the system cache
 # using APFS copy-on-write clones (zero extra disk until writes diverge).
 
 set -euo pipefail
 
-SESSION_ID="${CLAUDE_SESSION_ID:-}"
+SANDBOX_BUILD="${SANDBOX_DERIVED_DATA:-}"
+SANDBOX_PKGS="${SANDBOX_PACKAGES:-}"
 
-if [[ -z "$SESSION_ID" ]]; then
-    echo "[xcodebuild-wrapper] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
+if [[ -z "$SANDBOX_BUILD" || -z "$SANDBOX_PKGS" ]]; then
+    echo "[xcodebuild-wrapper] Warning: sandbox env vars not set, running unsandboxed" >&2
     exec /usr/bin/xcodebuild "$@"
 fi
-
-SANDBOX_BASE="${TMPDIR:-/tmp}/claude-sandbox/$SESSION_ID"
-SANDBOX_BUILD="$SANDBOX_BASE/build"
-SANDBOX_PKGS="$SANDBOX_BASE/packages"
 
 mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS"
 

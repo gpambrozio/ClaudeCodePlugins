@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.7",
+            "changes": "Fix: sandbox inheritance across /clear no longer breaks SPM binary-target builds (Sparkle.xcframework etc.) or Xcode's explicit-module caches. The previous implementation renamed the sandbox dir to the new session UUID, which left state files inside (packages/workspace-state.json, build/CompilationCache.noindex, build/ModuleCache.noindex) pointing at the old path on disk, forcing users to nuke DerivedData by hand. Inheritance is now a symlink from the new session-id to the original anchor directory, so embedded absolute paths keep resolving. The setup peer sweep and SessionEnd teardown are symlink-aware. Also: bin/xcodebuild and bin/swift now read $SANDBOX_DERIVED_DATA / $SANDBOX_PACKAGES directly instead of reconstructing paths from $CLAUDE_SESSION_ID, and the PreToolUse hook no longer injects CLAUDE_SESSION_ID."
+        },
+        {
             "version": "0.5.6",
             "changes": "Sandbox wrappers renamed bin/xcodebuild-sandbox -> bin/xcodebuild and bin/swift-sandbox -> bin/swift to shadow /usr/bin, so nested xcodebuild/swift calls from Makefiles, fastlane, and other build scripts are sandboxed transparently. inject-session-id hook now prepends the plugin bin/ to PATH (Claude Code appends plugin bins, which left the wrappers behind /usr/bin), exports CLAUDE_SESSION_ID, and exports SANDBOX_DERIVED_DATA / SANDBOX_PACKAGES pointing at the per-session DerivedData and SPM paths for scripts that need to read build products or cached checkouts."
         },

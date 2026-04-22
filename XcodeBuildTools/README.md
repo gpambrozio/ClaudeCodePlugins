@@ -61,6 +61,13 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.7
+- Fix: sandbox inheritance across `/clear` no longer breaks SPM binary-target builds (Sparkle.xcframework and friends) or Xcode's explicit-module caches. The prior implementation renamed the sandbox directory to the new session's UUID, which left state files inside (`packages/workspace-state.json`, `build/CompilationCache.noindex/**/*.leaf`, `build/ModuleCache.noindex/`, `build/Build/Intermediates.noindex/`) pointing at the old on-disk path — causing errors like `There is no XCFramework found at '.../claude-sandbox/<OLD_SESSION_ID>/packages/artifacts/...'` on the first build after `/clear`, and forcing users to delete DerivedData by hand
+- Inheritance is now a **symlink** from the new session-id to the original anchor directory, so every embedded absolute path keeps resolving. The anchor's on-disk name stays stable for the lifetime of the Claude process
+- Setup's peer sweep is symlink-aware: dangling symlinks, dead-owner symlinks, and our own leftover symlinks from prior `/clear`s are cleaned up; real directories are only removed once no live symlink still references them
+- `teardown-sandbox.py` (SessionEnd) is symlink-aware: when the sandbox path is a symlink, the symlink is unlinked first, and the anchor is GC'd only if no other live symlink under `$TMPDIR/claude-sandbox` still resolves to it
+- `bin/xcodebuild` and `bin/swift` now read `$SANDBOX_DERIVED_DATA` and `$SANDBOX_PACKAGES` directly instead of reconstructing paths from `$CLAUDE_SESSION_ID`; the PreToolUse `inject-session-id` hook no longer injects `CLAUDE_SESSION_ID` into Bash commands (single source of truth for the sandbox paths is the hook's two `SANDBOX_*` exports)
+
 ### 0.5.6
 - Sandbox wrappers renamed `bin/xcodebuild-sandbox` → `bin/xcodebuild` and `bin/swift-sandbox` → `bin/swift`. They now shadow `/usr/bin/xcodebuild` and `/usr/bin/swift`, so nested calls from Makefiles, fastlane lanes, and other build scripts are sandboxed transparently — not just direct Claude invocations
 - `inject-session-id` PreToolUse hook now prepends the plugin's `bin/` to `PATH` (Claude Code appends plugin bin dirs, which left the wrappers behind `/usr/bin`) and exports `CLAUDE_SESSION_ID` on every Bash command so indirect invocations (e.g. `./build.sh`) inherit both the wrappers and the sandbox key

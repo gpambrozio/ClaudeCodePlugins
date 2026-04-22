@@ -6,25 +6,24 @@
 # direct Claude invocations and nested calls from build scripts
 # (Makefiles, fastlane, shell scripts, etc.) are sandboxed transparently.
 #
-# Resolves the per-session sandbox path from $CLAUDE_SESSION_ID (exported
-# by the PreToolUse inject-session-id.py hook into every Bash command),
-# then injects --cache-path for subcommands that accept SwiftPM flags
-# (build, test, run). Other subcommands pass through unmodified.
+# Reads $SANDBOX_PACKAGES (exported by the PreToolUse inject-session-id.py
+# hook into every Bash command) and passes it as --cache-path to
+# subcommands that accept SwiftPM flags (build, test, run). Other
+# subcommands pass through unmodified. If $SANDBOX_PACKAGES is unset
+# (e.g. the wrapper was invoked from a shell outside a Claude Bash tool
+# context), the wrapper falls through to an unsandboxed exec.
 #
 # On first build invocation, seeds the sandbox SPM cache from the system
 # cache using APFS copy-on-write clones (zero extra disk until writes diverge).
 
 set -euo pipefail
 
-SESSION_ID="${CLAUDE_SESSION_ID:-}"
+SANDBOX_PKGS="${SANDBOX_PACKAGES:-}"
 
-if [[ -z "$SESSION_ID" ]]; then
-    echo "[swift-wrapper] Warning: CLAUDE_SESSION_ID not set, running unsandboxed" >&2
+if [[ -z "$SANDBOX_PKGS" ]]; then
+    echo "[swift-wrapper] Warning: sandbox env vars not set, running unsandboxed" >&2
     exec /usr/bin/swift "$@"
 fi
-
-SANDBOX_BASE="${TMPDIR:-/tmp}/claude-sandbox/$SESSION_ID"
-SANDBOX_PKGS="$SANDBOX_BASE/packages"
 
 case "${1:-}" in
     build|test|run)
