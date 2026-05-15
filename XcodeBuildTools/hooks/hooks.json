@@ -5,6 +5,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/write-env.sh"
+          },
+          {
+            "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/common/session-start.py XcodeBuildTools"
           },
           {
@@ -38,15 +42,6 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/common/pre-tool-use.py XcodeBuildTools"
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/inject-session-id.py"
           }
         ]
       }

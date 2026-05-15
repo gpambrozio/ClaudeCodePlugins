@@ -41,10 +41,12 @@
 
 set -euo pipefail
 
+# Shared inheritance-discovery contract — see hooks/lib/sandbox.sh.
+source "$(dirname "${BASH_SOURCE[0]}")/lib/sandbox.sh"
+
 # --- Read session_id from hook stdin payload ---
 input=$(cat)
-SESSION_ID=$(printf '%s' "$input" | /usr/bin/python3 -c \
-    'import sys,json; print(json.load(sys.stdin).get("session_id",""))')
+SESSION_ID=$(printf '%s' "$input" | /usr/bin/jq -r '.session_id // ""')
 
 if [[ -z "$SESSION_ID" ]]; then
     echo "[setup-sandbox] Error: no session_id in hook payload" >&2
@@ -73,32 +75,11 @@ resolve_link() {
 # --- Inherit prior session's sandbox on /clear (via symlink) ---
 # $PPID in a SessionStart hook is Claude itself (no intermediate shell
 # — that was the Bash-tool context's problem, not ours). After /clear,
-# Claude is the same process, so any peer whose resolved owner.pid
-# matches our PID belongs to us. Inherit it by creating $SANDBOX_BASE
-# as a symlink to the anchor, preserving embedded absolute paths.
-anchor=""
-if [[ -d "$SANDBOX_ROOT" ]]; then
-    for peer in "$SANDBOX_ROOT"/*; do
-        # Follow symlinks to the underlying anchor dir; real dirs are
-        # their own anchor. Anything else (missing, not a dir) skipped.
-        if [[ -L "$peer" ]]; then
-            resolved=$(resolve_link "$peer") || continue
-        elif [[ -d "$peer" ]]; then
-            resolved="$peer"
-        else
-            continue
-        fi
-        [[ -d "$resolved" ]] || continue
-        [[ -f "$resolved/owner.pid" ]] || continue
-
-        peer_pid=""
-        { read -r peer_pid; } < "$resolved/owner.pid" 2>/dev/null || continue
-        if [[ "$peer_pid" == "$PPID" ]]; then
-            anchor="$resolved"
-            break
-        fi
-    done
-fi
+# Claude is the same process, so any peer owned by our PPID belongs to
+# us. Inherit it by creating $SANDBOX_BASE as a symlink to the anchor,
+# preserving embedded absolute paths. find_anchor is shared with
+# write-env.sh to keep both hooks agreeing on the same anchor.
+anchor=$(find_anchor "$SANDBOX_ROOT" "$PPID")
 
 inherited=0
 if [[ -n "$anchor" && "$anchor" != "$SANDBOX_BASE" ]]; then

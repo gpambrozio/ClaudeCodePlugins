@@ -61,6 +61,13 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ## Changelog
 
+### 0.5.8
+- Sandbox environment injection migrated from a per-Bash `PreToolUse` hook (`inject-session-id.py`) to the new `CLAUDE_ENV_FILE` mechanism. `PATH`, `SANDBOX_DERIVED_DATA`, and `SANDBOX_PACKAGES` are now written once at SessionStart by a new sync hook (`write-env.sh`) and persist across every subsequent Bash command — no more per-command prefix injection
+- Removed `inject-session-id.py` and the `PreToolUse`/Bash hook entry it relied on (~90 lines of Python deleted)
+- Anchor-discovery for `/clear` inheritance extracted into a shared `hooks/lib/sandbox.sh` helper. Both the sync `write-env.sh` (which embeds the anchor path in `$CLAUDE_ENV_FILE`) and the async `setup-sandbox.sh` (which creates the symlink to the anchor) now go through the same `find_anchor` function, eliminating the risk of silent drift between them
+- `setup-sandbox.sh` switched from inline Python to `jq` for stdin JSON parsing, matching the new hook
+- No user-visible behavior change — the sandbox isolation works identically; this is an internal architecture cleanup
+
 ### 0.5.7
 - Fix: sandbox inheritance across `/clear` no longer breaks SPM binary-target builds (Sparkle.xcframework and friends) or Xcode's explicit-module caches. The prior implementation renamed the sandbox directory to the new session's UUID, which left state files inside (`packages/workspace-state.json`, `build/CompilationCache.noindex/**/*.leaf`, `build/ModuleCache.noindex/`, `build/Build/Intermediates.noindex/`) pointing at the old on-disk path — causing errors like `There is no XCFramework found at '.../claude-sandbox/<OLD_SESSION_ID>/packages/artifacts/...'` on the first build after `/clear`, and forcing users to delete DerivedData by hand
 - Inheritance is now a **symlink** from the new session-id to the original anchor directory, so every embedded absolute path keeps resolving. The anchor's on-disk name stays stable for the lifetime of the Claude process
