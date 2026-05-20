@@ -59,7 +59,7 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 ## Related Plugins
 
 - **iOSSimulator** - Simulator control, screenshots, video, status bar
-- **SwiftDevelopment** - swift-compile skill with xcsift integration
+- **SwiftScaffolding** - Swift project scaffolding through XcodeBuildMCP
 
 ## Changelog
 

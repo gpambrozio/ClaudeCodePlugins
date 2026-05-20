@@ -38,7 +38,7 @@ Control iOS Simulators using native macOS tools. Manage simulators, automate UI 
 
 ### SwiftScaffolding
 
-Swift project scaffolding and code generation tools. Generate project structures, create boilerplate code from templates, and initialize new iOS/MacOS projects with common configurations.
+Swift project scaffolding and code generation tools. Generate project structures, create boilerplate code from templates, and initialize new iOS/macOS projects with common configurations.
 
 [View Plugin Documentation →](./SwiftScaffolding/README.md)
 
@@ -142,8 +142,7 @@ When updating a plugin:
 
 1. Update version in plugin's `plugin.json`
 2. Update version in marketplace.json entry
-3. Update `lastUpdated` timestamp in marketplace.json
-4. Document changes in plugin's README
+3. Document changes in plugin's README and `info.json` version history
 
 ## Development
 

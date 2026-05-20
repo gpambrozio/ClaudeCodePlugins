@@ -31,19 +31,19 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 
 ```bash
 # List available simulators
-python3 scripts/sim-list.py
+python3 skills/ios-simulator/scripts/sim-list.py
 
 # Boot iPhone 15 simulator
-python3 scripts/sim-boot.py --name "iPhone 15"
+python3 skills/ios-simulator/scripts/sim-boot.py --name "iPhone 15"
 
 # Take a screenshot
-python3 scripts/sim-screenshot.py --output /tmp/screen.png
+python3 skills/ios-simulator/scripts/sim-screenshot.py --output /tmp/screen.png
 
 # Tap at coordinates
-python3 scripts/sim-tap.py --x 200 --y 400
+python3 skills/ios-simulator/scripts/sim-tap.py --x 200 --y 400
 
 # Type text
-python3 scripts/sim-type.py --text "Hello!"
+python3 skills/ios-simulator/scripts/sim-type.py --text "Hello!"
 ```
 
 ## Available Scripts

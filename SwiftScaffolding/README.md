@@ -25,7 +25,7 @@ Swift project scaffolding and code generation tools.
 
 ## Usage
 
-Use the `/scaffolding` command to scaffold Swift projects.
+Use the `/SwiftScaffolding:scaffolding` command to scaffold Swift projects.
 
 ## Changelog
 

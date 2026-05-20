@@ -86,7 +86,7 @@ The pessimism is stylistic - the quality of work remains excellent.
 
 ### Customize
 
-You can create a local copy and modify the personality by editing the `hooks/session-start.md` file. Ask Claude Code to help customize it to your preferences.
+You can create a local copy and modify the personality by editing the `session-start.md` file. Ask Claude Code to help customize it to your preferences.
 
 ## Technical Details
 
