@@ -5,9 +5,9 @@
 # Creates per-session sandbox directories for DerivedData and SPM cache,
 # isolating CLI builds from Xcode's own storage. The wrapper scripts in
 # bin/ (xcodebuild, swift) read $SANDBOX_DERIVED_DATA and $SANDBOX_PACKAGES
-# at runtime and inject the appropriate isolation flags; those env vars
-# are set on every Bash tool command by hooks/inject-session-id.py from
-# the hook payload's session_id (stable across contexts unlike $PPID).
+# at runtime and inject the appropriate isolation flags. hooks/write-env.sh
+# writes those env vars to $CLAUDE_ENV_FILE during SessionStart so every
+# later Bash tool command inherits the same sandbox paths.
 #
 # Each agent session gets its own sandbox keyed by the session ID
 # from the SessionStart hook's stdin payload.

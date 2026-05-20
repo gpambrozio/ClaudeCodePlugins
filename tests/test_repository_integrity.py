@@ -212,8 +212,17 @@ class RepositoryIntegrityTests(unittest.TestCase):
             "iOSSimulator/skills/ios-simulator/SKILL.md": ["Read tool"],
             "iOSSimulator/skills/ios-simulator/references/script-details.md": ["Read tool"],
             "XcodeBuildTools/session-start.md": ["Claude session", "Claude sessions"],
-            "XcodeBuildTools/bin/xcodebuild": ["Claude invocations", "Claude Bash"],
-            "XcodeBuildTools/bin/swift": ["Claude invocations", "Claude Bash"],
+            "XcodeBuildTools/hooks/setup-sandbox.sh": ["inject-session-id.py"],
+            "XcodeBuildTools/bin/xcodebuild": [
+                "Claude invocations",
+                "Claude Bash",
+                "inject-session-id.py",
+            ],
+            "XcodeBuildTools/bin/swift": [
+                "Claude invocations",
+                "Claude Bash",
+                "inject-session-id.py",
+            ],
         }
 
         for relative_path, stale_terms in checks.items():
