@@ -68,6 +68,8 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 - Clarify that raw Xcode MCP should be used for explicit user requests, MCP-only Xcode context, or gaps not covered by a skill
 - Remove skill and session-start wording that told agents to prefer raw Xcode MCP over the corresponding XcodeBuildTools skill
 - Clarify session-start routing across `xcodebuild`, `xcode-test`, and `swift-package`
+- Make guidance and script comments more agent-neutral for Claude Code-compatible hosts
+- Let Sparkle release notes generation fall back from the `claude` CLI to `codex exec` before using commit-list notes
 
 ### 0.5.8
 - Sandbox environment injection migrated from a per-Bash `PreToolUse` hook (`inject-session-id.py`) to the new `CLAUDE_ENV_FILE` mechanism. `PATH`, `SANDBOX_DERIVED_DATA`, and `SANDBOX_PACKAGES` are now written once at SessionStart by a new sync hook (`write-env.sh`) and persist across every subsequent Bash command — no more per-command prefix injection

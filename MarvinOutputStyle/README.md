@@ -108,6 +108,9 @@ Marvin represents a different approach to AI assistance - one that questions ass
 
 ## Changelog
 
+### 1.3.2
+- Made README and plugin guidance more agent-neutral for Claude Code-compatible hosts while preserving Claude plugin contracts
+
 ### 1.3.1
 - Removed auto-update hook from SessionStart to prevent configuration issues
 

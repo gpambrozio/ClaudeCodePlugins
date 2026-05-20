@@ -67,6 +67,18 @@ class RepositoryIntegrityTests(unittest.TestCase):
                     [entry.get("version") for entry in versions],
                 )
 
+    def test_plugin_readmes_track_current_manifest_version(self):
+        for plugin_dir in plugin_dirs():
+            readme_path = plugin_dir / "README.md"
+            if not readme_path.exists():
+                continue
+
+            manifest = load_json(plugin_dir / ".claude-plugin" / "plugin.json")
+            readme = readme_path.read_text(encoding="utf-8")
+
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertIn(f"### {manifest['version']}", readme)
+
     def test_info_skill_list_matches_skill_directories(self):
         for plugin_dir in plugin_dirs():
             info_path = plugin_dir / "info.json"

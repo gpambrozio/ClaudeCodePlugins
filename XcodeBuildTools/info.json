@@ -46,7 +46,7 @@
     "versions": [
         {
             "version": "0.5.9",
-            "changes": "Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible. Raw Xcode MCP should be used for explicit user requests, MCP-only Xcode context, or gaps not covered by a skill. Removes skill and session-start wording that told agents to prefer raw Xcode MCP over the corresponding XcodeBuildTools skill. Clarifies session-start routing across xcodebuild, xcode-test, and swift-package."
+            "changes": "Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible. Raw Xcode MCP should be used for explicit user requests, MCP-only Xcode context, or gaps not covered by a skill. Removes skill and session-start wording that told agents to prefer raw Xcode MCP over the corresponding XcodeBuildTools skill. Clarifies session-start routing across xcodebuild, xcode-test, and swift-package. Makes guidance and script comments more agent-neutral for Claude Code-compatible hosts, and lets Sparkle release notes generation fall back from the claude CLI to codex exec before using commit-list notes."
         },
         {
             "version": "0.5.8",

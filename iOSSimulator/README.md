@@ -101,6 +101,9 @@ Agents with image input can view screenshots. The recommended workflow:
 
 ## Changelog
 
+### 0.6.4
+- Made screenshot workflow guidance agent-neutral so agents with image support can follow the simulator automation flow
+
 ### 0.6.3
 - Removed auto-update hook from SessionStart to prevent configuration issues
 
