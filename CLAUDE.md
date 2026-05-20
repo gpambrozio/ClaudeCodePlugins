@@ -125,7 +125,10 @@ Test the marketplace and plugins locally before pushing:
 ## Plugin Component Guidelines
 
 ### Slash Commands
-- Filename becomes command name: `analyze.md` → `/analyze`
+- Standalone `.claude/commands` files use the filename as the command name:
+  `analyze.md` → `/analyze`
+- Plugin commands are namespaced by plugin name to avoid collisions:
+  `SwiftScaffolding/commands/scaffolding.md` → `/SwiftScaffolding:scaffolding`
 - Write the command prompt in markdown
 - Located in plugin's `commands/` directory
 - Claude-specific tool names are acceptable in Claude-specific metadata such as
