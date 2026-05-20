@@ -149,6 +149,16 @@ When updating a plugin:
 
 ### Testing Locally
 
+Run repository checks with Python's built-in unittest runner:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+The same command runs in GitHub Actions on push and pull request.
+
+### Testing Plugin Installation
+
 ```bash
 # Add marketplace from local directory
 /plugin marketplace add /path/to/ClaudeCodePlugins
