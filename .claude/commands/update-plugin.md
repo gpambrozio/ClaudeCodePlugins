@@ -1,10 +1,12 @@
 ---
 description: Update a plugin in the Claude Code Plugin Marketplace. Follow these steps carefully.
-allowed-tools: AskUserQuestion
 ---
 # Update Plugin Version
 
 You are helping update a plugin in the Claude Code Plugin Marketplace. Follow these steps carefully:
+
+When you need user input, use the host's native structured question mechanism
+if available; otherwise ask normally in chat.
 
 ## Steps to Update a Plugin
 
@@ -15,8 +17,8 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
    - If `common/hooks.json` was changed, you must propagate those changes to each plugin's `hooks/hooks.json` file while preserving the unique plugin name in each command (e.g., `session-start.py MarvinOutputStyle` stays unique per plugin).
 
 2. **Identify the plugin to update**
-   - Determine what plugin changed and only ask the user if you can't determine using the diff. Use the `AskUserQuestion` tool to ask the user if needed.
-   - Confirm the new version number (use semantic versioning: major.minor.patch). Suggest one based on the current git changes using the `AskUserQuestion` tool.
+   - Determine what plugin changed and only ask the user if you can't determine using the diff.
+   - Confirm the new version number (use semantic versioning: major.minor.patch). Suggest one based on the current git changes.
 
 3. **Update the plugin's manifest** (`<PluginDir>/.claude-plugin/plugin.json`)
    - Update the `version` field to the new version
@@ -41,7 +43,7 @@ You are helping update a plugin in the Claude Code Plugin Marketplace. Follow th
 
 8. **Tag the plugin release**
    - After the commit lands, create a git tag so Claude Code can resolve this version when other plugins depend on it.
-   - Tag format: `{PluginName}--v{version}` (e.g., `SwiftDevelopment--v0.5.5`). The `{PluginName}` must match the plugin's folder name and the `name` field in `plugin.json` exactly, and `{version}` must match the `version` field in the `plugin.json` at that commit.
+   - Tag format: `{PluginName}--v{version}` (e.g., `XcodeBuildTools--v0.5.9`). The `{PluginName}` must match the plugin's folder name and the `name` field in `plugin.json` exactly, and `{version}` must match the `version` field in the `plugin.json` at that commit.
    - The tag must point to the commit that contains the updated `plugin.json` version.
    - Push the tag to the remote: `git push origin {PluginName}--v{version}`.
    - If this update touched `common/` and bumped multiple plugins, create and push one tag per bumped plugin.

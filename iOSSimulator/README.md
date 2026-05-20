@@ -91,11 +91,11 @@ No additional dependencies like `idb` are required.
 
 ## Screenshot-Based UI Automation
 
-Claude can view screenshots! The recommended workflow:
+Agents with image input can view screenshots. The recommended workflow:
 
 1. Take a screenshot with `sim-screenshot.py`
-2. Claude views the image to understand the UI
-3. Claude identifies element positions visually
+2. View the image to understand the UI
+3. Identify element positions visually
 4. Use `sim-tap.py` to interact at those coordinates
 5. Repeat for complex workflows
 

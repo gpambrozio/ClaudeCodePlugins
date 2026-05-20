@@ -12,7 +12,7 @@
 # does the slower dir-creation + peer sweep, keeps running async.
 #
 # Anchor detection: on /clear the prior session's sandbox dir is owned
-# by our $PPID (Claude is the same process). We scan SANDBOX_ROOT peers
+# by our $PPID (the host agent is the same process). We scan SANDBOX_ROOT peers
 # the same way setup-sandbox.sh does and, if we find one, embed the
 # anchor's real path into the env vars — SPM and Xcode persist absolute
 # paths into state files, so handing them the symlink path would break
@@ -40,7 +40,7 @@ fi
 SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
 
 # --- Anchor detection ---
-# On /clear, Claude is the same process — any peer owned by $PPID is
+# On /clear, the host agent is the same process — any peer owned by $PPID is
 # the prior session's sandbox we want to inherit.
 anchor=$(find_anchor "$SANDBOX_ROOT" "$PPID")
 

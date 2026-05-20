@@ -1,13 +1,12 @@
 ---
-allowed-tools: mcp__plugin_SwiftScaffolding_XcodeBuildMCP, AskUserQuestion
-description: Create an iOS or MacOS project scaffolginf using `XCodeBuildMCP` mcp
+allowed-tools: AskUserQuestion, mcp__plugin_SwiftScaffolding_XcodeBuildMCP
+description: Create an iOS or macOS project using XcodeBuildMCP
 ---
-Use the `AskUserQuestion` tool to ask the user:
-* If this is a MacOS project or an iOS project.
-* The name of the project.
-* The project bundle identifier.
+Ask the user for the project platform, project name, and bundle identifier.
+Use the host's native structured question mechanism if available; otherwise ask
+normally in chat.
 
-If it is an iOS project, use the `scaffold_ios_project` tool in `XCodeBuildMCP` mcp with these parameters:
+If it is an iOS project, use the `scaffold_ios_project` tool in XcodeBuildMCP with these parameters:
 
 projectName: <PROJECT_NAME>
 outputPath: current folder
@@ -15,9 +14,9 @@ bundleIdentifier: <BUNDLE_IDENTIFIER>
 displayName: <PROJECT_NAME>
 target device family: universal
 deploymentTarget: 18.0
-supported orientations: all for both iphone and ipad
+supported orientations: all for both iPhone and iPad
 
-If it is a MacOS project, use the `scaffold_macos_project` tool in `XCodeBuildMCP` mcp with these parameters:
+If it is a macOS project, use the `scaffold_macos_project` tool in XcodeBuildMCP with these parameters:
 
 projectName: <PROJECT_NAME>
 outputPath: current folder

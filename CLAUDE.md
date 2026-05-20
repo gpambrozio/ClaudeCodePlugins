@@ -4,7 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a **Claude Code Plugin Marketplace** repository that distributes plugins to Claude Code users. It contains a marketplace catalog and individual plugin packages that extend Claude Code's capabilities.
+This is a **Claude Code-compatible plugin marketplace** repository. It contains a marketplace catalog and individual plugin packages that extend agent capabilities in Claude Code and compatible hosts.
+
+Codex and other agents may also consume this repository's skills and prompts via
+compatible plugin support. Keep agent-facing instructions neutral where possible;
+use Claude-specific names only for plugin format contracts, installation
+commands, environment variables, or historical changelog entries.
 
 ## Architecture
 
@@ -14,10 +19,10 @@ The repository has a two-level architecture:
 
 1. **Marketplace Level** (root):
    - `.claude-plugin/marketplace.json` - The marketplace catalog that lists all available plugins
-   - Each plugin is a subdirectory at the root level (e.g., `SwiftDevelopment/`)
+   - Each plugin is a subdirectory at the root level (e.g., `XcodeBuildTools/`)
 
 2. **Plugin Level** (subdirectories):
-   - Each plugin subdirectory is a self-contained Claude Code plugin
+   - Each plugin subdirectory is a self-contained Claude Code-compatible plugin package
    - Contains its own `.claude-plugin/plugin.json` manifest
    - May include: slash commands (`commands/`), skills (`skills/`), agents (`agents/`), and MCP servers (`.mcp.json`)
 
@@ -42,7 +47,7 @@ Users add the marketplace, then install plugins from it:
 /plugin marketplace list
 
 # Install a plugin from the marketplace
-/plugin install SwiftDevelopment@ClaudeCodePlugins
+/plugin install XcodeBuildTools@ClaudeCodePlugins
 ```
 
 ## Development Workflow
@@ -86,10 +91,9 @@ Users add the marketplace, then install plugins from it:
 When updating a plugin:
 1. Update version in plugin's `plugin.json`
 2. Update version in marketplace catalog entry (`.claude-plugin/marketplace.json`)
-3. Update `lastUpdated` timestamp in marketplace.json
-4. Document changes in plugin's README.md and the `versions` array in the plugin's `info.json`
-5. Commit and push the version bump
-6. Tag the release (see "Tagging Plugin Releases" below)
+3. Document changes in plugin's README.md and the `versions` array in the plugin's `info.json`
+4. Commit and push the version bump
+5. Tag the release (see "Tagging Plugin Releases" below)
 
 ### Tagging Plugin Releases
 
@@ -112,7 +116,7 @@ Test the marketplace and plugins locally before pushing:
 /plugin marketplace add /path/to/ClaudeCodePlugins
 
 # Install plugin from local marketplace
-/plugin install SwiftDevelopment@ClaudeCodePlugins
+/plugin install XcodeBuildTools@ClaudeCodePlugins
 
 # Verify installation
 /plugin list
@@ -124,6 +128,9 @@ Test the marketplace and plugins locally before pushing:
 - Filename becomes command name: `analyze.md` → `/analyze`
 - Write the command prompt in markdown
 - Located in plugin's `commands/` directory
+- Claude-specific tool names are acceptable in Claude-specific metadata such as
+  `allowed-tools`, but keep the command body portable. For user input, say to use
+  the host's native structured question mechanism if available.
 
 ### MCP Servers
 - Configured in plugin's `.mcp.json`
@@ -200,12 +207,12 @@ if __name__ == "__main__":
 **hooks/session-start.md:**
 - Contains the actual instructions/context in markdown format
 - Easier to edit than embedding in scripts
-- See `SwiftDevelopment/hooks/session-start.md` or `MarvinOutputStyle/hooks/session-start.md` for examples
+- See `MarvinOutputStyle/session-start.md` or `XcodeBuildTools/session-start.md` for examples
 
 ### Skills and Agents
 - Skills: directories in `skills/` with `SKILL.md`
 - Agents: `.md` files in `agents/`
-- Currently placeholder directories in SwiftDevelopment plugin
+- Not every plugin has skills or agents; command-only and hook-only plugins are valid.
 
 ## Git Workflow
 

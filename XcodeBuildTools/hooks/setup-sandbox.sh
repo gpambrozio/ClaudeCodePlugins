@@ -9,13 +9,13 @@
 # are set on every Bash tool command by hooks/inject-session-id.py from
 # the hook payload's session_id (stable across contexts unlike $PPID).
 #
-# Each Claude Code session gets its own sandbox keyed by the session ID
+# Each agent session gets its own sandbox keyed by the session ID
 # from the SessionStart hook's stdin payload.
 #
 # The sandbox lives under $TMPDIR so it auto-cleans on reboot; macOS
 # also purges $TMPDIR entries untouched for 3+ days. The SessionEnd hook
 # (teardown-sandbox.py) handles explicit cleanup for logout/exit reasons
-# but is skipped for /clear — on /clear, Claude Code keeps running
+# but is skipped for /clear — on /clear, the host agent keeps running
 # (same $PPID) and just resets conversation state, so this script
 # inherits the prior session's sandbox rather than creating a fresh one.
 #
@@ -73,9 +73,9 @@ resolve_link() {
 }
 
 # --- Inherit prior session's sandbox on /clear (via symlink) ---
-# $PPID in a SessionStart hook is Claude itself (no intermediate shell
+# $PPID in a SessionStart hook is the host agent itself (no intermediate shell
 # — that was the Bash-tool context's problem, not ours). After /clear,
-# Claude is the same process, so any peer owned by our PPID belongs to
+# the host agent is the same process, so any peer owned by our PPID belongs to
 # us. Inherit it by creating $SANDBOX_BASE as a symlink to the anchor,
 # preserving embedded absolute paths. find_anchor is shared with
 # write-env.sh to keep both hooks agreeing on the same anchor.

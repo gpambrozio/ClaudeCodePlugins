@@ -1,6 +1,11 @@
 # Claude Code Plugins Marketplace
 
-A curated collection of Claude Code plugins for various development workflows. Each plugin extends Claude Code's capabilities with custom slash commands, MCP servers, skills, and agents.
+A curated collection of Claude Code-compatible plugins for various development workflows. Each plugin extends agent capabilities with custom slash commands, MCP servers, skills, and agents.
+
+The marketplace uses Claude Code's plugin packaging contracts (`.claude-plugin`,
+`CLAUDE_PLUGIN_ROOT`, plugin install commands), but agent-facing instructions are
+kept neutral so compatible hosts such as Codex can consume the same skills and
+prompts where supported.
 
 ## Quick Start
 
@@ -44,7 +49,7 @@ Swift project scaffolding and code generation tools. Generate project structures
 
 ### MarvinOutputStyle
 
-Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent. Transforms Claude into a critical thinker who questions assumptions and identifies flaws while remaining highly capable.
+Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent. Transforms the assistant into a critical thinker who questions assumptions and identifies flaws while remaining highly capable.
 
 [View Plugin Documentation →](./MarvinOutputStyle/README.md)
 
@@ -71,7 +76,7 @@ Want to add your plugin to this marketplace?
 
 ### 1. Create Your Plugin
 
-Follow the standard Claude Code plugin structure:
+Follow the standard Claude Code-compatible plugin structure:
 
 ```
 YourPlugin/

@@ -1,6 +1,6 @@
 # XcodeBuildTools
 
-Xcode development tools for Claude Code. Build/test tools use [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient JSON output.
+Xcode development tools for Claude Code-compatible agents. Build/test tools use [xcsift](https://github.com/ldomaradzki/xcsift) for token-efficient JSON output.
 
 ## Installation
 

@@ -173,7 +173,7 @@ scripts/sim-screenshot.py --output /tmp/screenshot.png
 scripts/sim-screenshot.py
 ```
 
-**Important:** After taking a screenshot, use the Read tool to view the image. This allows seeing the current UI state and identifying coordinates for tap/swipe actions.
+**Important:** After taking a screenshot, view the image with the current agent's image support. This allows seeing the current UI state and identifying coordinates for tap/swipe actions.
 
 ### sim-record-video.py
 Record video from the simulator screen.

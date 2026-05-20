@@ -3,14 +3,14 @@
 # xcodebuild wrapper — Injects sandbox isolation flags
 #
 # Shadows /usr/bin/xcodebuild via the plugin's bin/ directory on PATH, so
-# both direct Claude invocations and nested calls from build scripts
+# both direct agent invocations and nested calls from build scripts
 # (Makefiles, fastlane, shell scripts, etc.) are sandboxed transparently.
 #
 # Reads $SANDBOX_DERIVED_DATA and $SANDBOX_PACKAGES (exported by the
 # PreToolUse inject-session-id.py hook into every Bash command) and
 # passes them to /usr/bin/xcodebuild as -derivedDataPath and
 # -clonedSourcePackagesDirPath. If neither env var is set (e.g. the
-# wrapper was invoked from a shell outside a Claude Bash tool context),
+# wrapper was invoked from a shell outside a hosted Bash-tool context),
 # the wrapper falls through to an unsandboxed exec.
 #
 # On first invocation, seeds the sandbox SPM cache from the system cache

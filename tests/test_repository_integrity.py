@@ -97,8 +97,11 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 self.assertRegex(frontmatter, r"(?m)^description: .+")
 
     def test_hook_commands_reference_existing_plugin_files(self):
-        for hooks_path in REPO_ROOT.glob("*/hooks/hooks.json"):
-            plugin_dir = hooks_path.parent.parent
+        hooks_paths = list(REPO_ROOT.glob("*/hooks/hooks.json"))
+        hooks_paths.append(REPO_ROOT / "common" / "hooks.json")
+
+        for hooks_path in hooks_paths:
+            plugin_dir = REPO_ROOT if hooks_path.parent.name == "common" else hooks_path.parent.parent
             hooks_config = load_json(hooks_path)
             commands = self.hook_commands(hooks_config)
 
@@ -175,6 +178,47 @@ class RepositoryIntegrityTests(unittest.TestCase):
             with self.subTest(script=str(script_path.relative_to(REPO_ROOT))):
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_agent_facing_docs_avoid_known_stale_terms(self):
+        checks = {
+            "CLAUDE.md": ["SwiftDevelopment", "lastUpdated"],
+            ".claude/commands/update-plugin.md": ["SwiftDevelopment"],
+            "SwiftScaffolding/commands/scaffolding.md": [
+                "MacOS",
+                "XCodeBuildMCP",
+                "scaffolginf",
+            ],
+            "iOSSimulator/README.md": [
+                "Claude can",
+                "Claude views",
+                "Claude identifies",
+            ],
+            "MarvinOutputStyle/README.md": [
+                "Claude will",
+                "Claude's communication",
+                "Ask Claude Code",
+            ],
+            "iOSSimulator/skills/ios-simulator/SKILL.md": ["Read tool"],
+            "iOSSimulator/skills/ios-simulator/references/script-details.md": ["Read tool"],
+            "XcodeBuildTools/session-start.md": ["Claude session", "Claude sessions"],
+            "XcodeBuildTools/bin/xcodebuild": ["Claude invocations", "Claude Bash"],
+            "XcodeBuildTools/bin/swift": ["Claude invocations", "Claude Bash"],
+        }
+
+        for relative_path, stale_terms in checks.items():
+            text = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+            for stale_term in stale_terms:
+                with self.subTest(file=relative_path, stale_term=stale_term):
+                    self.assertNotIn(stale_term, text)
+
+    def test_claude_specific_question_tool_stays_in_metadata(self):
+        command_path = REPO_ROOT / "SwiftScaffolding" / "commands" / "scaffolding.md"
+        text = command_path.read_text(encoding="utf-8")
+        frontmatter, body = self.split_frontmatter(text)
+
+        self.assertIn("AskUserQuestion", frontmatter)
+        self.assertNotIn("AskUserQuestion", body)
+        self.assertIn("host's native structured question mechanism", body)
+
     def hook_commands(self, value):
         commands = []
         if isinstance(value, dict):
@@ -187,6 +231,11 @@ class RepositoryIntegrityTests(unittest.TestCase):
             for child in value:
                 commands.extend(self.hook_commands(child))
         return commands
+
+    def split_frontmatter(self, text):
+        match = re.match(r"---\n(?P<frontmatter>.*?)\n---\n(?P<body>.*)", text, re.DOTALL)
+        self.assertIsNotNone(match)
+        return match.group("frontmatter"), match.group("body")
 
 
 if __name__ == "__main__":
