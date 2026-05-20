@@ -50,7 +50,7 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 ### XcodeBuildTools
 
-Xcode development tools using token-efficient build output. Provides 8 consolidated skills covering the full Xcode development workflow.
+Xcode development tools using token-efficient build output. Provides 9 consolidated skills covering the full Xcode development workflow, with optional Xcode MCP integration for MCP-only Xcode context.
 
 **Skills:**
 - `swift-package` - Build, test, run, and manage SPM projects
@@ -61,6 +61,7 @@ Xcode development tools using token-efficient build output. Provides 8 consolida
 - `device-app` - Manage apps on physical Apple devices
 - `macos-app` - Launch and stop macOS applications
 - `sim-log` - Capture logs from iOS Simulator apps
+- `sparkle-integration` - Integrate Sparkle 2.x auto-update framework
 
 [View Plugin Documentation →](./XcodeBuildTools/README.md)
 

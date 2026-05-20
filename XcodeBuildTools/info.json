@@ -45,6 +45,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.9",
+            "changes": "Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible. Raw Xcode MCP should be used for explicit user requests, MCP-only Xcode context, or gaps not covered by a skill. Removes skill and session-start wording that told agents to prefer raw Xcode MCP over the corresponding XcodeBuildTools skill. Clarifies session-start routing across xcodebuild, xcode-test, and swift-package."
+        },
+        {
             "version": "0.5.8",
             "changes": "Sandbox env injection migrated from a per-Bash PreToolUse hook (`inject-session-id.py`, removed) to the new `CLAUDE_ENV_FILE` mechanism. PATH/SANDBOX_DERIVED_DATA/SANDBOX_PACKAGES are now written once at SessionStart by a new sync hook (`write-env.sh`) instead of being prefixed onto every Bash command. Anchor-discovery for `/clear` inheritance extracted into a shared `hooks/lib/sandbox.sh` helper so the sync `write-env.sh` and async `setup-sandbox.sh` agree on the same anchor and can't silently drift. `setup-sandbox.sh` switched from inline Python to `jq` for stdin JSON parsing. No user-visible behavior change."
         },
@@ -86,7 +90,7 @@
         },
         {
             "version": "0.4.0",
-            "changes": "Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server and delegates overlapping tools (build, test, project inspection, docs). Adds auto-approve hook for MCP authorization dialog"
+            "changes": "Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server and adds conditional routing guidance for overlapping tools (build, test, project inspection, docs). Adds auto-approve hook for MCP authorization dialog"
         },
         {
             "version": "0.3.17",

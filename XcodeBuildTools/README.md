@@ -29,21 +29,23 @@ brew install xcsift
 | `sim-log` | Capture logs from iOS Simulator apps |
 | `sparkle-integration` | Integrate Sparkle 2.x auto-update framework into macOS apps |
 
-## Xcode MCP Compatibility
+## Xcode MCP Integration
 
-Starting with v0.4.0, XcodeBuildTools automatically detects Xcode 26.3+'s native MCP server and delegates overlapping capabilities when available.
+Starting with v0.4.0, XcodeBuildTools automatically detects Xcode 26.3+'s native MCP server and includes routing guidance for when raw Xcode MCP tools are also available.
 
-### Tool Delegation
+XcodeBuildTools remains the primary routing surface for build, test, Swift package, and project-inspection workflows. Raw Xcode MCP tools are reserved for explicit user requests, MCP-only Xcode context such as live editor or project state, or gaps that are not covered by an XcodeBuildTools skill.
 
-| Domain | Xcode MCP Tool | XcodeBuildTools Fallback |
-|--------|---------------|------------------------|
-| Building | `BuildProject`, `GetBuildLog` | `xcodebuild` skill |
-| Testing | `RunAllTests`, `RunSomeTests`, `GetTestList` | `xcode-test` skill |
-| Project inspection | `XcodeGlob`, `XcodeLS`, `XcodeListWindows` | `xcode-project` skill |
-| SPM (Xcode open) | `BuildProject` | `swift-package` skill |
-| Documentation | `DocumentationSearch` | `sosumi` MCP server |
+### Tool Routing
 
-Skills with **no MCP equivalent** (always used directly): `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`.
+| Domain | Primary route | Raw Xcode MCP use |
+|--------|---------------|-------------------|
+| Building | `xcodebuild` skill | Only when explicitly requested or required by the skill |
+| Testing | `xcode-test` skill | Only when explicitly requested or required by the skill |
+| Project inspection | `xcode-project` skill | Use MCP for live Xcode/editor state that the skill cannot inspect |
+| SPM | `swift-package` skill | Only when explicitly requested or required by the skill |
+| Documentation | `sosumi` MCP server | `DocumentationSearch` is fine when available |
+
+Skills with **no MCP equivalent**: `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`.
 
 ### Auto-Approve Hook
 
@@ -60,6 +62,12 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 - **SwiftDevelopment** - swift-compile skill with xcsift integration
 
 ## Changelog
+
+### 0.5.9
+- Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible
+- Clarify that raw Xcode MCP should be used for explicit user requests, MCP-only Xcode context, or gaps not covered by a skill
+- Remove skill and session-start wording that told agents to prefer raw Xcode MCP over the corresponding XcodeBuildTools skill
+- Clarify session-start routing across `xcodebuild`, `xcode-test`, and `swift-package`
 
 ### 0.5.8
 - Sandbox environment injection migrated from a per-Bash `PreToolUse` hook (`inject-session-id.py`) to the new `CLAUDE_ENV_FILE` mechanism. `PATH`, `SANDBOX_DERIVED_DATA`, and `SANDBOX_PACKAGES` are now written once at SessionStart by a new sync hook (`write-env.sh`) and persist across every subsequent Bash command — no more per-command prefix injection
@@ -108,10 +116,10 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 
 ### 0.4.0
 - Xcode MCP compatibility: auto-detects Xcode 26.3+ native MCP server at session start
-- Conditional tool delegation: prefers Xcode MCP tools for build, test, project inspection, and documentation when available
+- Conditional MCP routing guidance for build, test, project inspection, and documentation when raw Xcode MCP tools are available
 - Auto-approve hook: automatically clicks "Allow" on Xcode's MCP authorization dialog (async, PID-locked)
-- Future-proofing: generic fallback instruction for new Xcode MCP tools beyond the known set
-- MCP notes added to all 9 skills indicating delegation preference or uniqueness
+- Future-proofing: generic routing guidance for new Xcode MCP tools beyond the known set
+- MCP notes added to all 9 skills indicating routing or uniqueness
 
 ### 0.3.17
 - Improved sparkle-integration security: separate Debug/Release entitlements for `disable-library-validation`
