@@ -3,6 +3,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
     "versions": [
         {
+            "version": "0.4.2",
+            "changes": "Kept Claude-specific AskUserQuestion access in command metadata while making the scaffolding prompt body portable across compatible agents."
+        },
+        {
             "version": "0.4.1",
             "changes": "Removed auto-update hook from SessionStart to prevent configuration issues"
         },

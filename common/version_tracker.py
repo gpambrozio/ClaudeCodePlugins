@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Version tracking utilities for Claude Code plugins.
+Version tracking utilities for Claude Code-compatible plugins.
 
 Compares a project's last-seen version against a plugin's version history
 and returns changelog information for any new versions.

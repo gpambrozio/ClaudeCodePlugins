@@ -1,9 +1,9 @@
 ---
 name: xcodebuild
-description: Build Xcode projects for simulator, device, or macOS using `xcodebuild` with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, cleaning build products or before you invoke any Bash command with `xcodebuild` or `swift`.
+description: Build Xcode projects for simulator, device, or macOS using `xcodebuild` with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, cleaning Xcode build products, or before you invoke any Bash command with `xcodebuild`.
 ---
 
-> **Xcode MCP**: If `BuildProject` / `GetBuildLog` are in your tool list, prefer those over this skill.
+> **Tool routing**: Use this skill for Xcode build workflows even when raw Xcode MCP build tools are available. Use raw Xcode MCP only when explicitly requested, when this skill instructs you to, or when MCP-only Xcode context is required.
 
 # Xcodebuild
 

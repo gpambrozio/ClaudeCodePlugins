@@ -3,7 +3,7 @@ name: xcode-test
 description: Run Xcode unit tests and UI tests using xcodebuild with xcsift for token-efficient output. Use when running tests for iOS/macOS projects, filtering specific test cases, or checking test results.
 ---
 
-> **Xcode MCP**: If `RunAllTests` / `RunSomeTests` / `GetTestList` are in your tool list, prefer those over this skill.
+> **Tool routing**: Use this skill for Xcode test workflows even when raw Xcode MCP test tools are available. Use raw Xcode MCP only when explicitly requested, when this skill instructs you to, or when MCP-only Xcode context is required.
 
 # Xcode Test
 

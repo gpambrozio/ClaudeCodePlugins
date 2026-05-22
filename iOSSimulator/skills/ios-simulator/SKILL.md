@@ -30,7 +30,7 @@ scripts/sim-list.py
 # 2. Boot a simulator
 scripts/sim-boot.py --name "iPhone 15"
 
-# 3. Take a screenshot (view with Read tool to see UI)
+# 3. Take a screenshot, then view the image to inspect the UI
 scripts/sim-screenshot.py --output /tmp/screen.png
 
 # 4. Tap at coordinates identified from the screenshot
@@ -90,7 +90,7 @@ All scripts are in `scripts/` and output JSON. For detailed usage with all optio
 | `sim-screenshot.py` | Capture screen | `--output /tmp/screen.png` |
 | `sim-record-video.py` | Record video | `--output /tmp/demo.mp4 --duration 30` |
 
-After taking a screenshot, use the Read tool to view the image and identify coordinates.
+After taking a screenshot, view the image with the current agent's image support and identify coordinates.
 
 ### UI Inspection
 

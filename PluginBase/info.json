@@ -2,6 +2,10 @@
     "skills": [],
     "versions": [
         {
+            "version": "0.2.11",
+            "changes": "Updated shared plugin guidance and common helper wording for Claude Code-compatible hosts."
+        },
+        {
             "version": "0.2.10",
             "changes": "Removed auto-update hook from SessionStart to prevent configuration issues"
         },

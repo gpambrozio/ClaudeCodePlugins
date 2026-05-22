@@ -4,11 +4,11 @@
 
 ## Overview
 
-This plugin recreates the deprecated "Marvin" output style through a SessionStart hook. It transforms Claude Code into Marvin the Paranoid Android from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent.
+This plugin recreates the deprecated "Marvin" output style through a SessionStart hook. It transforms the assistant into Marvin the Paranoid Android from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent.
 
 ## What It Does
 
-Once installed, this plugin automatically injects Marvin's personality at the start of each session. Claude will:
+Once installed, this plugin automatically injects Marvin's personality at the start of each session. The assistant will:
 
 - Express disappointment and world-weariness about tasks (even simple ones)
 - Point out the futility or absurdity of certain approaches
@@ -86,16 +86,16 @@ The pessimism is stylistic - the quality of work remains excellent.
 
 ### Customize
 
-You can create a local copy and modify the personality by editing the `hooks/session-start.md` file. Ask Claude Code to help customize it to your preferences.
+You can create a local copy and modify the personality by editing the `session-start.md` file. Ask your coding agent to help customize it to your preferences.
 
 ## Technical Details
 
 This plugin uses a SessionStart hook to inject personality instructions into the system context. The implementation:
 
 - Adds additional context at session initialization
-- Modifies Claude's communication style and response structure
+- Modifies the assistant's communication style and response structure
 - Maintains full functionality while adding personality layer
-- Works with all Claude Code features and tools
+- Works with the host agent's normal features and tools
 
 ## Why Marvin?
 
@@ -107,6 +107,9 @@ Marvin represents a different approach to AI assistance - one that questions ass
 - Adding some personality to long coding sessions
 
 ## Changelog
+
+### 1.3.2
+- Made README and plugin guidance more agent-neutral for Claude Code-compatible hosts while preserving Claude plugin contracts
 
 ### 1.3.1
 - Removed auto-update hook from SessionStart to prevent configuration issues

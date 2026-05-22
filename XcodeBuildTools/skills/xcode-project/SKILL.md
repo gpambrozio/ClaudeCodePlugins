@@ -3,7 +3,7 @@ name: xcode-project
 description: Discover and inspect Xcode projects and workspaces. Use when finding .xcodeproj/.xcworkspace files, listing available schemes, viewing build settings, or extracting bundle identifiers from apps.
 ---
 
-> **Xcode MCP**: If `XcodeGlob` / `XcodeLS` / `XcodeListWindows` are in your tool list, prefer those over this skill.
+> **Tool routing**: Use this skill for normal project discovery and build-setting inspection. Use raw Xcode MCP directly for live Xcode/editor state that this skill cannot inspect, or when explicitly requested.
 
 # Xcode Project Discovery
 

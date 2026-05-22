@@ -450,20 +450,11 @@ bump_version() {
 }
 
 # =====================================================
-# Generate release notes using Claude
+# Generate release notes using an available agent CLI
 # =====================================================
 generate_release_notes() {
     local version=$1
-    log_info "Generating release notes with Claude..." >&2
-
-    # Check if claude CLI is available
-    if ! command -v claude &> /dev/null; then
-        log_warning "Claude CLI not found, using generic release notes" >&2
-        echo "## What's New in $version
-
-- Bug fixes and improvements"
-        return
-    fi
+    log_info "Generating release notes with available agent CLI..." >&2
 
     # Get the previous tag
     local previous_tag
@@ -482,7 +473,6 @@ generate_release_notes() {
     local commits
     commits=$(git -C "$PROJECT_ROOT" log "$commit_range" --pretty=format:"- %s (%h)" 2>/dev/null || echo "Initial release")
 
-    # Use Claude to generate release notes
     local prompt="You are a technical writer creating release notes for a software product.
 
 Generate professional release notes for version $version of $APP_NAME.
@@ -503,12 +493,33 @@ Requirements:
 - Output ONLY the release notes content itself"
 
     local release_notes
-    release_notes=$(claude -p "$prompt" 2>/dev/null) || {
-        log_warning "Claude failed to generate release notes, using commit list instead" >&2
-        release_notes="## What's New in $version
+    if command -v claude &> /dev/null; then
+        if release_notes=$(claude -p "$prompt" 2>/dev/null); then
+            echo "$release_notes"
+            return
+        fi
+        log_warning "claude CLI failed to generate release notes, trying next available agent" >&2
+    fi
+
+    if command -v codex &> /dev/null; then
+        local notes_file
+        notes_file=$(mktemp)
+        if codex exec --sandbox read-only --cd "$PROJECT_ROOT" --output-last-message "$notes_file" "$prompt" >/dev/null 2>&1; then
+            release_notes=$(cat "$notes_file")
+            rm -f "$notes_file"
+            echo "$release_notes"
+            return
+        else
+            log_warning "Codex failed to generate release notes, using fallback" >&2
+        fi
+        rm -f "$notes_file"
+    elif ! command -v claude &> /dev/null; then
+        log_warning "No supported agent CLI found, using fallback" >&2
+    fi
+
+    release_notes="## What's New in $version
 
 $commits"
-    }
 
     echo "$release_notes"
 }
@@ -549,7 +560,7 @@ main() {
     local sparkle_signature
     sparkle_signature=$(sign_dmg_for_sparkle "$dmg_path")
 
-    # Generate release notes using Claude (falls back to generic if unavailable)
+    # Generate release notes using an available agent CLI (falls back if unavailable)
     local release_notes
     release_notes=$(generate_release_notes "$version")
 

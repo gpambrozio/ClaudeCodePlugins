@@ -1,6 +1,11 @@
 # Claude Code Plugins Marketplace
 
-A curated collection of Claude Code plugins for various development workflows. Each plugin extends Claude Code's capabilities with custom slash commands, MCP servers, skills, and agents.
+A curated collection of Claude Code-compatible plugins for various development workflows. Each plugin extends agent capabilities with custom slash commands, MCP servers, skills, and agents.
+
+The marketplace uses Claude Code's plugin packaging contracts (`.claude-plugin`,
+`CLAUDE_PLUGIN_ROOT`, plugin install commands), but agent-facing instructions are
+kept neutral so compatible hosts such as Codex can consume the same skills and
+prompts where supported.
 
 ## Quick Start
 
@@ -38,19 +43,19 @@ Control iOS Simulators using native macOS tools. Manage simulators, automate UI 
 
 ### SwiftScaffolding
 
-Swift project scaffolding and code generation tools. Generate project structures, create boilerplate code from templates, and initialize new iOS/MacOS projects with common configurations.
+Swift project scaffolding and code generation tools. Generate project structures, create boilerplate code from templates, and initialize new iOS/macOS projects with common configurations.
 
 [View Plugin Documentation →](./SwiftScaffolding/README.md)
 
 ### MarvinOutputStyle
 
-Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent. Transforms Claude into a critical thinker who questions assumptions and identifies flaws while remaining highly capable.
+Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the Galaxy* - pessimistic, melancholic, existentially weary, but brilliantly competent. Transforms the assistant into a critical thinker who questions assumptions and identifies flaws while remaining highly capable.
 
 [View Plugin Documentation →](./MarvinOutputStyle/README.md)
 
 ### XcodeBuildTools
 
-Xcode development tools using token-efficient build output. Provides 8 consolidated skills covering the full Xcode development workflow.
+Xcode development tools using token-efficient build output. Provides 9 consolidated skills covering the full Xcode development workflow, with optional Xcode MCP integration for MCP-only Xcode context.
 
 **Skills:**
 - `swift-package` - Build, test, run, and manage SPM projects
@@ -61,6 +66,7 @@ Xcode development tools using token-efficient build output. Provides 8 consolida
 - `device-app` - Manage apps on physical Apple devices
 - `macos-app` - Launch and stop macOS applications
 - `sim-log` - Capture logs from iOS Simulator apps
+- `sparkle-integration` - Integrate Sparkle 2.x auto-update framework
 
 [View Plugin Documentation →](./XcodeBuildTools/README.md)
 
@@ -70,7 +76,7 @@ Want to add your plugin to this marketplace?
 
 ### 1. Create Your Plugin
 
-Follow the standard Claude Code plugin structure:
+Follow the standard Claude Code-compatible plugin structure:
 
 ```
 YourPlugin/
@@ -141,12 +147,21 @@ When updating a plugin:
 
 1. Update version in plugin's `plugin.json`
 2. Update version in marketplace.json entry
-3. Update `lastUpdated` timestamp in marketplace.json
-4. Document changes in plugin's README
+3. Document changes in plugin's README and `info.json` version history
 
 ## Development
 
 ### Testing Locally
+
+Run repository checks with Python's built-in unittest runner:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+The same command runs in GitHub Actions on push and pull request.
+
+### Testing Plugin Installation
 
 ```bash
 # Add marketplace from local directory

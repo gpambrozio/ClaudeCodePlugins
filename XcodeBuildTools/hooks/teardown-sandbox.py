@@ -14,10 +14,10 @@ across /clear — see setup-sandbox.sh). Handling differs:
   Using rm -rf on the symlink path directly is risky because of trailing-
   slash semantics and because we'd rather walk the references explicitly.
 
-Multi-GB DerivedData trees can take longer than Claude's SessionEnd hook
+Multi-GB DerivedData trees can take longer than the host's SessionEnd hook
 timeout. When the hook is killed mid-rm, the sandbox is left partially
 removed. To survive that, the anchor removal is spawned in a new session
-(setsid via Popen's start_new_session) so Claude's process-group SIGTERM
+(setsid via Popen's start_new_session) so the host's process-group SIGTERM
 can't reach it. setup-sandbox.sh's owner.pid sweep is the safety net for
 anything that still falls through (laptop sleep, hard crash, etc.).
 """

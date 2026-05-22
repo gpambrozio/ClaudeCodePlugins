@@ -31,19 +31,19 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 
 ```bash
 # List available simulators
-python3 scripts/sim-list.py
+python3 skills/ios-simulator/scripts/sim-list.py
 
 # Boot iPhone 15 simulator
-python3 scripts/sim-boot.py --name "iPhone 15"
+python3 skills/ios-simulator/scripts/sim-boot.py --name "iPhone 15"
 
 # Take a screenshot
-python3 scripts/sim-screenshot.py --output /tmp/screen.png
+python3 skills/ios-simulator/scripts/sim-screenshot.py --output /tmp/screen.png
 
 # Tap at coordinates
-python3 scripts/sim-tap.py --x 200 --y 400
+python3 skills/ios-simulator/scripts/sim-tap.py --x 200 --y 400
 
 # Type text
-python3 scripts/sim-type.py --text "Hello!"
+python3 skills/ios-simulator/scripts/sim-type.py --text "Hello!"
 ```
 
 ## Available Scripts
@@ -91,15 +91,18 @@ No additional dependencies like `idb` are required.
 
 ## Screenshot-Based UI Automation
 
-Claude can view screenshots! The recommended workflow:
+Agents with image input can view screenshots. The recommended workflow:
 
 1. Take a screenshot with `sim-screenshot.py`
-2. Claude views the image to understand the UI
-3. Claude identifies element positions visually
+2. View the image to understand the UI
+3. Identify element positions visually
 4. Use `sim-tap.py` to interact at those coordinates
 5. Repeat for complex workflows
 
 ## Changelog
+
+### 0.6.4
+- Made screenshot workflow guidance agent-neutral so agents with image support can follow the simulator automation flow
 
 ### 0.6.3
 - Removed auto-update hook from SessionStart to prevent configuration issues

@@ -3,14 +3,14 @@
 # swift wrapper — Injects sandbox isolation for SPM subcommands
 #
 # Shadows /usr/bin/swift via the plugin's bin/ directory on PATH, so both
-# direct Claude invocations and nested calls from build scripts
+# direct agent invocations and nested calls from build scripts
 # (Makefiles, fastlane, shell scripts, etc.) are sandboxed transparently.
 #
-# Reads $SANDBOX_PACKAGES (exported by the PreToolUse inject-session-id.py
-# hook into every Bash command) and passes it as --cache-path to
-# subcommands that accept SwiftPM flags (build, test, run). Other
-# subcommands pass through unmodified. If $SANDBOX_PACKAGES is unset
-# (e.g. the wrapper was invoked from a shell outside a Claude Bash tool
+# Reads $SANDBOX_PACKAGES (exported by hooks/write-env.sh through
+# $CLAUDE_ENV_FILE) and passes it as --cache-path to subcommands that
+# accept SwiftPM flags (build, test, run). Other subcommands pass through
+# unmodified. If $SANDBOX_PACKAGES is unset
+# (e.g. the wrapper was invoked from a shell outside a hosted Bash-tool
 # context), the wrapper falls through to an unsandboxed exec.
 #
 # On first build invocation, seeds the sandbox SPM cache from the system
