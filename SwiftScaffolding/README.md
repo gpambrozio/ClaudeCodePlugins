@@ -25,9 +25,12 @@ Swift project scaffolding and code generation tools.
 
 ## Usage
 
-Use the `/SwiftScaffolding:scaffolding` command to scaffold Swift projects.
+Use the `scaffolding` skill to scaffold Swift projects.
 
 ## Changelog
+
+### 0.4.3
+- Migrated the legacy scaffolding prompt to the `scaffolding` skill
 
 ### 0.4.2
 - Kept Claude-specific `AskUserQuestion` access in command metadata while making the scaffolding prompt body portable across compatible agents

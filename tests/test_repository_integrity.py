@@ -110,7 +110,10 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 self.assertEqual(listed_skills, discovered_skills)
 
     def test_skill_frontmatter_names_match_directory_names(self):
-        for skill_path in REPO_ROOT.glob("*/skills/*/SKILL.md"):
+        skill_paths = sorted(REPO_ROOT.glob("*/skills/*/SKILL.md"))
+        skill_paths.extend(sorted((REPO_ROOT / ".claude" / "skills").glob("*/SKILL.md")))
+
+        for skill_path in skill_paths:
             text = skill_path.read_text(encoding="utf-8")
             match = re.match(r"---\n(?P<frontmatter>.*?)\n---", text, re.DOTALL)
 
@@ -265,8 +268,8 @@ class RepositoryIntegrityTests(unittest.TestCase):
     def test_agent_facing_docs_avoid_known_stale_terms(self):
         checks = {
             "CLAUDE.md": ["SwiftDevelopment", "lastUpdated"],
-            ".claude/commands/update-plugin.md": ["SwiftDevelopment"],
-            "SwiftScaffolding/commands/scaffolding.md": [
+            ".claude/skills/update-plugin/SKILL.md": ["SwiftDevelopment"],
+            "SwiftScaffolding/skills/scaffolding/SKILL.md": [
                 "MacOS",
                 "XCodeBuildMCP",
                 "scaffolginf",
@@ -303,14 +306,12 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 with self.subTest(file=relative_path, stale_term=stale_term):
                     self.assertNotIn(stale_term, text)
 
-    def test_claude_specific_question_tool_stays_in_metadata(self):
-        command_path = REPO_ROOT / "SwiftScaffolding" / "commands" / "scaffolding.md"
-        text = command_path.read_text(encoding="utf-8")
-        frontmatter, body = self.split_frontmatter(text)
+    def test_scaffolding_skill_uses_portable_question_guidance(self):
+        skill_path = REPO_ROOT / "SwiftScaffolding" / "skills" / "scaffolding" / "SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
 
-        self.assertIn("AskUserQuestion", frontmatter)
-        self.assertNotIn("AskUserQuestion", body)
-        self.assertIn("host's native structured question mechanism", body)
+        self.assertNotIn("AskUserQuestion", text)
+        self.assertIn("host's native structured question mechanism", text)
 
     def hook_commands(self, value):
         commands = []

@@ -28,6 +28,8 @@ brew install xcsift
 | `macos-app` | Launch and stop macOS applications |
 | `sim-log` | Capture logs from iOS Simulator apps |
 | `sparkle-integration` | Integrate Sparkle 2.x auto-update framework into macOS apps |
+| `swift-code-analysis` | Review Swift code for architecture, correctness, and maintainability issues |
+| `swiftui-modernize` | Review SwiftUI files for deprecated APIs and modernization opportunities |
 
 ## Xcode MCP Integration
 
@@ -45,7 +47,7 @@ XcodeBuildTools remains the primary routing surface for build, test, Swift packa
 | SPM | `swift-package` skill | Only when explicitly requested or required by the skill |
 | Documentation | `sosumi` MCP server | `DocumentationSearch` is fine when available |
 
-Skills with **no MCP equivalent**: `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`.
+Skills with **no MCP equivalent**: `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`, `swift-code-analysis`, `swiftui-modernize`.
 
 ### Auto-Approve Hook
 
@@ -62,6 +64,9 @@ The plugin includes a backgrounded SessionStart hook that automatically clicks "
 - **SwiftScaffolding** - Swift project scaffolding through XcodeBuildMCP
 
 ## Changelog
+
+### 0.5.10
+- Migrated the legacy analyze and SwiftUI modernization prompts to `swift-code-analysis` and `swiftui-modernize` skills
 
 ### 0.5.9
 - Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible

@@ -1,6 +1,6 @@
 # Claude Code Plugins Marketplace
 
-A curated collection of Claude Code-compatible plugins for various development workflows. Each plugin extends agent capabilities with custom slash commands, MCP servers, skills, and agents.
+A curated collection of Claude Code-compatible plugins for various development workflows. Each plugin extends agent capabilities with skills, MCP servers, hooks, and agents.
 
 The marketplace uses Claude Code's plugin packaging contracts (`.claude-plugin`,
 `CLAUDE_PLUGIN_ROOT`, plugin install commands), but agent-facing instructions are
@@ -55,7 +55,7 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 ### XcodeBuildTools
 
-Xcode development tools using token-efficient build output. Provides 9 consolidated skills covering the full Xcode development workflow, with optional Xcode MCP integration for MCP-only Xcode context.
+Xcode development tools using token-efficient build output. Provides 11 consolidated skills covering the full Xcode development workflow, with optional Xcode MCP integration for MCP-only Xcode context.
 
 **Skills:**
 - `swift-package` - Build, test, run, and manage SPM projects
@@ -67,6 +67,8 @@ Xcode development tools using token-efficient build output. Provides 9 consolida
 - `macos-app` - Launch and stop macOS applications
 - `sim-log` - Capture logs from iOS Simulator apps
 - `sparkle-integration` - Integrate Sparkle 2.x auto-update framework
+- `swift-code-analysis` - Review Swift code quality, architecture, and correctness
+- `swiftui-modernize` - Review SwiftUI files for deprecated APIs and modernization opportunities
 
 [View Plugin Documentation →](./XcodeBuildTools/README.md)
 
@@ -82,9 +84,9 @@ Follow the standard Claude Code-compatible plugin structure:
 YourPlugin/
 ├── .claude-plugin/
 │   └── plugin.json
-├── commands/               # Optional: slash commands
 ├── skills/                 # Optional: agent skills
 ├── agents/                 # Optional: custom agents
+├── hooks/                  # Optional: lifecycle hooks
 ├── .mcp.json              # Optional: MCP servers
 └── README.md
 ```
@@ -119,7 +121,7 @@ YourPlugin/
 
 - Include a comprehensive README.md
 - Follow semantic versioning
-- Test all commands and MCP servers
+- Test all skills, hooks, and MCP servers
 - Document prerequisites and dependencies
 - Include examples and usage instructions
 
@@ -185,7 +187,7 @@ Use an existing plugin as a template:
 cp -r XcodeBuildTools YourNewPlugin
 
 # Update metadata in .claude-plugin/plugin.json
-# Customize commands, skills, agents
+# Customize skills, hooks, agents
 # Update README.md
 ```
 
@@ -195,7 +197,6 @@ cp -r XcodeBuildTools YourNewPlugin
 - [Plugin Development Guide](https://docs.claude.com/en/docs/claude-code/plugins)
 - [MCP Server Documentation](https://docs.claude.com/en/docs/claude-code/mcp)
 - [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills)
-- [Slash Commands Reference](https://docs.claude.com/en/docs/claude-code/slash-commands)
 
 ## License
 

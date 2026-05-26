@@ -24,7 +24,7 @@ The repository has a two-level architecture:
 2. **Plugin Level** (subdirectories):
    - Each plugin subdirectory is a self-contained Claude Code-compatible plugin package
    - Contains its own `.claude-plugin/plugin.json` manifest
-   - May include: slash commands (`commands/`), skills (`skills/`), agents (`agents/`), and MCP servers (`.mcp.json`)
+   - May include: skills (`skills/`), agents (`agents/`), hooks (`hooks/`), and MCP servers (`.mcp.json`)
 
 ### Key Schema Requirements
 
@@ -81,9 +81,9 @@ Users add the marketplace, then install plugins from it:
    }
    ```
 4. Create plugin components:
-   - `commands/` - Slash commands (`.md` files)
    - `skills/` - Agent skills (directories with `SKILL.md`)
    - `agents/` - Custom agents (`.md` files)
+   - `hooks/` - Lifecycle hooks and related scripts
    - `.mcp.json` - MCP server configurations
 
 ### Updating Plugins
@@ -107,7 +107,7 @@ Every version bump must be tagged so Claude Code can resolve it for plugin depen
 - **One tag per bumped plugin**: changes under `common/` affect every plugin; if you bump multiple plugins in one PR, create and push one tag per bumped plugin.
 - **Verify**: `git tag -l '{PluginName}*' --sort=-v:refname` should show the new tag; `git show {tag}:{PluginName}/.claude-plugin/plugin.json` should print the matching version.
 
-The `/update-plugin` skill automates these steps end-to-end.
+The `update-plugin` skill automates these steps end-to-end.
 
 ### Testing Locally
 
@@ -125,17 +125,6 @@ Test the marketplace and plugins locally before pushing:
 ```
 
 ## Plugin Component Guidelines
-
-### Slash Commands
-- Standalone `.claude/commands` files use the filename as the command name:
-  `analyze.md` → `/analyze`
-- Plugin commands are namespaced by plugin name to avoid collisions:
-  `SwiftScaffolding/commands/scaffolding.md` → `/SwiftScaffolding:scaffolding`
-- Write the command prompt in markdown
-- Located in plugin's `commands/` directory
-- Claude-specific tool names are acceptable in Claude-specific metadata such as
-  `allowed-tools`, but keep the command body portable. For user input, say to use
-  the host's native structured question mechanism if available.
 
 ### MCP Servers
 - Configured in plugin's `.mcp.json`
@@ -217,7 +206,8 @@ if __name__ == "__main__":
 ### Skills and Agents
 - Skills: directories in `skills/` with `SKILL.md`
 - Agents: `.md` files in `agents/`
-- Not every plugin has skills or agents; command-only and hook-only plugins are valid.
+- Legacy command prompts should be migrated to skills instead of adding `commands/` content.
+- Not every plugin has skills or agents; hook-only plugins are valid.
 
 ## Git Workflow
 
