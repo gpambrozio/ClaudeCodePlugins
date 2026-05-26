@@ -13,13 +13,11 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/setup-sandbox.sh",
-            "async": true
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-background.sh hooks/setup-sandbox.sh"
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/approve-xcode-mcp.sh",
-            "async": true
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-background.sh hooks/approve-xcode-mcp.sh"
           }
         ]
       }

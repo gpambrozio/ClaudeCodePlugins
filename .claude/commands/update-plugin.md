@@ -14,6 +14,7 @@ if available; otherwise ask normally in chat.
    - Look at git changes
    - If there are no changes but the branch differs from remote then compare local with remote.
    - If there are changes in files in the `common` directory these affect every plugin so we need to update every plugin.
+   - If files in `common/` changed, run `scripts/sync-plugin-common.py` before editing versions so each plugin package has the current copied helpers.
    - If `common/hooks.json` was changed, you must propagate those changes to each plugin's `hooks/hooks.json` file while preserving the unique plugin name in each command (e.g., `session-start.py MarvinOutputStyle` stays unique per plugin).
 
 2. **Identify the plugin to update**
@@ -34,6 +35,8 @@ if available; otherwise ask normally in chat.
    - If the user created a new folder in the plugin's `skills` folder, add the folder name to the `skills` folder in `info.json`. If some folder was renamed on this folder rename it in the array as well.
 
 6. **Verify the updates**
+   - Run `scripts/sync-plugin-common.py --check`
+   - Run `python3 -m unittest discover -s tests -v`
    - Show the user a summary of all changes made
    - List the files that were modified
    - Confirm the version numbers match across all files
@@ -58,6 +61,7 @@ if available; otherwise ask normally in chat.
 - Ensure all JSON files remain valid after edits
 - The marketplace catalog and plugin manifest versions must match
 - The git tag version must also match (plugin.json version, marketplace.json version, and the `v{version}` portion of the tag are all the same string)
+- `common/` is the canonical source for shared hook helpers. The installed plugin package must be self-contained, so copied files under each plugin's `common/` directory must be regenerated with `scripts/sync-plugin-common.py` rather than edited by hand.
 - Each plugin has its own `hooks/hooks.json` file with unique command identifiers (plugin name baked into commands). When updating hooks:
   - The hook structure comes from `common/hooks.json` as reference
   - Each plugin's hooks.json must include the plugin name in commands (e.g., `${CLAUDE_PLUGIN_ROOT}/common/session-start.py PluginName`)

@@ -49,10 +49,10 @@ Skills with **no MCP equivalent**: `device-app`, `sim-log`, `xcode-doctor`, `mac
 
 ### Auto-Approve Hook
 
-The plugin includes an async hook that automatically clicks "Allow" on Xcode's MCP authorization dialog. It:
+The plugin includes a backgrounded SessionStart hook that automatically clicks "Allow" on Xcode's MCP authorization dialog. It:
 - Runs only when Xcode is active and `mcpbridge` exists
-- Uses a PID-based lock file to avoid re-running for the same Xcode instance
-- Times out silently after 10 seconds if no dialog appears
+- Does not require host-level `async` hook support
+- Times out silently if no dialog appears
 
 **Prerequisite**: Grant Accessibility access to your terminal app in System Settings > Privacy & Security > Accessibility. The script will prompt you if this is missing.
 

@@ -5,10 +5,12 @@ import shlex
 import subprocess
 import sys
 import unittest
+import importlib.util
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SYNC_COMMON_SCRIPT = REPO_ROOT / "scripts" / "sync-plugin-common.py"
 
 
 def load_json(path):
@@ -21,6 +23,16 @@ def plugin_dirs():
         path.parent.parent
         for path in REPO_ROOT.glob("*/.claude-plugin/plugin.json")
     )
+
+
+def load_sync_common_module():
+    spec = importlib.util.spec_from_file_location(
+        "sync_plugin_common_under_test",
+        SYNC_COMMON_SCRIPT,
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class RepositoryIntegrityTests(unittest.TestCase):
@@ -126,6 +138,66 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
                 with self.subTest(hook=str(hooks_path.relative_to(REPO_ROOT)), command=command):
                     self.assertTrue(executable.exists(), f"{executable} does not exist")
+
+    def test_plugin_packages_are_self_contained(self):
+        for plugin_dir in plugin_dirs():
+            for path in plugin_dir.rglob("*"):
+                if path.is_symlink():
+                    target = path.resolve()
+                    with self.subTest(path=str(path.relative_to(REPO_ROOT))):
+                        self.assertTrue(
+                            target == plugin_dir.resolve()
+                            or target.is_relative_to(plugin_dir.resolve()),
+                            "plugin packages must not depend on symlinks that escape the plugin directory",
+                        )
+
+    def test_plugin_common_copies_match_shared_sources(self):
+        sync_common = load_sync_common_module()
+        common_files = sorted(
+            path.name
+            for path in (REPO_ROOT / "common").iterdir()
+            if path.is_file()
+        )
+
+        for plugin_dir in plugin_dirs():
+            common_dir = plugin_dir / "common"
+            if not common_dir.exists():
+                continue
+
+            for common_file in common_files:
+                plugin_file = common_dir / common_file
+                shared_file = REPO_ROOT / "common" / common_file
+
+                with self.subTest(plugin=plugin_dir.name, common_file=common_file):
+                    self.assertEqual(
+                        sync_common.generated_bytes(shared_file, REPO_ROOT),
+                        plugin_file.read_bytes(),
+                    )
+
+    def test_sync_plugin_common_script_reports_clean_checkout(self):
+        result = subprocess.run(
+            [sys.executable, str(SYNC_COMMON_SCRIPT), "--check"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_plugin_hooks_do_not_require_host_async_support(self):
+        hooks_paths = list(REPO_ROOT.glob("*/hooks/hooks.json"))
+
+        for hooks_path in hooks_paths:
+            hooks_config = load_json(hooks_path)
+            async_paths = self.find_keys(hooks_config, "async")
+
+            with self.subTest(hook=str(hooks_path.relative_to(REPO_ROOT))):
+                self.assertEqual(
+                    [],
+                    async_paths,
+                    "Codex skips hooks with async=true; use a command that backgrounds its own work instead",
+                )
 
     def test_mcp_configs_define_servers(self):
         for mcp_path in REPO_ROOT.glob("*/.mcp.json"):
@@ -252,6 +324,18 @@ class RepositoryIntegrityTests(unittest.TestCase):
             for child in value:
                 commands.extend(self.hook_commands(child))
         return commands
+
+    def find_keys(self, value, key, path="$"):
+        paths = []
+        if isinstance(value, dict):
+            if key in value:
+                paths.append(path)
+            for child_key, child in value.items():
+                paths.extend(self.find_keys(child, key, f"{path}.{child_key}"))
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                paths.extend(self.find_keys(child, key, f"{path}[{index}]"))
+        return paths
 
     def split_frontmatter(self, text):
         match = re.match(r"---\n(?P<frontmatter>.*?)\n---\n(?P<body>.*)", text, re.DOTALL)

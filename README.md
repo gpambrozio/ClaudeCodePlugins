@@ -145,9 +145,11 @@ After changes, users can refresh:
 
 When updating a plugin:
 
-1. Update version in plugin's `plugin.json`
-2. Update version in marketplace.json entry
-3. Document changes in plugin's README and `info.json` version history
+1. If `common/` changed, run `scripts/sync-plugin-common.py`
+2. Update version in plugin's `plugin.json`
+3. Update version in marketplace.json entry
+4. Document changes in plugin's README and `info.json` version history
+5. Verify with `scripts/sync-plugin-common.py --check` and `python3 -m unittest discover -s tests -v`
 
 ## Development
 

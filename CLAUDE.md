@@ -89,11 +89,13 @@ Users add the marketplace, then install plugins from it:
 ### Updating Plugins
 
 When updating a plugin:
-1. Update version in plugin's `plugin.json`
-2. Update version in marketplace catalog entry (`.claude-plugin/marketplace.json`)
-3. Document changes in plugin's README.md and the `versions` array in the plugin's `info.json`
-4. Commit and push the version bump
-5. Tag the release (see "Tagging Plugin Releases" below)
+1. If `common/` changed, run `scripts/sync-plugin-common.py` so every plugin package gets updated helper copies.
+2. Update version in plugin's `plugin.json`
+3. Update version in marketplace catalog entry (`.claude-plugin/marketplace.json`)
+4. Document changes in plugin's README.md and the `versions` array in the plugin's `info.json`
+5. Run `scripts/sync-plugin-common.py --check` and `python3 -m unittest discover -s tests -v`
+6. Commit and push the version bump
+7. Tag the release (see "Tagging Plugin Releases" below)
 
 ### Tagging Plugin Releases
 

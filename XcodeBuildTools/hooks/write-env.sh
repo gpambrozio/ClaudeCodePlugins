@@ -7,9 +7,10 @@
 #   - SANDBOX_DERIVED_DATA / SANDBOX_PACKAGES pointing at this session's
 #     sandbox base
 #
-# Runs SYNC and FIRST in the SessionStart array so the exports are
+# Runs sync and first in the SessionStart array so the exports are
 # available to every subsequent Bash command. setup-sandbox.sh, which
-# does the slower dir-creation + peer sweep, keeps running async.
+# does the slower dir-creation + peer sweep, is launched through
+# run-background.sh.
 #
 # Anchor detection: on /clear the prior session's sandbox dir is owned
 # by our $PPID (the host agent is the same process). We scan SANDBOX_ROOT peers
