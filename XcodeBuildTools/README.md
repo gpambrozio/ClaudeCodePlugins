@@ -67,6 +67,8 @@ The plugin includes a backgrounded SessionStart hook that automatically clicks "
 
 ### 0.5.10
 - Migrated the legacy analyze and SwiftUI modernization prompts to `swift-code-analysis` and `swiftui-modernize` skills
+- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks
+- Preserved the host hook owner PID when launching SessionStart helpers in the background so sandbox inheritance across `/clear` can keep finding the prior anchor
 
 ### 0.5.9
 - Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible

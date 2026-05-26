@@ -13,6 +13,10 @@
     ],
     "versions": [
         {
+            "version": "0.6.5",
+            "changes": "Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks."
+        },
+        {
             "version": "0.6.4",
             "changes": "Made screenshot workflow guidance agent-neutral so agents with image support can follow the simulator automation flow."
         },

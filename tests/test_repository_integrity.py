@@ -202,6 +202,16 @@ class RepositoryIntegrityTests(unittest.TestCase):
                     "Codex skips hooks with async=true; use a command that backgrounds its own work instead",
                 )
 
+    def test_backgrounded_sandbox_setup_uses_preserved_hook_owner_pid(self):
+        run_background = (REPO_ROOT / "XcodeBuildTools" / "hooks" / "run-background.sh").read_text(encoding="utf-8")
+        setup_sandbox = (REPO_ROOT / "XcodeBuildTools" / "hooks" / "setup-sandbox.sh").read_text(encoding="utf-8")
+
+        self.assertIn('hook_owner_pid="${CLAUDE_HOOK_OWNER_PID:-$PPID}"', run_background)
+        self.assertIn('export CLAUDE_HOOK_OWNER_PID="$hook_owner_pid"', run_background)
+        self.assertIn('HOOK_OWNER_PID="${CLAUDE_HOOK_OWNER_PID:-$PPID}"', setup_sandbox)
+        self.assertIn('find_anchor "$SANDBOX_ROOT" "$HOOK_OWNER_PID"', setup_sandbox)
+        self.assertNotIn('find_anchor "$SANDBOX_ROOT" "$PPID"', setup_sandbox)
+
     def test_mcp_configs_define_servers(self):
         for mcp_path in REPO_ROOT.glob("*/.mcp.json"):
             config = load_json(mcp_path)

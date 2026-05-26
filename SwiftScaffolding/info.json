@@ -6,7 +6,7 @@
     "versions": [
         {
             "version": "0.4.3",
-            "changes": "Migrated the legacy scaffolding command prompt to the scaffolding skill and registered it in info.json."
+            "changes": "Migrated the legacy scaffolding command prompt to the scaffolding skill and registered it in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks."
         },
         {
             "version": "0.4.2",

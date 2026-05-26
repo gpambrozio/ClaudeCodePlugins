@@ -48,7 +48,7 @@
     "versions": [
         {
             "version": "0.5.10",
-            "changes": "Migrated the legacy analyze and swiftui-modernize command prompts to skills and registered swift-code-analysis and swiftui-modernize in info.json."
+            "changes": "Migrated the legacy analyze and swiftui-modernize command prompts to skills and registered swift-code-analysis and swiftui-modernize in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks. Preserved the host hook owner PID when launching SessionStart helpers in the background so sandbox inheritance across /clear can keep finding the prior anchor."
         },
         {
             "version": "0.5.9",

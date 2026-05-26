@@ -16,7 +16,7 @@
 # also purges $TMPDIR entries untouched for 3+ days. The SessionEnd hook
 # (teardown-sandbox.py) handles explicit cleanup for logout/exit reasons
 # but is skipped for /clear — on /clear, the host agent keeps running
-# (same $PPID) and just resets conversation state, so this script
+# (same hook owner PID) and just resets conversation state, so this script
 # inherits the prior session's sandbox rather than creating a fresh one.
 #
 # Inheritance is via **symlink**, not rename. State files under the
@@ -61,6 +61,11 @@ fi
 
 SANDBOX_ROOT="${TMPDIR:-/tmp}/claude-sandbox"
 SANDBOX_BASE="$SANDBOX_ROOT/$SESSION_ID"
+HOOK_OWNER_PID="${CLAUDE_HOOK_OWNER_PID:-$PPID}"
+
+if ! [[ "$HOOK_OWNER_PID" =~ ^[0-9]+$ ]]; then
+    HOOK_OWNER_PID="$PPID"
+fi
 
 # Resolve a symlink one level to its absolute target. macOS' default
 # `readlink` returns the raw link text; since we always write absolute
@@ -73,13 +78,13 @@ resolve_link() {
 }
 
 # --- Inherit prior session's sandbox on /clear (via symlink) ---
-# $PPID in a SessionStart hook is the host agent itself (no intermediate shell
-# — that was the Bash-tool context's problem, not ours). After /clear,
-# the host agent is the same process, so any peer owned by our PPID belongs to
-# us. Inherit it by creating $SANDBOX_BASE as a symlink to the anchor,
-# preserving embedded absolute paths. find_anchor is shared with
-# write-env.sh to keep both hooks agreeing on the same anchor.
-anchor=$(find_anchor "$SANDBOX_ROOT" "$PPID")
+# run-background.sh passes the host agent PID in CLAUDE_HOOK_OWNER_PID before
+# launching this helper. Without that, $PPID would point at the short-lived
+# wrapper/subshell and /clear inheritance would treat the real prior sandbox as
+# orphaned. Inherit by creating $SANDBOX_BASE as a symlink to the anchor,
+# preserving embedded absolute paths. find_anchor is shared with write-env.sh to
+# keep both hooks agreeing on the same anchor.
+anchor=$(find_anchor "$SANDBOX_ROOT" "$HOOK_OWNER_PID")
 
 inherited=0
 if [[ -n "$anchor" && "$anchor" != "$SANDBOX_BASE" ]]; then
@@ -105,8 +110,8 @@ fi
 if [[ $inherited -eq 0 ]]; then
     mkdir -p "$SANDBOX_BASE/build" "$SANDBOX_BASE/packages"
     {
-        printf '%s\n' "$PPID"
-        ps -p "$PPID" -o comm= 2>/dev/null || true
+        printf '%s\n' "$HOOK_OWNER_PID"
+        ps -p "$HOOK_OWNER_PID" -o comm= 2>/dev/null || true
     } > "$SANDBOX_BASE/owner.pid"
 fi
 
@@ -153,7 +158,7 @@ if [[ -d "$SANDBOX_ROOT" ]]; then
 
         # Owned by *us* but isn't our current sandbox — leftover from
         # a prior /clear in this same process. Drop just the symlink.
-        if [[ "$peer_pid" == "$PPID" ]]; then
+        if [[ "$peer_pid" == "$HOOK_OWNER_PID" ]]; then
             rm -f -- "$peer"
             continue
         fi
@@ -212,7 +217,7 @@ if [[ -d "$SANDBOX_ROOT" ]]; then
         # in the symlink model (we create symlinks, not dirs, on
         # inherit) but could appear if a legacy session left this
         # behind. Drop it.
-        if [[ "$peer_pid" == "$PPID" ]]; then
+        if [[ "$peer_pid" == "$HOOK_OWNER_PID" ]]; then
             rm -rf -- "$peer"
             continue
         fi

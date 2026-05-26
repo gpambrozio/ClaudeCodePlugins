@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -16,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMON_DIR = REPO_ROOT / "common"
 SESSION_START_PATH = COMMON_DIR / "session-start.py"
 PRE_TOOL_USE_PATH = COMMON_DIR / "pre-tool-use.py"
+RUN_BACKGROUND_PATH = REPO_ROOT / "XcodeBuildTools" / "hooks" / "run-background.sh"
 DEFAULT_PLUGIN_ROOT = REPO_ROOT / "XcodeBuildTools"
 PLUGIN_ROOT_ENV = "XCODEBUILDTOOLS_TEST_PLUGIN_ROOT"
 
@@ -162,6 +164,61 @@ class SessionStartTests(unittest.TestCase):
             "Customize if needed.",
             payload["hookSpecificOutput"]["additionalContext"],
         )
+
+
+class BackgroundHookTests(unittest.TestCase):
+    def test_run_background_preserves_original_hook_owner_pid(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            plugin_root = tmp_path / "Plugin"
+            hooks_dir = plugin_root / "hooks"
+            hooks_dir.mkdir(parents=True)
+
+            target = hooks_dir / "capture-owner.sh"
+            owner_pid_file = tmp_path / "owner-pid.txt"
+            payload_file = tmp_path / "payload.json"
+            target.write_text(
+                "\n".join(
+                    [
+                        "#!/bin/bash",
+                        "set -euo pipefail",
+                        'printf "%s" "${CLAUDE_HOOK_OWNER_PID:-}" > "$OWNER_PID_FILE"',
+                        'cat > "$PAYLOAD_FILE"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            target.chmod(0o755)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+                    "OWNER_PID_FILE": str(owner_pid_file),
+                    "PAYLOAD_FILE": str(payload_file),
+                    "TMPDIR": tmpdir,
+                }
+            )
+
+            result = subprocess.run(
+                [str(RUN_BACKGROUND_PATH), "hooks/capture-owner.sh"],
+                input='{"session_id":"session-1"}',
+                text=True,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            for _ in range(50):
+                if owner_pid_file.exists() and payload_file.exists():
+                    break
+                time.sleep(0.02)
+
+            self.assertEqual(owner_pid_file.read_text(encoding="utf-8"), str(os.getpid()))
+            self.assertEqual(payload_file.read_text(encoding="utf-8"), '{"session_id":"session-1"}')
 
 
 class PreToolUseTests(unittest.TestCase):

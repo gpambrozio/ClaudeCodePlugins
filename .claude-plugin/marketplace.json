@@ -21,7 +21,7 @@
     },
     {
       "name": "MarvinOutputStyle",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "description": "Adds Marvin the Paranoid Android personality - pessimistic and melancholic but brilliantly competent (mimics the deprecated Marvin output style)",
       "source": "./MarvinOutputStyle",
       "author": {
@@ -37,7 +37,7 @@
     },
     {
       "name": "iOSSimulator",
-      "version": "0.6.4",
+      "version": "0.6.5",
       "description": "Control iOS Simulators using native macOS tools - manage simulators, automate UI interactions, take screenshots, and more",
       "source": "./iOSSimulator",
       "author": {
