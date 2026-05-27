@@ -207,6 +207,7 @@ class RepositoryIntegrityTests(unittest.TestCase):
         setup_sandbox = (REPO_ROOT / "XcodeBuildTools" / "hooks" / "setup-sandbox.sh").read_text(encoding="utf-8")
 
         self.assertIn('hook_owner_pid="${CLAUDE_HOOK_OWNER_PID:-$PPID}"', run_background)
+        self.assertIn('hook_owner_pid="$PPID"', run_background)
         self.assertIn('export CLAUDE_HOOK_OWNER_PID="$hook_owner_pid"', run_background)
         self.assertIn('HOOK_OWNER_PID="${CLAUDE_HOOK_OWNER_PID:-$PPID}"', setup_sandbox)
         self.assertIn('find_anchor "$SANDBOX_ROOT" "$HOOK_OWNER_PID"', setup_sandbox)

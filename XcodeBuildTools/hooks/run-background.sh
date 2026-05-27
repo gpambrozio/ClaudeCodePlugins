@@ -23,6 +23,10 @@ plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && p
 target="$plugin_root/$relative_target"
 hook_owner_pid="${CLAUDE_HOOK_OWNER_PID:-$PPID}"
 
+if ! [[ "$hook_owner_pid" =~ ^[0-9]+$ ]]; then
+    hook_owner_pid="$PPID"
+fi
+
 if [[ ! -x "$target" ]]; then
     exit 0
 fi

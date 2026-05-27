@@ -168,6 +168,22 @@ class SessionStartTests(unittest.TestCase):
 
 class BackgroundHookTests(unittest.TestCase):
     def test_run_background_preserves_original_hook_owner_pid(self):
+        owner_pid, payload = self.run_background_capture()
+
+        self.assertEqual(owner_pid, str(os.getpid()))
+        self.assertEqual(payload, '{"session_id":"session-1"}')
+
+    def test_run_background_ignores_invalid_inherited_hook_owner_pid(self):
+        owner_pid, payload = self.run_background_capture(
+            {"CLAUDE_HOOK_OWNER_PID": "not-a-pid"},
+        )
+
+        self.assertEqual(owner_pid, str(os.getpid()))
+        self.assertEqual(payload, '{"session_id":"session-1"}')
+
+    def run_background_capture(self, extra_env=None):
+        payload = '{"session_id":"session-1"}'
+
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             plugin_root = tmp_path / "Plugin"
@@ -200,10 +216,12 @@ class BackgroundHookTests(unittest.TestCase):
                     "TMPDIR": tmpdir,
                 }
             )
+            if extra_env:
+                env.update(extra_env)
 
             result = subprocess.run(
                 [str(RUN_BACKGROUND_PATH), "hooks/capture-owner.sh"],
-                input='{"session_id":"session-1"}',
+                input=payload,
                 text=True,
                 capture_output=True,
                 env=env,
@@ -213,12 +231,18 @@ class BackgroundHookTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
 
             for _ in range(50):
-                if owner_pid_file.exists() and payload_file.exists():
+                if (
+                    owner_pid_file.exists()
+                    and payload_file.exists()
+                    and payload_file.read_text(encoding="utf-8") == payload
+                ):
                     break
                 time.sleep(0.02)
 
-            self.assertEqual(owner_pid_file.read_text(encoding="utf-8"), str(os.getpid()))
-            self.assertEqual(payload_file.read_text(encoding="utf-8"), '{"session_id":"session-1"}')
+            return (
+                owner_pid_file.read_text(encoding="utf-8"),
+                payload_file.read_text(encoding="utf-8"),
+            )
 
 
 class PreToolUseTests(unittest.TestCase):
