@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -16,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMON_DIR = REPO_ROOT / "common"
 SESSION_START_PATH = COMMON_DIR / "session-start.py"
 PRE_TOOL_USE_PATH = COMMON_DIR / "pre-tool-use.py"
+RUN_BACKGROUND_PATH = REPO_ROOT / "XcodeBuildTools" / "hooks" / "run-background.sh"
 DEFAULT_PLUGIN_ROOT = REPO_ROOT / "XcodeBuildTools"
 PLUGIN_ROOT_ENV = "XCODEBUILDTOOLS_TEST_PLUGIN_ROOT"
 
@@ -162,6 +164,85 @@ class SessionStartTests(unittest.TestCase):
             "Customize if needed.",
             payload["hookSpecificOutput"]["additionalContext"],
         )
+
+
+class BackgroundHookTests(unittest.TestCase):
+    def test_run_background_preserves_original_hook_owner_pid(self):
+        owner_pid, payload = self.run_background_capture()
+
+        self.assertEqual(owner_pid, str(os.getpid()))
+        self.assertEqual(payload, '{"session_id":"session-1"}')
+
+    def test_run_background_ignores_invalid_inherited_hook_owner_pid(self):
+        owner_pid, payload = self.run_background_capture(
+            {"CLAUDE_HOOK_OWNER_PID": "not-a-pid"},
+        )
+
+        self.assertEqual(owner_pid, str(os.getpid()))
+        self.assertEqual(payload, '{"session_id":"session-1"}')
+
+    def run_background_capture(self, extra_env=None):
+        payload = '{"session_id":"session-1"}'
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            plugin_root = tmp_path / "Plugin"
+            hooks_dir = plugin_root / "hooks"
+            hooks_dir.mkdir(parents=True)
+
+            target = hooks_dir / "capture-owner.sh"
+            owner_pid_file = tmp_path / "owner-pid.txt"
+            payload_file = tmp_path / "payload.json"
+            target.write_text(
+                "\n".join(
+                    [
+                        "#!/bin/bash",
+                        "set -euo pipefail",
+                        'printf "%s" "${CLAUDE_HOOK_OWNER_PID:-}" > "$OWNER_PID_FILE"',
+                        'cat > "$PAYLOAD_FILE"',
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            target.chmod(0o755)
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+                    "OWNER_PID_FILE": str(owner_pid_file),
+                    "PAYLOAD_FILE": str(payload_file),
+                    "TMPDIR": tmpdir,
+                }
+            )
+            if extra_env:
+                env.update(extra_env)
+
+            result = subprocess.run(
+                [str(RUN_BACKGROUND_PATH), "hooks/capture-owner.sh"],
+                input=payload,
+                text=True,
+                capture_output=True,
+                env=env,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            for _ in range(50):
+                if (
+                    owner_pid_file.exists()
+                    and payload_file.exists()
+                    and payload_file.read_text(encoding="utf-8") == payload
+                ):
+                    break
+                time.sleep(0.02)
+
+            return (
+                owner_pid_file.read_text(encoding="utf-8"),
+                payload_file.read_text(encoding="utf-8"),
+            )
 
 
 class PreToolUseTests(unittest.TestCase):

@@ -1,7 +1,13 @@
 {
-    "skills": [],
-    "welcomeMessage": "You can scaffold Swift projects using the /SwiftScaffolding:scaffolding command.",
+    "skills": [
+        "scaffolding"
+    ],
+    "welcomeMessage": "You can scaffold Swift projects using the scaffolding skill.",
     "versions": [
+        {
+            "version": "0.4.3",
+            "changes": "Migrated the legacy scaffolding command prompt to the scaffolding skill and registered it in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates."
+        },
         {
             "version": "0.4.2",
             "changes": "Kept Claude-specific AskUserQuestion access in command metadata while making the scaffolding prompt body portable across compatible agents."

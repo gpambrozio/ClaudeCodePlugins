@@ -101,6 +101,9 @@ Agents with image input can view screenshots. The recommended workflow:
 
 ## Changelog
 
+### 0.6.5
+- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in `hooks/hooks.json` instead of generated `common/hooks.json` templates
+
 ### 0.6.4
 - Made screenshot workflow guidance agent-neutral so agents with image support can follow the simulator automation flow
 

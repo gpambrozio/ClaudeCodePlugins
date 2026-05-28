@@ -3,8 +3,8 @@
 # sandbox.sh — Sourceable helpers shared by write-env.sh and setup-sandbox.sh.
 #
 # Single source of truth for the inheritance-discovery contract. Both
-# the sync SessionStart hook (write-env.sh) and the async one
-# (setup-sandbox.sh) need to decide whether the current session is
+# the sync SessionStart hook (write-env.sh) and the backgrounded
+# setup hook (setup-sandbox.sh) need to decide whether the current session is
 # inheriting a prior sandbox across /clear — and they must agree on
 # *which* anchor. Drift here means write-env.sh embeds one path in
 # $CLAUDE_ENV_FILE while setup-sandbox.sh creates a symlink to a

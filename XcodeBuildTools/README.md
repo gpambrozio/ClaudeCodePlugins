@@ -28,6 +28,8 @@ brew install xcsift
 | `macos-app` | Launch and stop macOS applications |
 | `sim-log` | Capture logs from iOS Simulator apps |
 | `sparkle-integration` | Integrate Sparkle 2.x auto-update framework into macOS apps |
+| `swift-code-analysis` | Review Swift code for architecture, correctness, and maintainability issues |
+| `swiftui-modernize` | Review SwiftUI files for deprecated APIs and modernization opportunities |
 
 ## Xcode MCP Integration
 
@@ -45,14 +47,14 @@ XcodeBuildTools remains the primary routing surface for build, test, Swift packa
 | SPM | `swift-package` skill | Only when explicitly requested or required by the skill |
 | Documentation | `sosumi` MCP server | `DocumentationSearch` is fine when available |
 
-Skills with **no MCP equivalent**: `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`.
+Skills with **no MCP equivalent**: `device-app`, `sim-log`, `xcode-doctor`, `macos-app`, `sparkle-integration`, `swift-code-analysis`, `swiftui-modernize`.
 
 ### Auto-Approve Hook
 
-The plugin includes an async hook that automatically clicks "Allow" on Xcode's MCP authorization dialog. It:
+The plugin includes a backgrounded SessionStart hook that automatically clicks "Allow" on Xcode's MCP authorization dialog. It:
 - Runs only when Xcode is active and `mcpbridge` exists
-- Uses a PID-based lock file to avoid re-running for the same Xcode instance
-- Times out silently after 10 seconds if no dialog appears
+- Does not require host-level `async` hook support
+- Times out silently if no dialog appears
 
 **Prerequisite**: Grant Accessibility access to your terminal app in System Settings > Privacy & Security > Accessibility. The script will prompt you if this is missing.
 
@@ -62,6 +64,11 @@ The plugin includes an async hook that automatically clicks "Allow" on Xcode's M
 - **SwiftScaffolding** - Swift project scaffolding through XcodeBuildMCP
 
 ## Changelog
+
+### 0.5.10
+- Migrated the legacy analyze and SwiftUI modernization prompts to `swift-code-analysis` and `swiftui-modernize` skills
+- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in `hooks/hooks.json` instead of generated `common/hooks.json` templates
+- Preserved the host hook owner PID when launching SessionStart helpers in the background so sandbox inheritance across `/clear` can keep finding the prior anchor
 
 ### 0.5.9
 - Keep XcodeBuildTools skills as the primary routing surface even when raw Xcode MCP tools are visible

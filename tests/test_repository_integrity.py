@@ -5,10 +5,12 @@ import shlex
 import subprocess
 import sys
 import unittest
+import importlib.util
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SYNC_COMMON_SCRIPT = REPO_ROOT / "scripts" / "sync-plugin-common.py"
 
 
 def load_json(path):
@@ -21,6 +23,16 @@ def plugin_dirs():
         path.parent.parent
         for path in REPO_ROOT.glob("*/.claude-plugin/plugin.json")
     )
+
+
+def load_sync_common_module():
+    spec = importlib.util.spec_from_file_location(
+        "sync_plugin_common_under_test",
+        SYNC_COMMON_SCRIPT,
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class RepositoryIntegrityTests(unittest.TestCase):
@@ -98,7 +110,10 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 self.assertEqual(listed_skills, discovered_skills)
 
     def test_skill_frontmatter_names_match_directory_names(self):
-        for skill_path in REPO_ROOT.glob("*/skills/*/SKILL.md"):
+        skill_paths = sorted(REPO_ROOT.glob("*/skills/*/SKILL.md"))
+        skill_paths.extend(sorted((REPO_ROOT / ".claude" / "skills").glob("*/SKILL.md")))
+
+        for skill_path in skill_paths:
             text = skill_path.read_text(encoding="utf-8")
             match = re.match(r"---\n(?P<frontmatter>.*?)\n---", text, re.DOTALL)
 
@@ -108,12 +123,22 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 self.assertIn(f"name: {skill_path.parent.name}", frontmatter)
                 self.assertRegex(frontmatter, r"(?m)^description: .+")
 
+    def test_swiftui_modernize_skill_preserves_command_metadata(self):
+        skill_path = REPO_ROOT / "XcodeBuildTools" / "skills" / "swiftui-modernize" / "SKILL.md"
+        frontmatter, _ = self.split_frontmatter(skill_path.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "allowed-tools: mcp__plugin_XcodeBuildTools_sosumi__searchAppleDocumentation, "
+            "mcp__plugin_XcodeBuildTools_sosumi__fetchAppleDocumentation",
+            frontmatter,
+        )
+        self.assertIn("argument-hint: <file-path>", frontmatter)
+
     def test_hook_commands_reference_existing_plugin_files(self):
         hooks_paths = list(REPO_ROOT.glob("*/hooks/hooks.json"))
-        hooks_paths.append(REPO_ROOT / "common" / "hooks.json")
 
         for hooks_path in hooks_paths:
-            plugin_dir = REPO_ROOT if hooks_path.parent.name == "common" else hooks_path.parent.parent
+            plugin_dir = hooks_path.parent.parent
             hooks_config = load_json(hooks_path)
             commands = self.hook_commands(hooks_config)
 
@@ -126,6 +151,90 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
                 with self.subTest(hook=str(hooks_path.relative_to(REPO_ROOT)), command=command):
                     self.assertTrue(executable.exists(), f"{executable} does not exist")
+
+    def test_common_helpers_do_not_include_template_hook_configs(self):
+        self.assertFalse(
+            (REPO_ROOT / "common" / "hooks.json").exists(),
+            "shared common helpers should not include a generic hooks.json template",
+        )
+
+        for plugin_dir in plugin_dirs():
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertFalse(
+                    (plugin_dir / "common" / "hooks.json").exists(),
+                    "plugin common copies should not include a generated hooks.json template",
+                )
+
+    def test_plugin_packages_are_self_contained(self):
+        for plugin_dir in plugin_dirs():
+            for path in plugin_dir.rglob("*"):
+                if path.is_symlink():
+                    target = path.resolve()
+                    with self.subTest(path=str(path.relative_to(REPO_ROOT))):
+                        self.assertTrue(
+                            target == plugin_dir.resolve()
+                            or target.is_relative_to(plugin_dir.resolve()),
+                            "plugin packages must not depend on symlinks that escape the plugin directory",
+                        )
+
+    def test_plugin_common_copies_match_shared_sources(self):
+        sync_common = load_sync_common_module()
+        common_files = sorted(
+            path.name
+            for path in (REPO_ROOT / "common").iterdir()
+            if path.is_file()
+        )
+
+        for plugin_dir in plugin_dirs():
+            common_dir = plugin_dir / "common"
+            if not common_dir.exists():
+                continue
+
+            for common_file in common_files:
+                plugin_file = common_dir / common_file
+                shared_file = REPO_ROOT / "common" / common_file
+
+                with self.subTest(plugin=plugin_dir.name, common_file=common_file):
+                    self.assertEqual(
+                        sync_common.generated_bytes(shared_file, REPO_ROOT),
+                        plugin_file.read_bytes(),
+                    )
+
+    def test_sync_plugin_common_script_reports_clean_checkout(self):
+        result = subprocess.run(
+            [sys.executable, str(SYNC_COMMON_SCRIPT), "--check"],
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_plugin_hooks_do_not_require_host_async_support(self):
+        hooks_paths = list(REPO_ROOT.glob("*/hooks/hooks.json"))
+
+        for hooks_path in hooks_paths:
+            hooks_config = load_json(hooks_path)
+            async_paths = self.find_keys(hooks_config, "async")
+
+            with self.subTest(hook=str(hooks_path.relative_to(REPO_ROOT))):
+                self.assertEqual(
+                    [],
+                    async_paths,
+                    "Codex skips hooks with async=true; use a command that backgrounds its own work instead",
+                )
+
+    def test_backgrounded_sandbox_setup_uses_preserved_hook_owner_pid(self):
+        run_background = (REPO_ROOT / "XcodeBuildTools" / "hooks" / "run-background.sh").read_text(encoding="utf-8")
+        setup_sandbox = (REPO_ROOT / "XcodeBuildTools" / "hooks" / "setup-sandbox.sh").read_text(encoding="utf-8")
+
+        self.assertIn('hook_owner_pid="${CLAUDE_HOOK_OWNER_PID:-$PPID}"', run_background)
+        self.assertIn('hook_owner_pid="$PPID"', run_background)
+        self.assertIn('export CLAUDE_HOOK_OWNER_PID="$hook_owner_pid"', run_background)
+        self.assertIn('HOOK_OWNER_PID="${CLAUDE_HOOK_OWNER_PID:-$PPID}"', setup_sandbox)
+        self.assertIn('find_anchor "$SANDBOX_ROOT" "$HOOK_OWNER_PID"', setup_sandbox)
+        self.assertNotIn('find_anchor "$SANDBOX_ROOT" "$PPID"', setup_sandbox)
 
     def test_mcp_configs_define_servers(self):
         for mcp_path in REPO_ROOT.glob("*/.mcp.json"):
@@ -193,8 +302,8 @@ class RepositoryIntegrityTests(unittest.TestCase):
     def test_agent_facing_docs_avoid_known_stale_terms(self):
         checks = {
             "CLAUDE.md": ["SwiftDevelopment", "lastUpdated"],
-            ".claude/commands/update-plugin.md": ["SwiftDevelopment"],
-            "SwiftScaffolding/commands/scaffolding.md": [
+            ".claude/skills/update-plugin/SKILL.md": ["SwiftDevelopment"],
+            "SwiftScaffolding/skills/scaffolding/SKILL.md": [
                 "MacOS",
                 "XCodeBuildMCP",
                 "scaffolginf",
@@ -231,14 +340,12 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 with self.subTest(file=relative_path, stale_term=stale_term):
                     self.assertNotIn(stale_term, text)
 
-    def test_claude_specific_question_tool_stays_in_metadata(self):
-        command_path = REPO_ROOT / "SwiftScaffolding" / "commands" / "scaffolding.md"
-        text = command_path.read_text(encoding="utf-8")
-        frontmatter, body = self.split_frontmatter(text)
+    def test_scaffolding_skill_uses_portable_question_guidance(self):
+        skill_path = REPO_ROOT / "SwiftScaffolding" / "skills" / "scaffolding" / "SKILL.md"
+        text = skill_path.read_text(encoding="utf-8")
 
-        self.assertIn("AskUserQuestion", frontmatter)
-        self.assertNotIn("AskUserQuestion", body)
-        self.assertIn("host's native structured question mechanism", body)
+        self.assertNotIn("AskUserQuestion", text)
+        self.assertIn("host's native structured question mechanism", text)
 
     def hook_commands(self, value):
         commands = []
@@ -252,6 +359,18 @@ class RepositoryIntegrityTests(unittest.TestCase):
             for child in value:
                 commands.extend(self.hook_commands(child))
         return commands
+
+    def find_keys(self, value, key, path="$"):
+        paths = []
+        if isinstance(value, dict):
+            if key in value:
+                paths.append(path)
+            for child_key, child in value.items():
+                paths.extend(self.find_keys(child, key, f"{path}.{child_key}"))
+        elif isinstance(value, list):
+            for index, child in enumerate(value):
+                paths.extend(self.find_keys(child, key, f"{path}[{index}]"))
+        return paths
 
     def split_frontmatter(self, text):
         match = re.match(r"---\n(?P<frontmatter>.*?)\n---\n(?P<body>.*)", text, re.DOTALL)

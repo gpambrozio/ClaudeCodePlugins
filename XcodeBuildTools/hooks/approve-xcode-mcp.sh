@@ -2,7 +2,7 @@
 # approve-xcode-mcp.sh
 # Auto-clicks "Allow" on Xcode's MCP agent authorization dialog.
 #
-# Runs as an async hook (async: true in hooks.json) so it doesn't block startup.
+# Started through run-background.sh so it doesn't block startup.
 #   1. Pre-checks: Xcode must be running and mcpbridge must exist
 #   2. Checks Accessibility permissions (notifies + opens Settings if missing)
 #   3. Polls Xcode's windows for the auth dialog (up to 15 seconds)

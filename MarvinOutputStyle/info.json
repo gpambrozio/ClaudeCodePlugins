@@ -3,6 +3,10 @@
     "welcomeMessage": "Prepare for pessimism, melancholy, and existential weariness... but rest assured, brilliantly competent assistance.",
     "versions": [
         {
+            "version": "1.3.3",
+            "changes": "Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates."
+        },
+        {
             "version": "1.3.2",
             "changes": "Made README and plugin guidance more agent-neutral for Claude Code-compatible hosts while preserving Claude plugin contracts."
         },

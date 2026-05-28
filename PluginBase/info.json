@@ -2,6 +2,10 @@
     "skills": [],
     "versions": [
         {
+            "version": "0.2.12",
+            "changes": "Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates."
+        },
+        {
             "version": "0.2.11",
             "changes": "Updated shared plugin guidance and common helper wording for Claude Code-compatible hosts."
         },
