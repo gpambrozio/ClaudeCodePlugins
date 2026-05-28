@@ -136,10 +136,9 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
     def test_hook_commands_reference_existing_plugin_files(self):
         hooks_paths = list(REPO_ROOT.glob("*/hooks/hooks.json"))
-        hooks_paths.append(REPO_ROOT / "common" / "hooks.json")
 
         for hooks_path in hooks_paths:
-            plugin_dir = REPO_ROOT if hooks_path.parent.name == "common" else hooks_path.parent.parent
+            plugin_dir = hooks_path.parent.parent
             hooks_config = load_json(hooks_path)
             commands = self.hook_commands(hooks_config)
 
@@ -152,6 +151,19 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
                 with self.subTest(hook=str(hooks_path.relative_to(REPO_ROOT)), command=command):
                     self.assertTrue(executable.exists(), f"{executable} does not exist")
+
+    def test_common_helpers_do_not_include_template_hook_configs(self):
+        self.assertFalse(
+            (REPO_ROOT / "common" / "hooks.json").exists(),
+            "shared common helpers should not include a generic hooks.json template",
+        )
+
+        for plugin_dir in plugin_dirs():
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertFalse(
+                    (plugin_dir / "common" / "hooks.json").exists(),
+                    "plugin common copies should not include a generated hooks.json template",
+                )
 
     def test_plugin_packages_are_self_contained(self):
         for plugin_dir in plugin_dirs():

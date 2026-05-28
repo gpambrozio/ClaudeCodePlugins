@@ -31,7 +31,7 @@ Use the `scaffolding` skill to scaffold Swift projects.
 
 ### 0.4.3
 - Migrated the legacy scaffolding prompt to the `scaffolding` skill
-- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks
+- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in `hooks/hooks.json` instead of generated `common/hooks.json` templates
 
 ### 0.4.2
 - Kept Claude-specific `AskUserQuestion` access in command metadata while making the scaffolding prompt body portable across compatible agents

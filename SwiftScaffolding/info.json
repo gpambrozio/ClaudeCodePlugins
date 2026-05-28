@@ -6,7 +6,7 @@
     "versions": [
         {
             "version": "0.4.3",
-            "changes": "Migrated the legacy scaffolding command prompt to the scaffolding skill and registered it in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks."
+            "changes": "Migrated the legacy scaffolding command prompt to the scaffolding skill and registered it in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates."
         },
         {
             "version": "0.4.2",

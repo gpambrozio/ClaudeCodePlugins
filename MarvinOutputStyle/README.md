@@ -109,7 +109,7 @@ Marvin represents a different approach to AI assistance - one that questions ass
 ## Changelog
 
 ### 1.3.3
-- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks
+- Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in `hooks/hooks.json` instead of generated `common/hooks.json` templates
 
 ### 1.3.2
 - Made README and plugin guidance more agent-neutral for Claude Code-compatible hosts while preserving Claude plugin contracts
