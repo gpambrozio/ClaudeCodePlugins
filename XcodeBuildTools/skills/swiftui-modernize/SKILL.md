@@ -1,6 +1,8 @@
 ---
 name: swiftui-modernize
 description: Use when reviewing SwiftUI files for deprecated APIs, modern alternatives, Apple docs-backed modernization, or SwiftUI best practices.
+allowed-tools: mcp__plugin_XcodeBuildTools_sosumi__searchAppleDocumentation, mcp__plugin_XcodeBuildTools_sosumi__fetchAppleDocumentation
+argument-hint: <file-path>
 ---
 
 # SwiftUI Modernize

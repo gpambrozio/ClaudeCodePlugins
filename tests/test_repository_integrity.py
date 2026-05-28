@@ -123,6 +123,17 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 self.assertIn(f"name: {skill_path.parent.name}", frontmatter)
                 self.assertRegex(frontmatter, r"(?m)^description: .+")
 
+    def test_swiftui_modernize_skill_preserves_command_metadata(self):
+        skill_path = REPO_ROOT / "XcodeBuildTools" / "skills" / "swiftui-modernize" / "SKILL.md"
+        frontmatter, _ = self.split_frontmatter(skill_path.read_text(encoding="utf-8"))
+
+        self.assertIn(
+            "allowed-tools: mcp__plugin_XcodeBuildTools_sosumi__searchAppleDocumentation, "
+            "mcp__plugin_XcodeBuildTools_sosumi__fetchAppleDocumentation",
+            frontmatter,
+        )
+        self.assertIn("argument-hint: <file-path>", frontmatter)
+
     def test_hook_commands_reference_existing_plugin_files(self):
         hooks_paths = list(REPO_ROOT.glob("*/hooks/hooks.json"))
         hooks_paths.append(REPO_ROOT / "common" / "hooks.json")
