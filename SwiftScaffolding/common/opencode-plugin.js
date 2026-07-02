@@ -183,6 +183,7 @@ function processConditionalBlocks(content, xcodeMcpLikely) {
 
 async function getXcodeMcpLikely(pluginName, state) {
   if (pluginName !== "XcodeBuildTools") return false;
+  if (state.xcodeMcpLikely !== undefined) return state.xcodeMcpLikely;
 
   const installed = await commandSucceeds("xcrun", ["--find", "mcpbridge"], 5000);
   if (!installed) {
