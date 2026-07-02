@@ -271,7 +271,7 @@ function applyPreToolUseRules(state, input, output) {
     if (decision === "deny") throw new Error(message);
 
     const ruleName = typeof rule.name === "string" && rule.name ? rule.name : matchPattern;
-    const key = `${input.sessionID ?? "global"}:${ruleName}`;
+    const key = `${safeSessionID(input.sessionID ?? "global")}:${ruleName}`;
     if (state.deniedOnce.has(key)) continue;
 
     state.deniedOnce.add(key);
