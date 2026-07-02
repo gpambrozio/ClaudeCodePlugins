@@ -233,8 +233,9 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
         for script_path in script_paths:
             result = subprocess.run(
-                [node, "--check", str(script_path)],
+                [node, "--input-type=module", "--check"],
                 cwd=REPO_ROOT,
+                input=script_path.read_text(encoding="utf-8"),
                 text=True,
                 capture_output=True,
                 check=False,
