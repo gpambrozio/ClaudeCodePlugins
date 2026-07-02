@@ -1,6 +1,7 @@
 import json
 import py_compile
 import re
+import shutil
 import shlex
 import subprocess
 import sys
@@ -199,6 +200,71 @@ class RepositoryIntegrityTests(unittest.TestCase):
                         sync_common.generated_bytes(shared_file, REPO_ROOT),
                         plugin_file.read_bytes(),
                     )
+
+    def test_common_js_helpers_use_javascript_comment_headers(self):
+        sync_common = load_sync_common_module()
+        source = REPO_ROOT / "common" / "opencode-plugin.js"
+
+        self.assertTrue(source.exists())
+        self.assertTrue(sync_common.generated_bytes(source, REPO_ROOT).startswith(b"// Generated from"))
+
+    def test_opencode_plugin_entrypoints_exist_for_local_plugins(self):
+        for plugin_dir in plugin_dirs():
+            entrypoint = plugin_dir / "opencode-plugin.js"
+            expected = (
+                'import { createOpenCodePlugin } from "./common/opencode-plugin.js";\n\n'
+                "export default {\n"
+                f'  id: "{plugin_dir.name}",\n'
+                '  server: createOpenCodePlugin(new URL(".", import.meta.url)),\n'
+                "};\n"
+            )
+
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertTrue(entrypoint.exists())
+                self.assertEqual(expected, entrypoint.read_text(encoding="utf-8"))
+
+    def test_opencode_plugin_javascript_syntax(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not available")
+
+        script_paths = [REPO_ROOT / "common" / "opencode-plugin.js"]
+        script_paths.extend(plugin_dir / "opencode-plugin.js" for plugin_dir in plugin_dirs())
+
+        for script_path in script_paths:
+            result = subprocess.run(
+                [node, "--check", str(script_path)],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            with self.subTest(script=str(script_path.relative_to(REPO_ROOT))):
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_opencode_plugin_entrypoints_export_server_plugin_objects(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not available")
+
+        for plugin_dir in plugin_dirs():
+            entrypoint = plugin_dir / "opencode-plugin.js"
+            script = (
+                f'import plugin from "./{entrypoint.relative_to(REPO_ROOT)}";\n'
+                f'if (plugin?.id !== "{plugin_dir.name}") process.exit(1);\n'
+                'if (typeof plugin.server !== "function") process.exit(2);\n'
+            )
+            result = subprocess.run(
+                [node, "--input-type=module", "-e", script],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_sync_plugin_common_script_reports_clean_checkout(self):
         result = subprocess.run(

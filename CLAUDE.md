@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a **Claude Code-compatible plugin marketplace** repository. It contains a marketplace catalog and individual plugin packages that extend agent capabilities in Claude Code and compatible hosts.
 
-Codex and other agents may also consume this repository's skills and prompts via
+OpenCode, Codex, and other agents may also consume this repository's skills and prompts via
 compatible plugin support. Keep agent-facing instructions neutral where possible;
 use Claude-specific names only for plugin format contracts, installation
 commands, environment variables, or historical changelog entries.
@@ -24,6 +24,7 @@ The repository has a two-level architecture:
 2. **Plugin Level** (subdirectories):
    - Each plugin subdirectory is a self-contained Claude Code-compatible plugin package
    - Contains its own `.claude-plugin/plugin.json` manifest
+   - Contains an `opencode-plugin.js` entry point for OpenCode local plugin installs
    - May include: skills (`skills/`), agents (`agents/`), hooks (`hooks/`), and MCP servers (`.mcp.json`)
 
 ### Key Schema Requirements
@@ -85,6 +86,7 @@ Users add the marketplace, then install plugins from it:
    - `agents/` - Custom agents (`.md` files)
    - `hooks/` - Lifecycle hooks and related scripts
    - `.mcp.json` - MCP server configurations
+   - `opencode-plugin.js` - OpenCode entry point that imports `./common/opencode-plugin.js`
 
 ### Updating Plugins
 
@@ -113,6 +115,8 @@ The `update-plugin` skill automates these steps end-to-end.
 
 Test the marketplace and plugins locally before pushing:
 
+Claude Code:
+
 ```bash
 # Add local marketplace
 /plugin marketplace add /path/to/ClaudeCodePlugins
@@ -123,6 +127,19 @@ Test the marketplace and plugins locally before pushing:
 # Verify installation
 /plugin list
 ```
+
+OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/XcodeBuildTools/opencode-plugin.js"
+  ]
+}
+```
+
+Restart OpenCode after changing config.
 
 ## Plugin Component Guidelines
 

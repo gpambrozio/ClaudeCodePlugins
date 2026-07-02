@@ -4,10 +4,25 @@ Xcode development tools for Claude Code-compatible agents. Build/test tools use 
 
 ## Installation
 
+Claude Code:
+
 ```bash
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
 /plugin install XcodeBuildTools@ClaudeCodePlugins
 ```
+
+OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/XcodeBuildTools/opencode-plugin.js"
+  ]
+}
+```
+
+Restart OpenCode after changing config. The OpenCode entry point registers this plugin's skills, `sosumi` MCP server, session context, command guardrails, Xcode MCP auto-approval helper, and Xcode build sandbox environment.
 
 ## Prerequisites
 
@@ -64,6 +79,10 @@ The plugin includes a backgrounded SessionStart hook that automatically clicks "
 - **SwiftScaffolding** - Swift project scaffolding through XcodeBuildMCP
 
 ## Changelog
+
+### 0.5.11
+- Added `opencode-plugin.js` for OpenCode users
+- The OpenCode entry point registers skills, MCP servers, session-start context, pre-tool-use command guardrails, the Xcode MCP auto-approval helper, and the Xcode build sandbox shell environment
 
 ### 0.5.10
 - Migrated the legacy analyze and SwiftUI modernization prompts to `swift-code-analysis` and `swiftui-modernize` skills

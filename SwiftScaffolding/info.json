@@ -5,6 +5,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the scaffolding skill.",
     "versions": [
         {
+            "version": "0.4.4",
+            "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, MCP servers, session-start context, and pre-tool-use command guardrails."
+        },
+        {
             "version": "0.4.3",
             "changes": "Migrated the legacy scaffolding command prompt to the scaffolding skill and registered it in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates."
         },

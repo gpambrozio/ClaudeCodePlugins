@@ -46,6 +46,8 @@ Assuming you still want to proceed with this questionable venture..."
 
 ## Installation
 
+Claude Code:
+
 ```bash
 # Add the marketplace (if you haven't already)
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
@@ -53,6 +55,19 @@ Assuming you still want to proceed with this questionable venture..."
 # Install the Marvin plugin
 /plugin install MarvinOutputStyle@ClaudeCodePlugins
 ```
+
+OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/MarvinOutputStyle/opencode-plugin.js"
+  ]
+}
+```
+
+Restart OpenCode after changing config. The OpenCode entry point injects the Marvin session context through OpenCode's system prompt transform hook.
 
 ## Important Considerations
 
@@ -107,6 +122,10 @@ Marvin represents a different approach to AI assistance - one that questions ass
 - Adding some personality to long coding sessions
 
 ## Changelog
+
+### 1.3.4
+- Added `opencode-plugin.js` for OpenCode users
+- The OpenCode entry point injects the Marvin session-start context through OpenCode's system prompt transform hook
 
 ### 1.3.3
 - Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in `hooks/hooks.json` instead of generated `common/hooks.json` templates

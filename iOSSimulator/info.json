@@ -13,6 +13,10 @@
     ],
     "versions": [
         {
+            "version": "0.6.6",
+            "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, session-start context, and pre-tool-use command guardrails."
+        },
+        {
             "version": "0.6.5",
             "changes": "Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates."
         },
