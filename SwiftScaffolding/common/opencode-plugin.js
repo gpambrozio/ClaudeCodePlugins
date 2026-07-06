@@ -7,8 +7,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]+$/;
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PROCESS_START_OUTPUT_MAX_CHARS = 256;
+const PROCESS_START_TIMEOUT_MS = 5_000;
 const XCODE_MCP_CACHE_TTL_MS = 30_000;
 const XCODE_SANDBOX_DIR = "opencode-xcodebuildtools-sandbox";
+const XCODE_SANDBOX_OWNER_GRACE_MS = 60_000;
+const XCODE_SANDBOX_OWNER_LOCK = ".owner.lock";
+const XCODE_SANDBOX_QUARANTINE_RE =
+  /^\.quarantine-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const XCODE_SANDBOX_PENDING_CLEANUPS_KEY = Symbol.for(
+  "opencode.xcodebuildtools.pending-cleanups",
+);
+const pendingSandboxCleanups =
+  globalThis[XCODE_SANDBOX_PENDING_CLEANUPS_KEY] instanceof Set
+    ? globalThis[XCODE_SANDBOX_PENDING_CLEANUPS_KEY]
+    : new Set();
+globalThis[XCODE_SANDBOX_PENDING_CLEANUPS_KEY] = pendingSandboxCleanups;
 
 export function createOpenCodePlugin(pluginRootUrl) {
   const pluginRoot = normalizePluginRoot(pluginRootUrl);
@@ -23,7 +38,9 @@ export function createOpenCodePlugin(pluginRootUrl) {
       xcodeMcpCache: new Map(),
       xcodeMcpApprovalSessions: new Set(),
       ownedSandboxes: new Map(),
+      deletedSandboxSessions: new Set(),
       sandboxSweepDone: false,
+      disposed: false,
     };
 
     return {
@@ -62,7 +79,7 @@ export function createOpenCodePlugin(pluginRootUrl) {
       },
 
       dispose: async () => {
-        await removeOwnedSandboxes(state);
+        await detachOwnedSandboxes(state);
       },
     };
   };
@@ -335,6 +352,7 @@ async function configureShellEnvironment(pluginRoot, state, input, output) {
   if (state.pluginJson.name !== "XcodeBuildTools") return;
 
   const sessionID = safeSessionID(input.sessionID ?? input.cwd ?? "default");
+  if (state.disposed || state.deletedSandboxSessions.has(sessionID)) return;
   const sandboxRoot = path.join(os.tmpdir(), XCODE_SANDBOX_DIR);
   // Plugin instances never reuse a sandbox path, so an older instance cannot
   // delete a replacement instance's active sandbox after an ownership check.
@@ -344,27 +362,201 @@ async function configureShellEnvironment(pluginRoot, state, input, output) {
   if (!state.processStartToken) {
     state.processStartToken = await readProcessStartToken(process.pid);
   }
-  if (state.ownedSandboxes.get(sessionID) !== sandboxBase) return;
+  if (sandboxSetupIsCancelled(state, sessionID, sandboxBase)) return;
 
   if (!state.sandboxSweepDone) {
     await sweepStaleSandboxes(sandboxRoot);
     state.sandboxSweepDone = true;
   }
-  if (state.ownedSandboxes.get(sessionID) !== sandboxBase) return;
+  if (sandboxSetupIsCancelled(state, sessionID, sandboxBase)) return;
 
   const buildDir = path.join(sandboxBase, "build");
   const packagesDir = path.join(sandboxBase, "packages");
 
   fs.mkdirSync(buildDir, { recursive: true });
   fs.mkdirSync(packagesDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(sandboxBase, "owner.pid"),
-    `${process.pid}\n${process.argv[0] ?? "opencode"}\n${state.processStartToken}\n${state.instanceID}\n`,
-    "utf8",
-  );
+  writeSandboxOwner(sandboxBase, state.processStartToken, state.instanceID);
 
   output.env.SANDBOX_DERIVED_DATA = buildDir;
   output.env.SANDBOX_PACKAGES = packagesDir;
+}
+
+function sandboxSetupIsCancelled(state, sessionID, sandboxBase) {
+  return (
+    state.disposed ||
+    state.deletedSandboxSessions.has(sessionID) ||
+    state.ownedSandboxes.get(sessionID) !== sandboxBase
+  );
+}
+
+function writeSandboxOwner(sandboxBase, processStartToken, instanceID) {
+  const ownerPath = path.join(sandboxBase, "owner.pid");
+  const temporaryPath = path.join(sandboxBase, `owner.pid.${instanceID}.tmp`);
+  const content = `${process.pid}\n${process.argv[0] ?? "opencode"}\n${processStartToken}\n${instanceID}\n`;
+  const ownerLock = acquireSandboxOwnerLock(sandboxBase);
+  if (!ownerLock) throw new Error("Sandbox owner is being updated or removed");
+
+  try {
+    fs.writeFileSync(temporaryPath, content, "utf8");
+    if (!sandboxOwnerLockIsHeld(ownerLock)) {
+      throw new Error("Sandbox owner lock changed during update");
+    }
+    fs.renameSync(temporaryPath, ownerPath);
+  } catch (error) {
+    try {
+      fs.unlinkSync(temporaryPath);
+    } catch {
+      // The stale-sandbox sweep handles any temporary file left behind.
+    }
+    throw error;
+  } finally {
+    releaseSandboxOwnerLock(ownerLock);
+  }
+}
+
+function markSandboxCleanupPending(sandboxBase, instanceID, ownerLock) {
+  const ownerPath = path.join(sandboxBase, "owner.pid");
+  const temporaryPath = path.join(sandboxBase, `owner.pid.${instanceID}.cleanup.tmp`);
+  const content = `${process.pid}\ncleanup-pending\n\n${instanceID}\ncleanup-pending\n`;
+
+  try {
+    fs.writeFileSync(temporaryPath, content, "utf8");
+    if (!sandboxOwnerLockIsHeld(ownerLock)) return false;
+    fs.renameSync(temporaryPath, ownerPath);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    try {
+      fs.unlinkSync(temporaryPath);
+    } catch {
+      // A successful rename removes the temporary path.
+    }
+  }
+}
+
+function acquireSandboxOwnerLock(sandboxBase) {
+  const lockPath = path.join(sandboxBase, XCODE_SANDBOX_OWNER_LOCK);
+  const token = randomUUID();
+  const createdLock = createSandboxOwnerLock(lockPath, token);
+  if (createdLock) return createdLock;
+
+  const observedLock = readSandboxOwnerLock(lockPath);
+  if (!observedLock) return null;
+  if (Date.now() - observedLock.mtimeMs < XCODE_SANDBOX_OWNER_GRACE_MS) return null;
+
+  const claimedPath = `${lockPath}.${token}.stale`;
+  try {
+    fs.renameSync(lockPath, claimedPath);
+  } catch {
+    return null;
+  }
+
+  const claimedLock = readSandboxOwnerLock(claimedPath);
+  if (!sameSandboxOwnerLock(observedLock, claimedLock)) {
+    restoreClaimedSandboxOwnerLock(claimedPath, lockPath);
+    return null;
+  }
+
+  try {
+    fs.unlinkSync(claimedPath);
+  } catch {
+    restoreClaimedSandboxOwnerLock(claimedPath, lockPath);
+    return null;
+  }
+
+  return createSandboxOwnerLock(lockPath, token);
+}
+
+function createSandboxOwnerLock(lockPath, token) {
+  try {
+    fs.writeFileSync(lockPath, `${token}\n`, { encoding: "utf8", flag: "wx" });
+  } catch {
+    return null;
+  }
+
+  const ownerLock = readSandboxOwnerLock(lockPath);
+  if (!ownerLock || ownerLock.token !== token) return null;
+  return ownerLock;
+}
+
+function readSandboxOwnerLock(lockPath) {
+  try {
+    const before = fs.statSync(lockPath);
+    if (!before.isFile()) return null;
+    const beforeToken = fs.readFileSync(lockPath, "utf8").trim();
+    const after = fs.statSync(lockPath);
+    const afterToken = fs.readFileSync(lockPath, "utf8").trim();
+    if (!sameSandboxOwnerLockVersion(before, after) || beforeToken !== afterToken) return null;
+
+    return {
+      path: lockPath,
+      token: afterToken,
+      dev: after.dev,
+      ino: after.ino,
+      mtimeMs: after.mtimeMs,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function sameSandboxOwnerLockVersion(left, right) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.size === right.size &&
+    left.mtimeMs === right.mtimeMs &&
+    left.ctimeMs === right.ctimeMs
+  );
+}
+
+function sameSandboxOwnerLock(left, right) {
+  return Boolean(
+    left &&
+      right &&
+      left.dev === right.dev &&
+      left.ino === right.ino &&
+      left.token === right.token,
+  );
+}
+
+function sandboxOwnerLockIsHeld(ownerLock) {
+  return sameSandboxOwnerLock(ownerLock, readSandboxOwnerLock(ownerLock.path));
+}
+
+function restoreClaimedSandboxOwnerLock(claimedPath, lockPath) {
+  try {
+    // A hard link restores the claimed inode only when the lock path is still
+    // absent, without overwriting a lock another actor acquired meanwhile.
+    fs.linkSync(claimedPath, lockPath);
+    fs.unlinkSync(claimedPath);
+  } catch {
+    // Leave the uniquely named claim in place if ownership cannot be restored.
+  }
+}
+
+function releaseSandboxOwnerLock(ownerLock) {
+  if (!sandboxOwnerLockIsHeld(ownerLock)) return;
+
+  const claimedPath = `${ownerLock.path}.${randomUUID()}.release`;
+  try {
+    fs.renameSync(ownerLock.path, claimedPath);
+  } catch {
+    return;
+  }
+
+  const claimedLock = readSandboxOwnerLock(claimedPath);
+  if (!sameSandboxOwnerLock(ownerLock, claimedLock)) {
+    restoreClaimedSandboxOwnerLock(claimedPath, ownerLock.path);
+    return;
+  }
+
+  try {
+    fs.unlinkSync(claimedPath);
+  } catch {
+    // The sandbox may already have been removed with the lock inside it.
+  }
 }
 
 async function handlePluginEvent(state, event) {
@@ -374,6 +566,7 @@ async function handlePluginEvent(state, event) {
   if (typeof sessionID !== "string" || !sessionID) return;
 
   const safeID = safeSessionID(sessionID);
+  state.deletedSandboxSessions.add(safeID);
   state.xcodeMcpCache.delete(safeID);
   state.xcodeMcpApprovalSessions.delete(safeID);
   await removeOwnedSandbox(state, safeID);
@@ -383,16 +576,36 @@ async function removeOwnedSandbox(state, sessionID) {
   const sandboxPath = state.ownedSandboxes.get(sessionID);
   if (!sandboxPath) return;
 
+  markPendingSandboxCleanup(sandboxPath);
   state.ownedSandboxes.delete(sessionID);
-  await removeManagedSandbox(sandboxPath, state.instanceID);
+  const quarantinedPath = await quarantineOwnedSandbox(sandboxPath, state.instanceID);
+  await removeManagedSandbox(
+    quarantinedPath || sandboxPath,
+    quarantinedPath ? "" : state.instanceID,
+  );
 }
 
-async function removeOwnedSandboxes(state) {
+async function detachOwnedSandboxes(state) {
+  state.disposed = true;
   const sandboxPaths = [...new Set(state.ownedSandboxes.values())];
+  for (const sandboxPath of sandboxPaths) markPendingSandboxCleanup(sandboxPath);
   state.ownedSandboxes.clear();
   state.xcodeMcpCache.clear();
   state.xcodeMcpApprovalSessions.clear();
-  await Promise.all(sandboxPaths.map((sandboxPath) => removeManagedSandbox(sandboxPath, state.instanceID)));
+  const cleanupTargets = await Promise.all(
+    sandboxPaths.map(async (sandboxPath) => {
+      const quarantinedPath = await quarantineOwnedSandbox(sandboxPath, state.instanceID);
+      return {
+        path: quarantinedPath || sandboxPath,
+        expectedInstanceID: quarantinedPath ? "" : state.instanceID,
+      };
+    }),
+  );
+  await Promise.all(
+    cleanupTargets.map(({ path: sandboxPath, expectedInstanceID }) =>
+      detachManagedSandbox(sandboxPath, expectedInstanceID),
+    ),
+  );
 }
 
 async function sweepStaleSandboxes(sandboxRoot) {
@@ -405,11 +618,43 @@ async function sweepStaleSandboxes(sandboxRoot) {
 
   await Promise.all(
     entries.map(async (entry) => {
-      if (!entry.isDirectory() || !SAFE_ID_RE.test(entry.name)) return;
+      const isQuarantine = XCODE_SANDBOX_QUARANTINE_RE.test(entry.name);
+      if (!entry.isDirectory() || (!SAFE_ID_RE.test(entry.name) && !isQuarantine)) return;
 
       const sandboxPath = path.join(sandboxRoot, entry.name);
       const owner = await readSandboxOwner(sandboxPath);
-      if (!owner || (await sandboxOwnerIsActive(owner))) return;
+      const cleanupPending = owner?.cleanupPending || sandboxCleanupIsPending(sandboxPath);
+      if (!owner || cleanupPending) {
+        if (!cleanupPending && !isQuarantine && !(await sandboxIsPastOwnerGracePeriod(sandboxPath))) {
+          return;
+        }
+
+        const ownerLock = acquireSandboxOwnerLock(sandboxPath);
+        if (!ownerLock) return;
+        let releaseLock = ownerLock;
+        try {
+          // A writer may have published an owner after the initial read or
+          // stale-stat snapshot. Only remove while the publication lock is
+          // held and the marker is still invalid.
+          const currentOwner = await readSandboxOwner(sandboxPath);
+          const currentCleanupPending =
+            currentOwner?.cleanupPending || sandboxCleanupIsPending(sandboxPath);
+          if (
+            (!currentOwner || currentCleanupPending) &&
+            sandboxOwnerLockIsHeld(ownerLock)
+          ) {
+            const quarantined = await quarantineManagedSandbox(sandboxPath, ownerLock);
+            releaseLock = quarantined.ownerLock;
+            if (quarantined.path) {
+              await removeManagedSandbox(quarantined.path);
+            }
+          }
+        } finally {
+          releaseSandboxOwnerLock(releaseLock);
+        }
+        return;
+      }
+      if (await sandboxOwnerIsActive(owner)) return;
 
       await removeManagedSandbox(sandboxPath);
     }),
@@ -426,13 +671,26 @@ async function readSandboxOwner(sandboxPath) {
     const pid = Number(firstLine);
     if (!Number.isSafeInteger(pid) || pid <= 0) return null;
 
+    const instanceID = lines[3] ?? "";
+    if (!UUID_V4_RE.test(instanceID)) return null;
+
     return {
       pid,
       processStartToken: lines[2] ?? "",
-      instanceID: lines[3] ?? "",
+      instanceID,
+      cleanupPending: lines[4] === "cleanup-pending",
     };
   } catch {
     return null;
+  }
+}
+
+async function sandboxIsPastOwnerGracePeriod(sandboxPath) {
+  try {
+    const stat = await fs.promises.stat(sandboxPath);
+    return Date.now() - stat.mtimeMs >= XCODE_SANDBOX_OWNER_GRACE_MS;
+  } catch {
+    return false;
   }
 }
 
@@ -459,9 +717,10 @@ function readProcessStartToken(pid) {
     let settled = false;
     let stdout = "";
     let child;
+    let timer;
 
     try {
-      child = spawn("ps", ["-p", String(pid), "-o", "lstart="], {
+      child = spawn("/bin/ps", ["-p", String(pid), "-o", "lstart="], {
         env: {
           ...process.env,
           LC_ALL: "C",
@@ -477,24 +736,156 @@ function readProcessStartToken(pid) {
 
     child.stdout?.setEncoding?.("utf8");
     child.stdout?.on?.("data", (chunk) => {
-      stdout += chunk;
+      const remaining = PROCESS_START_OUTPUT_MAX_CHARS - stdout.length;
+      if (remaining > 0) stdout += String(chunk).slice(0, remaining);
     });
     child.on("error", () => finish(""));
-    child.on("close", (code) => finish(code === 0 ? stdout.trim() : ""));
+    child.on("close", (code) => {
+      const firstLine = stdout.trim().split(/\r?\n/, 1)[0] ?? "";
+      finish(code === 0 ? firstLine : "");
+    });
+    timer = setTimeout(() => {
+      try {
+        child.kill?.("SIGTERM");
+      } catch {
+        // Resolving the hook is more important than terminating a broken ps shim.
+      }
+      finish("");
+    }, PROCESS_START_TIMEOUT_MS);
 
     function finish(value) {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       resolve(value);
     }
   });
 }
 
 async function removeManagedSandbox(sandboxPath, expectedInstanceID = "") {
-  const sandboxRoot = path.resolve(os.tmpdir(), XCODE_SANDBOX_DIR);
-  const candidate = path.resolve(sandboxPath);
-  const relative = path.relative(sandboxRoot, candidate);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || relative.includes(path.sep)) return;
+  const candidate = managedSandboxCandidate(sandboxPath);
+  if (!candidate) return false;
+
+  if (expectedInstanceID) {
+    const owner = await readSandboxOwner(candidate);
+    if (!owner || owner.instanceID !== expectedInstanceID) return false;
+  }
+
+  try {
+    await fs.promises.rm(candidate, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    clearPendingSandboxCleanup(candidate);
+    return true;
+  } catch {
+    // Best-effort cleanup; the next plugin instance will retry through the stale-owner sweep.
+    return false;
+  }
+}
+
+async function quarantineOwnedSandbox(sandboxPath, expectedInstanceID) {
+  const candidate = managedSandboxCandidate(sandboxPath);
+  if (!candidate) return "";
+
+  const ownerLock = acquireSandboxOwnerLock(candidate);
+  if (!ownerLock) return "";
+  let releaseLock = ownerLock;
+
+  try {
+    const currentOwner = await readSandboxOwner(candidate);
+    if (!currentOwner || currentOwner.instanceID !== expectedInstanceID) return "";
+    if (!markSandboxCleanupPending(candidate, expectedInstanceID, ownerLock)) return "";
+
+    const quarantinePath = path.join(path.dirname(candidate), `.quarantine-${randomUUID()}`);
+    if (!managedSandboxCandidate(quarantinePath)) return "";
+
+    try {
+      fs.renameSync(candidate, quarantinePath);
+      movePendingSandboxCleanup(candidate, quarantinePath);
+    } catch {
+      return "";
+    }
+
+    releaseLock = {
+      ...ownerLock,
+      path: path.join(quarantinePath, XCODE_SANDBOX_OWNER_LOCK),
+    };
+    const relocatedOwner = await readSandboxOwner(quarantinePath);
+    if (
+      !sandboxOwnerLockIsHeld(releaseLock) ||
+      !relocatedOwner ||
+      relocatedOwner.instanceID !== expectedInstanceID ||
+      !relocatedOwner.cleanupPending
+    ) {
+      if (restoreQuarantinedSandbox(quarantinePath, candidate)) {
+        movePendingSandboxCleanup(quarantinePath, candidate);
+        releaseLock = { ...releaseLock, path: ownerLock.path };
+      }
+      return "";
+    }
+
+    const ownerPath = path.join(quarantinePath, "owner.pid");
+    const retiredOwnerPath = path.join(quarantinePath, `owner.pid.retired-${randomUUID()}`);
+    try {
+      fs.renameSync(ownerPath, retiredOwnerPath);
+    } catch (error) {
+      if (error?.code !== "ENOENT") return quarantinePath;
+    }
+
+    return quarantinePath;
+  } finally {
+    releaseSandboxOwnerLock(releaseLock);
+  }
+}
+
+async function quarantineManagedSandbox(sandboxPath, ownerLock) {
+  const candidate = managedSandboxCandidate(sandboxPath);
+  if (!candidate || !sandboxOwnerLockIsHeld(ownerLock)) {
+    return { path: "", ownerLock };
+  }
+
+  const quarantinePath = path.join(path.dirname(candidate), `.quarantine-${randomUUID()}`);
+  if (!managedSandboxCandidate(quarantinePath)) return { path: "", ownerLock };
+
+  try {
+    fs.renameSync(candidate, quarantinePath);
+    movePendingSandboxCleanup(candidate, quarantinePath);
+  } catch {
+    return { path: "", ownerLock };
+  }
+
+  const relocatedLock = {
+    ...ownerLock,
+    path: path.join(quarantinePath, XCODE_SANDBOX_OWNER_LOCK),
+  };
+  const publishedOwner = await readSandboxOwner(quarantinePath);
+  const cleanupPending =
+    publishedOwner?.cleanupPending || sandboxCleanupIsPending(quarantinePath);
+  if (
+    !sandboxOwnerLockIsHeld(relocatedLock) ||
+    (publishedOwner && !cleanupPending)
+  ) {
+    if (restoreQuarantinedSandbox(quarantinePath, candidate)) {
+      movePendingSandboxCleanup(quarantinePath, candidate);
+      return { path: "", ownerLock };
+    }
+    // Preserve the quarantine when the original path has already been reused.
+    return { path: "", ownerLock: relocatedLock };
+  }
+
+  return { path: quarantinePath, ownerLock: relocatedLock };
+}
+
+function restoreQuarantinedSandbox(quarantinePath, originalPath) {
+  try {
+    fs.renameSync(quarantinePath, originalPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function detachManagedSandbox(sandboxPath, expectedInstanceID = "") {
+  const candidate = managedSandboxCandidate(sandboxPath);
+  if (!candidate) return;
 
   if (expectedInstanceID) {
     const owner = await readSandboxOwner(candidate);
@@ -502,10 +893,48 @@ async function removeManagedSandbox(sandboxPath, expectedInstanceID = "") {
   }
 
   try {
-    await fs.promises.rm(candidate, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    const child = spawn("/bin/rm", ["-rf", candidate], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.on("error", () => {});
+    child.on("exit", (code) => {
+      if (code === 0) clearPendingSandboxCleanup(candidate);
+    });
+    child.unref();
   } catch {
     // Best-effort cleanup; the next plugin instance will retry through the stale-owner sweep.
   }
+}
+
+function managedSandboxCandidate(sandboxPath) {
+  const sandboxRoot = path.resolve(os.tmpdir(), XCODE_SANDBOX_DIR);
+  const candidate = path.resolve(sandboxPath);
+  const relative = path.relative(sandboxRoot, candidate);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative) || relative.includes(path.sep)) return "";
+  return candidate;
+}
+
+function markPendingSandboxCleanup(sandboxPath) {
+  const candidate = managedSandboxCandidate(sandboxPath);
+  if (candidate) pendingSandboxCleanups.add(candidate);
+}
+
+function clearPendingSandboxCleanup(sandboxPath) {
+  const candidate = managedSandboxCandidate(sandboxPath);
+  if (candidate) pendingSandboxCleanups.delete(candidate);
+}
+
+function movePendingSandboxCleanup(sourcePath, destinationPath) {
+  const source = managedSandboxCandidate(sourcePath);
+  const destination = managedSandboxCandidate(destinationPath);
+  if (!source || !destination || !pendingSandboxCleanups.delete(source)) return;
+  pendingSandboxCleanups.add(destination);
+}
+
+function sandboxCleanupIsPending(sandboxPath) {
+  const candidate = managedSandboxCandidate(sandboxPath);
+  return Boolean(candidate && pendingSandboxCleanups.has(candidate));
 }
 
 function prependPath(entry, current) {

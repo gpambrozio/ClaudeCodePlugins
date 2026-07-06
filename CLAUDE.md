@@ -86,7 +86,16 @@ Users add the marketplace, then install plugins from it:
    - `agents/` - Custom agents (`.md` files)
    - `hooks/` - Lifecycle hooks and related scripts
    - `.mcp.json` - MCP server configurations
-   - `opencode-plugin.js` - OpenCode entry point that imports `./common/opencode-plugin.js`
+5. Create `YourPlugin/opencode-plugin.js` with an ID that exactly matches the plugin folder:
+   ```js
+   import { createOpenCodePlugin } from "./common/opencode-plugin.js";
+
+   export default {
+     id: "YourPlugin",
+     server: createOpenCodePlugin(new URL(".", import.meta.url)),
+   };
+   ```
+6. Run `python3 scripts/sync-plugin-common.py` to generate the plugin's self-contained `common/` helpers, including `common/opencode-plugin.js`.
 
 ### Updating Plugins
 

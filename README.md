@@ -101,12 +101,27 @@ Follow the standard Claude Code-compatible plugin structure:
 YourPlugin/
 ├── .claude-plugin/
 │   └── plugin.json
+├── common/                 # Generated shared helpers
 ├── skills/                 # Optional: agent skills
 ├── agents/                 # Optional: custom agents
 ├── hooks/                  # Optional: lifecycle hooks
 ├── .mcp.json              # Optional: MCP servers
+├── opencode-plugin.js     # OpenCode local plugin entry point
 └── README.md
 ```
+
+Create `YourPlugin/opencode-plugin.js` with an ID that exactly matches the plugin folder:
+
+```js
+import { createOpenCodePlugin } from "./common/opencode-plugin.js";
+
+export default {
+  id: "YourPlugin",
+  server: createOpenCodePlugin(new URL(".", import.meta.url)),
+};
+```
+
+Then run `python3 scripts/sync-plugin-common.py` from the repository root to generate the plugin's self-contained `common/` helpers.
 
 ### 2. Add to Repository
 
@@ -218,9 +233,13 @@ Use an existing plugin as a template:
 # Copy structure from an existing plugin
 cp -r XcodeBuildTools YourNewPlugin
 
-# Update metadata in .claude-plugin/plugin.json
+# Update metadata in .claude-plugin/plugin.json and marketplace.json
+# Change the id in opencode-plugin.js to exactly match YourNewPlugin
 # Customize skills, hooks, agents
 # Update README.md
+
+# Refresh the generated common helpers
+python3 scripts/sync-plugin-common.py
 ```
 
 ## Resources
