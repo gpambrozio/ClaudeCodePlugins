@@ -84,7 +84,10 @@ export function createOpenCodePlugin(pluginRootUrl) {
     const mcpContext = {
       pluginRoot,
       pluginData: () => pluginDataDirectory(pluginRoot, state),
-      projectDir: input?.worktree || input?.directory,
+      projectDir:
+        input?.worktree !== "/" || input?.project?.vcs === "git"
+          ? input?.worktree || input?.directory
+          : input?.directory || input?.worktree,
     };
 
     return {

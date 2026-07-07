@@ -171,6 +171,108 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             ],
         )
 
+    def test_project_directory_distinguishes_non_git_sentinel_from_git_root(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            data_home = Path(tmpdir) / "data-home"
+            plugin_root.mkdir()
+            data_home.mkdir()
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "local": {
+                                "command": "node",
+                                "args": ["--project=${CLAUDE_PROJECT_DIR}"],
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=project-directory-selection";
+
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+
+                async function localMcp(input) {
+                  const hooks = await server(input);
+                  const config = {};
+                  await hooks.config(config);
+                  return config.mcp.local;
+                }
+
+                console.log(JSON.stringify({
+                  nonGit: await localMcp({
+                    worktree: "/",
+                    directory: "/tmp/non-git-project",
+                    project: { vcs: undefined },
+                  }),
+                  gitRoot: await localMcp({
+                    worktree: "/",
+                    directory: "/workspace/subdir",
+                    project: { vcs: "git" },
+                  }),
+                  legacyNonGit: await localMcp({
+                    worktree: "/",
+                    directory: "/tmp/legacy-non-git-project",
+                  }),
+                  git: await localMcp({
+                    worktree: "/tmp/git-worktree",
+                    directory: "/tmp/git-directory",
+                  }),
+                  noWorktree: await localMcp({ directory: "/tmp/directory-only" }),
+                }));
+                """,
+                {
+                    "TEST_PLUGIN_ROOT": str(plugin_root),
+                    "XDG_DATA_HOME": str(data_home),
+                },
+            )
+
+        self.assertEqual(
+            result["nonGit"]["command"],
+            ["node", "--project=/tmp/non-git-project"],
+        )
+        self.assertEqual(
+            result["nonGit"]["environment"]["CLAUDE_PROJECT_DIR"],
+            "/tmp/non-git-project",
+        )
+        self.assertEqual(
+            result["gitRoot"]["command"],
+            ["node", "--project=/"],
+        )
+        self.assertEqual(
+            result["gitRoot"]["environment"]["CLAUDE_PROJECT_DIR"],
+            "/",
+        )
+        self.assertEqual(
+            result["legacyNonGit"]["command"],
+            ["node", "--project=/tmp/legacy-non-git-project"],
+        )
+        self.assertEqual(
+            result["legacyNonGit"]["environment"]["CLAUDE_PROJECT_DIR"],
+            "/tmp/legacy-non-git-project",
+        )
+        self.assertEqual(
+            result["git"]["command"],
+            ["node", "--project=/tmp/git-worktree"],
+        )
+        self.assertEqual(
+            result["git"]["environment"]["CLAUDE_PROJECT_DIR"],
+            "/tmp/git-worktree",
+        )
+        self.assertEqual(
+            result["noWorktree"]["command"],
+            ["node", "--project=/tmp/directory-only"],
+        )
+        self.assertEqual(
+            result["noWorktree"]["environment"]["CLAUDE_PROJECT_DIR"],
+            "/tmp/directory-only",
+        )
+
     def test_local_mcp_receives_plugin_compatibility_environment(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_root = Path(tmpdir) / "plugin"
