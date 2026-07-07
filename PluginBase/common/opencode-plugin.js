@@ -29,13 +29,10 @@ globalThis[XCODE_SANDBOX_PENDING_CLEANUPS_KEY] = pendingSandboxCleanups;
 export function createOpenCodePlugin(pluginRootUrl) {
   const pluginRoot = normalizePluginRoot(pluginRootUrl);
   return async (input = {}) => {
-    const mcpContext = {
-      pluginRoot,
-      projectDir: input?.worktree || input?.directory,
-    };
     const state = {
       pluginJson: null,
       infoJson: null,
+      pluginData: null,
       config: null,
       instanceID: randomUUID(),
       processStartToken: null,
@@ -46,6 +43,11 @@ export function createOpenCodePlugin(pluginRootUrl) {
       deletedSandboxSessions: new Set(),
       sandboxSweepDone: false,
       disposed: false,
+    };
+    const mcpContext = {
+      pluginRoot,
+      pluginData: () => pluginDataDirectory(pluginRoot, state),
+      projectDir: input?.worktree || input?.directory,
     };
 
     return {
@@ -111,6 +113,19 @@ function loadMetadata(pluginRoot, state) {
   }
 }
 
+function pluginDataDirectory(pluginRoot, state) {
+  if (state.pluginData) return state.pluginData;
+
+  loadMetadata(pluginRoot, state);
+  const pluginName = state.pluginJson.name || path.basename(pluginRoot) || "plugin";
+  const pluginID = String(pluginName).replace(/[^A-Za-z0-9_-]/g, "-");
+  const dataHome = process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
+  const pluginData = path.resolve(dataHome, "opencode", "plugin-data", pluginID);
+  fs.mkdirSync(pluginData, { recursive: true });
+  state.pluginData = pluginData;
+  return pluginData;
+}
+
 function registerSkills(config, pluginRoot) {
   const skillsDir = path.join(pluginRoot, "skills");
   if (!hasSkillDirectories(skillsDir)) return;
@@ -157,7 +172,17 @@ function translateMcpServer(server, context) {
   copyOptionalFields(server, translated, ["cwd", "enabled", "timeout"], context);
 
   const environment = isObject(server.environment) ? server.environment : server.env;
-  if (isObject(environment)) translated.environment = expandMcpRecord(environment, context);
+  translated.environment = {
+    ...(isObject(environment) ? expandMcpRecord(environment, context) : {}),
+    ...expandMcpRecord(
+      {
+        CLAUDE_PLUGIN_ROOT: "${CLAUDE_PLUGIN_ROOT}",
+        CLAUDE_PLUGIN_DATA: "${CLAUDE_PLUGIN_DATA}",
+        CLAUDE_PROJECT_DIR: "${CLAUDE_PROJECT_DIR}",
+      },
+      context,
+    ),
+  };
 
   return translated;
 }
@@ -239,6 +264,7 @@ function expandMcpString(value, context) {
 
 function mcpVariable(name, context) {
   if (name === "CLAUDE_PLUGIN_ROOT") return context.pluginRoot;
+  if (name === "CLAUDE_PLUGIN_DATA") return context.pluginData();
   if (name === "CLAUDE_PROJECT_DIR") return context.projectDir;
   return process.env[name];
 }

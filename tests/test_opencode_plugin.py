@@ -48,9 +48,11 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             plugin_root = Path(tmpdir) / "plugin"
             worktree = Path(tmpdir) / "worktree"
             directory = Path(tmpdir) / "directory"
+            data_home = Path(tmpdir) / "data-home"
             plugin_root.mkdir()
             worktree.mkdir()
             directory.mkdir()
+            data_home.mkdir()
             (plugin_root / ".mcp.json").write_text(
                 json.dumps(
                     {
@@ -118,6 +120,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                     "TEST_WORKTREE": str(worktree),
                     "TEST_DIRECTORY": str(directory),
                     "OPENCODE_TEST_TOKEN": "runtime-token",
+                    "XDG_DATA_HOME": str(data_home),
                 },
             )
 
@@ -138,6 +141,11 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                         "PROJECT_PATH": str(worktree),
                         "TOKEN": "runtime-token",
                         "MODE": "source-default",
+                        "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+                        "CLAUDE_PLUGIN_DATA": str(
+                            data_home / "opencode" / "plugin-data" / "plugin"
+                        ),
+                        "CLAUDE_PROJECT_DIR": str(worktree),
                     },
                 },
                 "remote": {
@@ -162,6 +170,138 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                 "--mode=source-default",
             ],
         )
+
+    def test_local_mcp_receives_plugin_compatibility_environment(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            project_dir = Path(tmpdir) / "project"
+            data_home = Path(tmpdir) / "data-home"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            project_dir.mkdir()
+            data_home.mkdir()
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps({"name": "Example Plugin"}),
+                encoding="utf-8",
+            )
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "local": {
+                                "command": "node",
+                                "environment": {
+                                    "CUSTOM": "kept",
+                                    "CLAUDE_PLUGIN_ROOT": "/wrong/plugin-root",
+                                    "CLAUDE_PLUGIN_DATA": "/wrong/plugin-data",
+                                    "CLAUDE_PROJECT_DIR": "/wrong/project-dir",
+                                },
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=mcp-compatibility-environment";
+
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+                const hooks = await server({ directory: process.env.TEST_PROJECT_DIR });
+                const config = {};
+                await hooks.config(config);
+
+                console.log(JSON.stringify(config.mcp.local.environment));
+                """,
+                {
+                    "TEST_PLUGIN_ROOT": str(plugin_root),
+                    "TEST_PROJECT_DIR": str(project_dir),
+                    "XDG_DATA_HOME": str(data_home),
+                },
+            )
+
+            plugin_data = data_home / "opencode" / "plugin-data" / "Example-Plugin"
+            self.assertEqual(
+                result,
+                {
+                    "CUSTOM": "kept",
+                    "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+                    "CLAUDE_PLUGIN_DATA": str(plugin_data),
+                    "CLAUDE_PROJECT_DIR": str(project_dir),
+                },
+            )
+            self.assertTrue(plugin_data.is_dir())
+
+    def test_plugin_data_placeholder_is_stable_across_instances(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            first_project = Path(tmpdir) / "first-project"
+            second_project = Path(tmpdir) / "second-project"
+            data_home = Path(tmpdir) / "data-home"
+            (plugin_root / ".claude-plugin").mkdir(parents=True)
+            first_project.mkdir()
+            second_project.mkdir()
+            data_home.mkdir()
+            (plugin_root / ".claude-plugin" / "plugin.json").write_text(
+                json.dumps({"name": "Example Plugin"}),
+                encoding="utf-8",
+            )
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "local": {
+                                "command": "${CLAUDE_PLUGIN_DATA}/bin/server",
+                                "environment": {
+                                    "PLUGIN_DATA": "${CLAUDE_PLUGIN_DATA}",
+                                },
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=stable-plugin-data";
+
+                delete process.env.CLAUDE_PLUGIN_DATA;
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+
+                const firstHooks = await server({ directory: process.env.TEST_FIRST_PROJECT });
+                const firstConfig = {};
+                await firstHooks.config(firstConfig);
+
+                const secondHooks = await server({ directory: process.env.TEST_SECOND_PROJECT });
+                const secondConfig = {};
+                await secondHooks.config(secondConfig);
+
+                console.log(JSON.stringify({
+                  first: firstConfig.mcp.local,
+                  second: secondConfig.mcp.local,
+                }));
+                """,
+                {
+                    "TEST_PLUGIN_ROOT": str(plugin_root),
+                    "TEST_FIRST_PROJECT": str(first_project),
+                    "TEST_SECOND_PROJECT": str(second_project),
+                    "XDG_DATA_HOME": str(data_home),
+                },
+            )
+
+            plugin_data = data_home / "opencode" / "plugin-data" / "Example-Plugin"
+            self.assertEqual(
+                result["first"]["command"],
+                [str(plugin_data / "bin" / "server")],
+            )
+            self.assertEqual(
+                result["second"]["command"],
+                [str(plugin_data / "bin" / "server")],
+            )
+            self.assertEqual(result["first"]["environment"]["PLUGIN_DATA"], str(plugin_data))
+            self.assertEqual(result["second"]["environment"]["PLUGIN_DATA"], str(plugin_data))
+            self.assertTrue(plugin_data.is_dir())
 
     def test_mcp_required_placeholder_reports_unset_variable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
