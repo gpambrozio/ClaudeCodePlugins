@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const SAFE_ID_RE = /^[A-Za-z0-9_-]+$/;
+const MCP_PLACEHOLDER_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g;
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PROCESS_START_OUTPUT_MAX_CHARS = 256;
 const PROCESS_START_TIMEOUT_MS = 5_000;
@@ -27,7 +28,11 @@ globalThis[XCODE_SANDBOX_PENDING_CLEANUPS_KEY] = pendingSandboxCleanups;
 
 export function createOpenCodePlugin(pluginRootUrl) {
   const pluginRoot = normalizePluginRoot(pluginRootUrl);
-  return async () => {
+  return async (input = {}) => {
+    const mcpContext = {
+      pluginRoot,
+      projectDir: input?.worktree || input?.directory,
+    };
     const state = {
       pluginJson: null,
       infoJson: null,
@@ -47,7 +52,7 @@ export function createOpenCodePlugin(pluginRootUrl) {
       config: async (config) => {
         loadMetadata(pluginRoot, state);
         registerSkills(config, pluginRoot);
-        registerMcpServers(config, pluginRoot);
+        registerMcpServers(config, pluginRoot, mcpContext);
         state.config = config;
       },
 
@@ -115,7 +120,7 @@ function registerSkills(config, pluginRoot) {
   if (!config.skills.paths.includes(skillsDir)) config.skills.paths.push(skillsDir);
 }
 
-function registerMcpServers(config, pluginRoot) {
+function registerMcpServers(config, pluginRoot, context) {
   const mcpConfig = readJsonFile(path.join(pluginRoot, ".mcp.json"));
   const servers = mcpConfig?.mcpServers;
   if (!isObject(servers)) return;
@@ -125,58 +130,117 @@ function registerMcpServers(config, pluginRoot) {
   for (const [name, server] of Object.entries(servers)) {
     if (!isObject(server) || config.mcp[name]) continue;
 
-    const translated = translateMcpServer(server);
+    const translated = translateMcpServer(server, context);
     if (translated) config.mcp[name] = translated;
   }
 }
 
-function translateMcpServer(server) {
+function translateMcpServer(server, context) {
   if (typeof server.url === "string") {
     const translated = {
       type: "remote",
-      url: server.url,
+      url: expandMcpString(server.url, context),
     };
-    copyOptionalFields(server, translated, ["enabled", "headers", "timeout"]);
+    copyOptionalFields(server, translated, ["enabled", "headers", "timeout"], context);
+    const oauth = translateMcpOAuth(server.oauth);
+    if (oauth !== undefined) translated.oauth = oauth;
     return translated;
   }
 
-  const command = normalizeCommand(server.command, server.args);
+  const command = normalizeCommand(server.command, server.args, context);
   if (!command) return null;
 
   const translated = {
     type: "local",
     command,
   };
-  copyOptionalFields(server, translated, ["cwd", "enabled", "timeout"]);
+  copyOptionalFields(server, translated, ["cwd", "enabled", "timeout"], context);
 
   const environment = isObject(server.environment) ? server.environment : server.env;
-  if (isObject(environment)) translated.environment = stringifyRecord(environment);
+  if (isObject(environment)) translated.environment = expandMcpRecord(environment, context);
 
   return translated;
 }
 
-function normalizeCommand(command, args) {
+function translateMcpOAuth(oauth) {
+  if (oauth === false) return false;
+  if (!isObject(oauth)) return undefined;
+
+  const translated = {};
+  for (const key of ["clientId", "clientSecret", "redirectUri"]) {
+    if (typeof oauth[key] === "string") translated[key] = oauth[key];
+  }
+
+  if (
+    Number.isInteger(oauth.callbackPort) &&
+    oauth.callbackPort >= 1 &&
+    oauth.callbackPort <= 65_535
+  ) {
+    translated.callbackPort = oauth.callbackPort;
+  }
+
+  if (typeof oauth.scopes === "string") {
+    translated.scope = oauth.scopes;
+  } else if (typeof oauth.scope === "string") {
+    translated.scope = oauth.scope;
+  }
+
+  return translated;
+}
+
+function normalizeCommand(command, args, context) {
   if (Array.isArray(command) && command.every((item) => typeof item === "string")) {
-    return command;
+    return command.map((item) => expandMcpString(item, context));
   }
 
   if (typeof command !== "string") return null;
 
-  const result = [command];
   if (Array.isArray(args)) {
-    for (const arg of args) {
-      if (typeof arg !== "string") return null;
-      result.push(arg);
-    }
+    if (!args.every((arg) => typeof arg === "string")) return null;
+    return [command, ...args].map((item) => expandMcpString(item, context));
   }
-  return result;
+  return [expandMcpString(command, context)];
 }
 
-function copyOptionalFields(source, target, keys) {
+function copyOptionalFields(source, target, keys, context) {
   for (const key of keys) {
     if (source[key] === undefined) continue;
-    target[key] = key === "headers" && isObject(source[key]) ? stringifyRecord(source[key]) : source[key];
+    if (key === "headers" && isObject(source[key])) {
+      target[key] = expandMcpRecord(source[key], context);
+    } else if (key === "cwd" && typeof source[key] === "string") {
+      target[key] = expandMcpString(source[key], context);
+    } else {
+      target[key] = source[key];
+    }
   }
+}
+
+function expandMcpRecord(value, context) {
+  return Object.fromEntries(
+    Object.entries(stringifyRecord(value)).map(([key, item]) => [
+      key,
+      expandMcpString(item, context),
+    ]),
+  );
+}
+
+function expandMcpString(value, context) {
+  return value.replace(MCP_PLACEHOLDER_RE, (_, name, defaultValue) => {
+    const resolved = mcpVariable(name, context);
+    if (defaultValue !== undefined && (resolved === undefined || resolved === "")) {
+      return defaultValue;
+    }
+    if (resolved === undefined) {
+      throw new Error(`MCP configuration references unset variable: ${name}`);
+    }
+    return resolved;
+  });
+}
+
+function mcpVariable(name, context) {
+  if (name === "CLAUDE_PLUGIN_ROOT") return context.pluginRoot;
+  if (name === "CLAUDE_PROJECT_DIR") return context.projectDir;
+  return process.env[name];
 }
 
 async function appendSystemContext(pluginRoot, state, input, output) {

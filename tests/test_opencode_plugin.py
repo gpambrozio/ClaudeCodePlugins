@@ -43,6 +43,347 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout)
 
+    def test_mcp_placeholders_expand_before_registration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            worktree = Path(tmpdir) / "worktree"
+            directory = Path(tmpdir) / "directory"
+            plugin_root.mkdir()
+            worktree.mkdir()
+            directory.mkdir()
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "local": {
+                                "command": "${CLAUDE_PLUGIN_ROOT}/bin/server",
+                                "args": [
+                                    "--project=${CLAUDE_PROJECT_DIR}",
+                                    "--token=${OPENCODE_TEST_TOKEN}",
+                                    "--mode=${OPENCODE_TEST_DEFAULT:-source-default}",
+                                ],
+                                "environment": {
+                                    "PLUGIN_PATH": "${CLAUDE_PLUGIN_ROOT}/resources",
+                                    "PROJECT_PATH": "${CLAUDE_PROJECT_DIR}",
+                                    "TOKEN": "${OPENCODE_TEST_TOKEN}",
+                                    "MODE": "${OPENCODE_TEST_DEFAULT:-source-default}",
+                                },
+                                "cwd": "${CLAUDE_PROJECT_DIR}/workspace",
+                            },
+                            "remote": {
+                                "url": (
+                                    "https://${OPENCODE_TEST_HOST:-mcp.example.test}/"
+                                    "${OPENCODE_TEST_TOKEN}?project=${CLAUDE_PROJECT_DIR}"
+                                ),
+                                "headers": {
+                                    "Authorization": "Bearer ${OPENCODE_TEST_TOKEN}",
+                                    "X-Plugin-Root": "${CLAUDE_PLUGIN_ROOT}",
+                                    "X-Mode": "${OPENCODE_TEST_DEFAULT:-source-default}",
+                                },
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=mcp-placeholders";
+
+                delete process.env.OPENCODE_TEST_DEFAULT;
+                delete process.env.OPENCODE_TEST_HOST;
+
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+                const worktreeHooks = await server({
+                  worktree: process.env.TEST_WORKTREE,
+                  directory: process.env.TEST_DIRECTORY,
+                });
+                const worktreeConfig = {};
+                await worktreeHooks.config(worktreeConfig);
+
+                const directoryHooks = await server({
+                  directory: process.env.TEST_DIRECTORY,
+                });
+                const directoryConfig = {};
+                await directoryHooks.config(directoryConfig);
+
+                console.log(JSON.stringify({
+                  worktree: worktreeConfig.mcp,
+                  directoryCommand: directoryConfig.mcp.local.command,
+                }));
+                """,
+                {
+                    "TEST_PLUGIN_ROOT": str(plugin_root / ".." / "plugin"),
+                    "TEST_WORKTREE": str(worktree),
+                    "TEST_DIRECTORY": str(directory),
+                    "OPENCODE_TEST_TOKEN": "runtime-token",
+                },
+            )
+
+        self.assertEqual(
+            result["worktree"],
+            {
+                "local": {
+                    "type": "local",
+                    "command": [
+                        str(plugin_root / "bin" / "server"),
+                        f"--project={worktree}",
+                        "--token=runtime-token",
+                        "--mode=source-default",
+                    ],
+                    "cwd": str(worktree / "workspace"),
+                    "environment": {
+                        "PLUGIN_PATH": str(plugin_root / "resources"),
+                        "PROJECT_PATH": str(worktree),
+                        "TOKEN": "runtime-token",
+                        "MODE": "source-default",
+                    },
+                },
+                "remote": {
+                    "type": "remote",
+                    "url": (
+                        f"https://mcp.example.test/runtime-token?project={worktree}"
+                    ),
+                    "headers": {
+                        "Authorization": "Bearer runtime-token",
+                        "X-Plugin-Root": str(plugin_root),
+                        "X-Mode": "source-default",
+                    },
+                },
+            },
+        )
+        self.assertEqual(
+            result["directoryCommand"],
+            [
+                str(plugin_root / "bin" / "server"),
+                f"--project={directory}",
+                "--token=runtime-token",
+                "--mode=source-default",
+            ],
+        )
+
+    def test_mcp_required_placeholder_reports_unset_variable(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            plugin_root.mkdir()
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "local": {
+                                "command": "${OPENCODE_TEST_MISSING}/server",
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=mcp-required-placeholder";
+
+                delete process.env.OPENCODE_TEST_MISSING;
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+                const hooks = await server({ directory: process.cwd() });
+
+                let message = "";
+                try {
+                  await hooks.config({});
+                } catch (error) {
+                  message = error.message;
+                }
+
+                console.log(JSON.stringify({ message }));
+                """,
+                {"TEST_PLUGIN_ROOT": str(plugin_root)},
+            )
+
+        self.assertIn("OPENCODE_TEST_MISSING", result["message"])
+        self.assertIn("unset", result["message"].lower())
+
+    def test_remote_mcp_oauth_preserves_compatible_configuration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            plugin_root.mkdir()
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "disabled": {
+                                "url": "https://disabled.example.test/mcp",
+                                "oauth": False,
+                            },
+                            "configured": {
+                                "url": "https://configured.example.test/mcp",
+                                "oauth": {
+                                    "clientId": "client-id",
+                                    "clientSecret": "client-secret",
+                                    "callbackPort": 9876,
+                                    "redirectUri": "http://127.0.0.1:9876/callback",
+                                    "scope": "ignored-singular-scope",
+                                    "scopes": "read write",
+                                    "authorizationUrl": "https://source-only.example.test",
+                                },
+                            },
+                            "singular": {
+                                "url": "https://singular.example.test/mcp",
+                                "oauth": {"scope": "already singular"},
+                            },
+                            "invalidMembers": {
+                                "url": "https://invalid-members.example.test/mcp",
+                                "oauth": {
+                                    "clientId": 123,
+                                    "clientSecret": False,
+                                    "callbackPort": 4321,
+                                    "redirectUri": ["http://invalid.example.test"],
+                                    "scope": {"invalid": True},
+                                    "scopes": 456,
+                                },
+                            },
+                            "fractionalPort": {
+                                "url": "https://fractional-port.example.test/mcp",
+                                "oauth": {
+                                    "clientId": "kept-fractional",
+                                    "callbackPort": 9876.5,
+                                },
+                            },
+                            "stringPort": {
+                                "url": "https://string-port.example.test/mcp",
+                                "oauth": {
+                                    "scope": "kept-string",
+                                    "callbackPort": "9876",
+                                },
+                            },
+                            "lowPort": {
+                                "url": "https://low-port.example.test/mcp",
+                                "oauth": {
+                                    "clientSecret": "kept-low",
+                                    "callbackPort": 0,
+                                },
+                            },
+                            "highPort": {
+                                "url": "https://high-port.example.test/mcp",
+                                "oauth": {
+                                    "redirectUri": "http://kept-high.example.test",
+                                    "callbackPort": 65536,
+                                },
+                            },
+                            "minimumPort": {
+                                "url": "https://minimum-port.example.test/mcp",
+                                "oauth": {"callbackPort": 1},
+                            },
+                            "maximumPort": {
+                                "url": "https://maximum-port.example.test/mcp",
+                                "oauth": {"callbackPort": 65535},
+                            },
+                            "empty": {
+                                "url": "https://empty.example.test/mcp",
+                                "oauth": {},
+                            },
+                            "invalid": {
+                                "url": "https://invalid.example.test/mcp",
+                                "oauth": True,
+                            },
+                            "absent": {
+                                "url": "https://absent.example.test/mcp",
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=mcp-oauth";
+
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+                const hooks = await server({ directory: process.cwd() });
+                const config = {};
+                await hooks.config(config);
+
+                console.log(JSON.stringify(config.mcp));
+                """,
+                {"TEST_PLUGIN_ROOT": str(plugin_root)},
+            )
+
+        self.assertEqual(
+            result,
+            {
+                "disabled": {
+                    "type": "remote",
+                    "url": "https://disabled.example.test/mcp",
+                    "oauth": False,
+                },
+                "configured": {
+                    "type": "remote",
+                    "url": "https://configured.example.test/mcp",
+                    "oauth": {
+                        "clientId": "client-id",
+                        "clientSecret": "client-secret",
+                        "callbackPort": 9876,
+                        "redirectUri": "http://127.0.0.1:9876/callback",
+                        "scope": "read write",
+                    },
+                },
+                "singular": {
+                    "type": "remote",
+                    "url": "https://singular.example.test/mcp",
+                    "oauth": {"scope": "already singular"},
+                },
+                "invalidMembers": {
+                    "type": "remote",
+                    "url": "https://invalid-members.example.test/mcp",
+                    "oauth": {"callbackPort": 4321},
+                },
+                "fractionalPort": {
+                    "type": "remote",
+                    "url": "https://fractional-port.example.test/mcp",
+                    "oauth": {"clientId": "kept-fractional"},
+                },
+                "stringPort": {
+                    "type": "remote",
+                    "url": "https://string-port.example.test/mcp",
+                    "oauth": {"scope": "kept-string"},
+                },
+                "lowPort": {
+                    "type": "remote",
+                    "url": "https://low-port.example.test/mcp",
+                    "oauth": {"clientSecret": "kept-low"},
+                },
+                "highPort": {
+                    "type": "remote",
+                    "url": "https://high-port.example.test/mcp",
+                    "oauth": {"redirectUri": "http://kept-high.example.test"},
+                },
+                "minimumPort": {
+                    "type": "remote",
+                    "url": "https://minimum-port.example.test/mcp",
+                    "oauth": {"callbackPort": 1},
+                },
+                "maximumPort": {
+                    "type": "remote",
+                    "url": "https://maximum-port.example.test/mcp",
+                    "oauth": {"callbackPort": 65535},
+                },
+                "empty": {
+                    "type": "remote",
+                    "url": "https://empty.example.test/mcp",
+                    "oauth": {},
+                },
+                "invalid": {
+                    "type": "remote",
+                    "url": "https://invalid.example.test/mcp",
+                },
+                "absent": {
+                    "type": "remote",
+                    "url": "https://absent.example.test/mcp",
+                },
+            },
+        )
+
     def test_xcode_mcp_requires_explicit_mcpbridge_configuration(self):
         result = self.run_node(
             """
