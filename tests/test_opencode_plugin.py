@@ -795,7 +795,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
               child.unref = () => {};
 
               let code = 0;
-              if (command === "pgrep" && args[0] === "-f") code = 1;
+              if (command === "/usr/bin/pgrep" && args[0] === "-f") code = 1;
               queueMicrotask(() => child.emit("exit", code));
               return child;
             };
@@ -817,7 +817,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             console.log(JSON.stringify({
               registeredMcp: Object.keys(config.mcp ?? {}),
               detected: output.system[0].includes("Xcode MCP server detected"),
-              approvalLaunched: calls.some(([command]) => command.endsWith("run-background.sh")),
+              approvalLaunched: calls.some(([command]) => command.endsWith("approve-xcode-mcp.sh")),
             }));
             """
         )
@@ -866,7 +866,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             console.log(JSON.stringify({
               detected: output.system[0].includes("Xcode MCP server detected"),
               approvalLaunched: calls.some(
-                ([command]) => command.endsWith("run-background.sh"),
+                ([command]) => command.endsWith("approve-xcode-mcp.sh"),
               ),
             }));
             """
@@ -915,7 +915,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             console.log(JSON.stringify({
               detected: output.system[0].includes("Xcode MCP server detected"),
               approvalLaunched: calls.some(
-                ([command]) => command.endsWith("run-background.sh"),
+                ([command]) => command.endsWith("approve-xcode-mcp.sh"),
               ),
             }));
             """
@@ -966,7 +966,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
               results.push({
                 detected: output.system[0].includes("Xcode MCP server detected"),
                 approvalLaunched: calls.slice(callsBefore).some(
-                  ([executable]) => executable.endsWith("run-background.sh"),
+                  ([executable]) => executable.endsWith("approve-xcode-mcp.sh"),
                 ),
               });
             }
@@ -994,8 +994,8 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
               child.unref = () => {};
 
               let code = 0;
-              if (command === "pgrep" && args[0] === "-x") code = xcodeRunning ? 0 : 1;
-              if (command === "pgrep" && args[0] === "-f") code = 1;
+              if (command === "/usr/bin/pgrep" && args[0] === "-x") code = xcodeRunning ? 0 : 1;
+              if (command === "/usr/bin/pgrep" && args[0] === "-f") code = 1;
               queueMicrotask(() => child.emit("exit", code));
               return child;
             };
@@ -1156,7 +1156,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             console.log(JSON.stringify({
               detected: output.system[0].includes("Xcode MCP server detected"),
               approvalLaunched: calls.some(
-                ([command]) => command.endsWith("run-background.sh"),
+                ([command]) => command.endsWith("approve-xcode-mcp.sh"),
               ),
             }));
             """
@@ -1164,6 +1164,492 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
 
         self.assertFalse(result["detected"])
         self.assertFalse(result["approvalLaunched"])
+
+    def test_xcode_mcp_probes_and_approval_use_fixed_system_paths(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import path from "node:path";
+            import { mock } from "node:test";
+
+            process.env.PATH = "/tmp/untrusted-path";
+            const calls = [];
+            const spawn = (command, args = [], options = {}) => {
+              calls.push({ command, args, options });
+              const child = new EventEmitter();
+              child.pid = 4100 + calls.length;
+              child.kill = () => true;
+              child.unref = () => {};
+
+              if (!command.endsWith("approve-xcode-mcp.sh")) {
+                const code = command === "/usr/bin/pgrep" && args[0] === "-f" ? 1 : 0;
+                queueMicrotask(() => child.emit("exit", code));
+              }
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const plugin = (await import(
+              "./XcodeBuildTools/opencode-plugin.js?test=fixed-system-paths"
+            )).default;
+            const hooks = await plugin.server({});
+            const config = {
+              mcp: {
+                xcode: {
+                  type: "local",
+                  command: ["xcrun", "mcpbridge"],
+                },
+              },
+            };
+            await hooks.config(config);
+            await hooks["experimental.chat.system.transform"](
+              { sessionID: "session-1" },
+              { system: [] },
+            );
+
+            const approval = calls.find(({ command }) =>
+              command.endsWith("approve-xcode-mcp.sh")
+            );
+            console.log(JSON.stringify({
+              probes: calls
+                .filter(({ command }) => !command.endsWith("approve-xcode-mcp.sh"))
+                .map(({ command, args }) => [command, ...args]),
+              approval: approval && {
+                command: approval.command,
+                args: approval.args,
+                cwd: approval.options.cwd,
+                detached: approval.options.detached,
+                path: approval.options.env.PATH,
+                pluginRoot: approval.options.env.CLAUDE_PLUGIN_ROOT,
+                absolute: path.isAbsolute(approval.command),
+                underPluginRoot:
+                  path.relative(approval.options.cwd, approval.command) ===
+                  path.join("hooks", "approve-xcode-mcp.sh"),
+              },
+            }));
+            """
+        )
+
+        self.assertEqual(
+            result["probes"],
+            [
+                ["/usr/bin/xcrun", "--find", "mcpbridge"],
+                ["/usr/bin/pgrep", "-x", "Xcode"],
+                ["/usr/bin/pgrep", "-f", "mcpbridge"],
+            ],
+        )
+        self.assertEqual(result["approval"]["args"], [])
+        self.assertTrue(result["approval"]["absolute"])
+        self.assertTrue(result["approval"]["underPluginRoot"])
+        self.assertTrue(result["approval"]["detached"])
+        self.assertEqual(result["approval"]["path"], "/usr/bin:/bin:/usr/sbin:/sbin")
+        self.assertEqual(result["approval"]["cwd"], result["approval"]["pluginRoot"])
+
+    def test_session_deletion_while_xcode_probe_is_pending_cancels_approval(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            let releaseProbe;
+            let markProbeStarted;
+            const probeStarted = new Promise((resolve) => {
+              markProbeStarted = resolve;
+            });
+            const spawn = (command, args = []) => {
+              calls.push([command, ...args]);
+              const child = new EventEmitter();
+              child.pid = 4200 + calls.length;
+              child.kill = () => true;
+              child.unref = () => {};
+
+              if (command.endsWith("xcrun")) {
+                releaseProbe = () => child.emit("exit", 0);
+                markProbeStarted();
+              } else {
+                queueMicrotask(() => child.emit("exit", 0));
+              }
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const plugin = (await import(
+              "./XcodeBuildTools/opencode-plugin.js?test=delete-during-xcode-probe"
+            )).default;
+            const hooks = await plugin.server({});
+            await hooks.config({
+              mcp: {
+                xcode: {
+                  type: "local",
+                  command: ["xcrun", "mcpbridge"],
+                },
+              },
+            });
+
+            const firstOutput = { system: [] };
+            const transform = hooks["experimental.chat.system.transform"](
+              { sessionID: "deleted-session" },
+              firstOutput,
+            );
+            await probeStarted;
+            await hooks.event({
+              event: {
+                type: "session.deleted",
+                properties: { info: { id: "deleted-session" } },
+              },
+            });
+            releaseProbe();
+            await transform;
+
+            const callsAfterCompletion = calls.length;
+            const secondOutput = { system: [] };
+            await hooks["experimental.chat.system.transform"](
+              { sessionID: "deleted-session" },
+              secondOutput,
+            );
+
+            console.log(JSON.stringify({
+              calls,
+              callsAfterCompletion,
+              callsAfterRepeat: calls.length,
+              firstDetected: firstOutput.system[0].includes("Xcode MCP server detected"),
+              secondDetected: secondOutput.system[0].includes("Xcode MCP server detected"),
+              approvalLaunches: calls.filter(([command]) =>
+                command.endsWith("approve-xcode-mcp.sh") ||
+                command.endsWith("run-background.sh")
+              ).length,
+            }));
+            """
+        )
+
+        self.assertEqual(result["callsAfterCompletion"], 1)
+        self.assertEqual(result["callsAfterRepeat"], 1)
+        self.assertFalse(result["firstDetected"])
+        self.assertFalse(result["secondDetected"])
+        self.assertEqual(result["approvalLaunches"], 0)
+
+    def test_dispose_while_xcode_probe_is_pending_cancels_approval(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            let releaseProbe;
+            let markProbeStarted;
+            const probeStarted = new Promise((resolve) => {
+              markProbeStarted = resolve;
+            });
+            const spawn = (command, args = []) => {
+              calls.push([command, ...args]);
+              const child = new EventEmitter();
+              child.pid = 4300 + calls.length;
+              child.kill = () => true;
+              child.unref = () => {};
+
+              if (command.endsWith("xcrun")) {
+                releaseProbe = () => child.emit("exit", 0);
+                markProbeStarted();
+              } else {
+                queueMicrotask(() => child.emit("exit", 0));
+              }
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const plugin = (await import(
+              "./XcodeBuildTools/opencode-plugin.js?test=dispose-during-xcode-probe"
+            )).default;
+            const hooks = await plugin.server({});
+            await hooks.config({
+              mcp: {
+                xcode: {
+                  type: "local",
+                  command: ["xcrun", "mcpbridge"],
+                },
+              },
+            });
+
+            const firstOutput = { system: [] };
+            const transform = hooks["experimental.chat.system.transform"](
+              { sessionID: "disposed-session" },
+              firstOutput,
+            );
+            await probeStarted;
+            await hooks.dispose();
+            releaseProbe();
+            await transform;
+
+            const callsAfterCompletion = calls.length;
+            const secondOutput = { system: [] };
+            await hooks["experimental.chat.system.transform"](
+              { sessionID: "disposed-session" },
+              secondOutput,
+            );
+
+            console.log(JSON.stringify({
+              callsAfterCompletion,
+              callsAfterRepeat: calls.length,
+              firstDetected: firstOutput.system[0].includes("Xcode MCP server detected"),
+              secondDetected: secondOutput.system[0].includes("Xcode MCP server detected"),
+              approvalLaunches: calls.filter(([command]) =>
+                command.endsWith("approve-xcode-mcp.sh") ||
+                command.endsWith("run-background.sh")
+              ).length,
+            }));
+            """
+        )
+
+        self.assertEqual(result["callsAfterCompletion"], 1)
+        self.assertEqual(result["callsAfterRepeat"], 1)
+        self.assertFalse(result["firstDetected"])
+        self.assertFalse(result["secondDetected"])
+        self.assertEqual(result["approvalLaunches"], 0)
+
+    def test_xcode_approval_process_groups_are_bounded_on_delete_and_dispose(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            const helpers = [];
+            let nextPid = 4400;
+            const spawn = (command, args = [], options = {}) => {
+              calls.push([command, args, options]);
+              const child = new EventEmitter();
+              child.pid = nextPid++;
+              child.kill = () => true;
+              child.unref = () => {};
+
+              if (
+                command.endsWith("approve-xcode-mcp.sh") ||
+                command.endsWith("run-background.sh")
+              ) {
+                helpers.push(child);
+              } else {
+                const code = command.endsWith("pgrep") && args[0] === "-f" ? 1 : 0;
+                queueMicrotask(() => child.emit("exit", code));
+              }
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const groupSignals = [];
+            const graceDelays = [];
+            const pendingGraceTimers = new Set();
+            const originalKill = process.kill;
+            const originalSetTimeout = globalThis.setTimeout;
+            const originalClearTimeout = globalThis.clearTimeout;
+            process.kill = (pid, signal) => {
+              if (signal === 0) return true;
+              groupSignals.push([pid, signal]);
+              if (signal === "SIGTERM") {
+                helpers.find((helper) => helper.pid === -pid)?.emit("exit", 0);
+              }
+              return true;
+            };
+            globalThis.setTimeout = (callback, delay, ...args) => {
+              if (delay !== 250) return originalSetTimeout(callback, delay, ...args);
+              graceDelays.push(delay);
+              const timer = { active: true };
+              pendingGraceTimers.add(timer);
+              queueMicrotask(() => {
+                if (!timer.active) return;
+                timer.active = false;
+                pendingGraceTimers.delete(timer);
+                callback(...args);
+              });
+              return timer;
+            };
+            globalThis.clearTimeout = (timer) => {
+              if (timer && typeof timer === "object" && "active" in timer) {
+                timer.active = false;
+                pendingGraceTimers.delete(timer);
+                return;
+              }
+              originalClearTimeout(timer);
+            };
+
+            try {
+              const plugin = (await import(
+                "./XcodeBuildTools/opencode-plugin.js?test=approval-lifecycle"
+              )).default;
+              const serverConfig = {
+                mcp: {
+                  xcode: {
+                    type: "local",
+                    command: ["xcrun", "mcpbridge"],
+                  },
+                },
+              };
+
+              const deletedHooks = await plugin.server({});
+              await deletedHooks.config(structuredClone(serverConfig));
+              await deletedHooks["experimental.chat.system.transform"](
+                { sessionID: "deleted-session" },
+                { system: [] },
+              );
+              await deletedHooks.event({
+                event: {
+                  type: "session.deleted",
+                  properties: { info: { id: "deleted-session" } },
+                },
+              });
+
+              const disposedHooks = await plugin.server({});
+              await disposedHooks.config(structuredClone(serverConfig));
+              await disposedHooks["experimental.chat.system.transform"](
+                { sessionID: "disposed-session" },
+                { system: [] },
+              );
+              await disposedHooks.dispose();
+            } finally {
+              process.kill = originalKill;
+              globalThis.setTimeout = originalSetTimeout;
+              globalThis.clearTimeout = originalClearTimeout;
+            }
+
+            console.log(JSON.stringify({
+              helperPids: helpers.map(({ pid }) => pid),
+              groupSignals,
+              graceDelays,
+              pendingGraceTimers: pendingGraceTimers.size,
+              listenerCounts: helpers.map((helper) => ({
+                error: helper.listenerCount("error"),
+                exit: helper.listenerCount("exit"),
+              })),
+            }));
+            """
+        )
+
+        self.assertEqual(len(result["helperPids"]), 2)
+        expected_signals = []
+        for pid in result["helperPids"]:
+            expected_signals.extend([[-pid, "SIGTERM"], [-pid, "SIGKILL"]])
+        self.assertEqual(result["groupSignals"], expected_signals)
+        self.assertEqual(result["graceDelays"], [250, 250])
+        self.assertEqual(result["pendingGraceTimers"], 0)
+        self.assertEqual(
+            result["listenerCounts"],
+            [{"error": 0, "exit": 0}, {"error": 0, "exit": 0}],
+        )
+
+    def test_dispose_awaits_session_deletion_approval_group_termination(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            let helper;
+            let nextPid = 4500;
+            const spawn = (command, args = []) => {
+              const child = new EventEmitter();
+              child.pid = nextPid++;
+              child.kill = () => true;
+              child.unref = () => {};
+
+              if (command.endsWith("approve-xcode-mcp.sh")) {
+                helper = child;
+              } else {
+                const code = command.endsWith("pgrep") && args[0] === "-f" ? 1 : 0;
+                queueMicrotask(() => child.emit("exit", code));
+              }
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const groupSignals = [];
+            const graceTimers = [];
+            const originalKill = process.kill;
+            const originalSetTimeout = globalThis.setTimeout;
+            const originalClearTimeout = globalThis.clearTimeout;
+            process.kill = (pid, signal) => {
+              if (signal === 0) return true;
+              groupSignals.push([pid, signal]);
+              if (signal === "SIGTERM") helper.emit("exit", 0);
+              return true;
+            };
+            globalThis.setTimeout = (callback, delay, ...args) => {
+              if (delay !== 250) return originalSetTimeout(callback, delay, ...args);
+              const timer = { active: true, callback: () => callback(...args) };
+              graceTimers.push(timer);
+              return timer;
+            };
+            globalThis.clearTimeout = (timer) => {
+              if (timer && typeof timer === "object" && "active" in timer) {
+                timer.active = false;
+                return;
+              }
+              originalClearTimeout(timer);
+            };
+
+            let disposeResolved = false;
+            let resolvedBeforeEscalation;
+            try {
+              const plugin = (await import(
+                "./XcodeBuildTools/opencode-plugin.js?test=concurrent-approval-cleanup"
+              )).default;
+              const hooks = await plugin.server({});
+              await hooks.config({
+                mcp: {
+                  xcode: {
+                    type: "local",
+                    command: ["xcrun", "mcpbridge"],
+                  },
+                },
+              });
+              await hooks["experimental.chat.system.transform"](
+                { sessionID: "shared-session" },
+                { system: [] },
+              );
+
+              const deletion = hooks.event({
+                event: {
+                  type: "session.deleted",
+                  properties: { info: { id: "shared-session" } },
+                },
+              });
+              const disposal = hooks.dispose().then(() => {
+                disposeResolved = true;
+              });
+              await new Promise((resolve) => setImmediate(resolve));
+              resolvedBeforeEscalation = disposeResolved;
+
+              for (const timer of graceTimers) {
+                if (!timer.active) continue;
+                timer.active = false;
+                timer.callback();
+              }
+              await Promise.all([deletion, disposal]);
+            } finally {
+              process.kill = originalKill;
+              globalThis.setTimeout = originalSetTimeout;
+              globalThis.clearTimeout = originalClearTimeout;
+            }
+
+            console.log(JSON.stringify({
+              resolvedBeforeEscalation,
+              disposeResolved,
+              groupSignals,
+              graceTimerCount: graceTimers.length,
+              listeners: {
+                error: helper.listenerCount("error"),
+                exit: helper.listenerCount("exit"),
+              },
+            }));
+            """
+        )
+
+        self.assertFalse(result["resolvedBeforeEscalation"])
+        self.assertTrue(result["disposeResolved"])
+        self.assertEqual(result["graceTimerCount"], 1)
+        self.assertEqual(
+            result["groupSignals"],
+            [[-4503, "SIGTERM"], [-4503, "SIGKILL"]],
+        )
+        self.assertEqual(result["listeners"], {"error": 0, "exit": 0})
 
     def test_xcode_mcp_approval_runs_once_per_session(self):
         result = self.run_node(
@@ -1179,7 +1665,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
               child.unref = () => {};
 
               let code = 0;
-              if (command === "pgrep" && args[0] === "-f") code = 1;
+              if (command === "/usr/bin/pgrep" && args[0] === "-f") code = 1;
               queueMicrotask(() => child.emit("exit", code));
               return child;
             };
@@ -1207,7 +1693,7 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             }
 
             console.log(JSON.stringify({
-              approvalLaunches: calls.filter(([command]) => command.endsWith("run-background.sh")).length,
+              approvalLaunches: calls.filter(([command]) => command.endsWith("approve-xcode-mcp.sh")).length,
             }));
             """
         )

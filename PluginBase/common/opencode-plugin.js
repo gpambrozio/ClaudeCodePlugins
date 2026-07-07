@@ -17,6 +17,9 @@ const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const PROCESS_START_OUTPUT_MAX_CHARS = 256;
 const PROCESS_START_TIMEOUT_MS = 5_000;
 const PROCESS_TERMINATION_GRACE_MS = 250;
+const SYSTEM_EXECUTABLE_PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
+const SYSTEM_PGREP = "/usr/bin/pgrep";
+const SYSTEM_XCRUN = "/usr/bin/xcrun";
 const XCODE_MCP_CACHE_TTL_MS = 30_000;
 const XCRUN_OPTIONS_WITH_VALUE = new Set([
   "--sdk",
@@ -75,6 +78,7 @@ export function createOpenCodePlugin(pluginRootUrl) {
       deniedOnce: new Set(),
       xcodeMcpCache: new Map(),
       xcodeMcpApprovalSessions: new Set(),
+      xcodeMcpApprovalHelpers: new Map(),
       sandboxRoot: null,
       ownedSandboxes: new Map(),
       ownedSandboxIdentities: new Map(),
@@ -127,6 +131,8 @@ export function createOpenCodePlugin(pluginRootUrl) {
       },
 
       dispose: async () => {
+        state.disposed = true;
+        await stopAllXcodeMcpApprovals(state);
         await detachOwnedSandboxes(state);
       },
     };
@@ -353,8 +359,11 @@ async function appendSystemContext(pluginRoot, state, input, output) {
   const pluginName = state.pluginJson.name ?? path.basename(pluginRoot);
   const welcomeMessage = typeof state.infoJson.welcomeMessage === "string" ? state.infoJson.welcomeMessage : "";
   const sessionID = safeSessionID(input?.sessionID ?? "global");
-  const xcodeMcpLikely = await getXcodeMcpLikely(pluginName, state, sessionID);
-  if (xcodeMcpLikely) startXcodeMcpApproval(pluginRoot, state, sessionID);
+  let xcodeMcpLikely = await getXcodeMcpLikely(pluginName, state, sessionID);
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) xcodeMcpLikely = false;
+  if (xcodeMcpLikely && !xcodeMcpLifecycleCancelled(state, sessionID)) {
+    startXcodeMcpApproval(pluginRoot, state, sessionID);
+  }
   const sessionStart = renderSessionStart(pluginRoot, xcodeMcpLikely);
 
   let systemMessage = `The ${pluginName} plugin is loaded and ready.`;
@@ -386,6 +395,7 @@ function processConditionalBlocks(content, xcodeMcpLikely) {
 }
 
 async function getXcodeMcpLikely(pluginName, state, sessionID) {
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return false;
   if (pluginName !== "XcodeBuildTools") return false;
   if (!hasConfiguredMcpbridge(state.config)) {
     state.xcodeMcpCache.delete(sessionID);
@@ -396,17 +406,26 @@ async function getXcodeMcpLikely(pluginName, state, sessionID) {
   const cached = state.xcodeMcpCache.get(sessionID);
   if (cached && now - cached.checkedAt < XCODE_MCP_CACHE_TTL_MS) return cached.value;
 
-  const installed = await commandSucceeds("xcrun", ["--find", "mcpbridge"], 5000);
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return false;
+  const installed = await commandSucceeds(SYSTEM_XCRUN, ["--find", "mcpbridge"], 5000);
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return false;
   if (!installed) {
     state.xcodeMcpCache.set(sessionID, { checkedAt: now, value: false });
     return false;
   }
 
-  const xcodeRunning = await commandSucceeds("pgrep", ["-x", "Xcode"], 3000);
-  const bridgeRunning = await commandSucceeds("pgrep", ["-f", "mcpbridge"], 3000);
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return false;
+  const xcodeRunning = await commandSucceeds(SYSTEM_PGREP, ["-x", "Xcode"], 3000);
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return false;
+  const bridgeRunning = await commandSucceeds(SYSTEM_PGREP, ["-f", "mcpbridge"], 3000);
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return false;
   const value = xcodeRunning || bridgeRunning;
   state.xcodeMcpCache.set(sessionID, { checkedAt: now, value });
   return value;
+}
+
+function xcodeMcpLifecycleCancelled(state, sessionID) {
+  return state.disposed || state.deletedSandboxSessions.has(sessionID);
 }
 
 function hasConfiguredMcpbridge(config) {
@@ -453,30 +472,148 @@ function xcrunToolBasename(args) {
 }
 
 function startXcodeMcpApproval(pluginRoot, state, sessionID) {
+  if (xcodeMcpLifecycleCancelled(state, sessionID)) return;
   if (state.xcodeMcpApprovalSessions.has(sessionID)) return;
 
-  const runner = path.join(pluginRoot, "hooks", "run-background.sh");
-  const target = path.join("hooks", "approve-xcode-mcp.sh");
-  if (!fs.existsSync(runner)) return;
+  const helper = path.join(pluginRoot, "hooks", "approve-xcode-mcp.sh");
+  if (!fs.existsSync(helper)) return;
 
   try {
+    if (xcodeMcpLifecycleCancelled(state, sessionID)) return;
     state.xcodeMcpApprovalSessions.add(sessionID);
-    const child = spawn(runner, [target], {
+    const child = spawn(helper, [], {
       cwd: pluginRoot,
       detached: true,
       env: {
         ...process.env,
+        PATH: SYSTEM_EXECUTABLE_PATH,
         CLAUDE_HOOK_OWNER_PID: String(process.pid),
         CLAUDE_PLUGIN_ROOT: pluginRoot,
       },
       stdio: "ignore",
     });
-    child.on("error", () => state.xcodeMcpApprovalSessions.delete(sessionID));
+    trackXcodeMcpApprovalHelper(state, sessionID, child);
     child.unref();
   } catch {
     state.xcodeMcpApprovalSessions.delete(sessionID);
     // Auto-approval is best-effort; users can still approve Xcode manually.
   }
+}
+
+function trackXcodeMcpApprovalHelper(state, sessionID, child) {
+  let resolveDone;
+  const record = {
+    child,
+    done: new Promise((resolve) => {
+      resolveDone = resolve;
+    }),
+    pending: true,
+    terminating: false,
+    terminationPromise: null,
+    finish: null,
+    removeFromState: null,
+  };
+
+  const removeFromState = () => {
+    if (state.xcodeMcpApprovalHelpers.get(sessionID) === record) {
+      state.xcodeMcpApprovalHelpers.delete(sessionID);
+    }
+  };
+  const onError = () => finish(true);
+  const onExit = () => finish(false);
+  const finish = (allowRetry) => {
+    if (!record.pending) return;
+    record.pending = false;
+    child.removeListener?.("error", onError);
+    child.removeListener?.("exit", onExit);
+    if (!record.terminating) removeFromState();
+    if (allowRetry) state.xcodeMcpApprovalSessions.delete(sessionID);
+    resolveDone();
+  };
+  record.finish = finish;
+  record.removeFromState = removeFromState;
+
+  state.xcodeMcpApprovalHelpers.set(sessionID, record);
+  child.on("error", onError);
+  child.on("exit", onExit);
+}
+
+function stopXcodeMcpApproval(record) {
+  if (!record) return Promise.resolve();
+  if (!record.terminationPromise) {
+    record.terminating = true;
+    record.terminationPromise = terminateXcodeMcpApproval(record).finally(() => {
+      record.terminating = false;
+      record.removeFromState();
+    });
+  }
+  return record.terminationPromise;
+}
+
+async function terminateXcodeMcpApproval(record) {
+  if (!record.pending) return;
+
+  signalDetachedProcessGroup(record.child, "SIGTERM");
+  let forceKillTimer;
+  await new Promise((resolve) => {
+    let completed = false;
+    const complete = () => {
+      if (completed) return;
+      completed = true;
+      clearTimeout(forceKillTimer);
+      resolve();
+    };
+    const completeIfGroupExited = () => {
+      if (!detachedProcessGroupExists(record.child)) complete();
+    };
+
+    record.done.then(completeIfGroupExited);
+    if (!detachedProcessGroupExists(record.child)) {
+      record.finish(false);
+      complete();
+      return;
+    }
+
+    forceKillTimer = setTimeout(() => {
+      if (detachedProcessGroupExists(record.child)) {
+        signalDetachedProcessGroup(record.child, "SIGKILL");
+      }
+      record.finish(false);
+      complete();
+    }, PROCESS_TERMINATION_GRACE_MS);
+  });
+}
+
+function detachedProcessGroupExists(child) {
+  const pid = Number(child?.pid);
+  if (!Number.isSafeInteger(pid) || pid <= 0) return child != null;
+
+  try {
+    process.kill(-pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code === "EPERM";
+  }
+}
+
+function signalDetachedProcessGroup(child, signal) {
+  const pid = Number(child?.pid);
+  try {
+    if (Number.isSafeInteger(pid) && pid > 0) {
+      process.kill(-pid, signal);
+    } else {
+      child?.kill?.(signal);
+    }
+  } catch {
+    // The helper may have exited between the lifecycle check and the signal.
+  }
+}
+
+async function stopAllXcodeMcpApprovals(state) {
+  const activeHelpers = [...state.xcodeMcpApprovalHelpers.values()];
+  state.xcodeMcpApprovalSessions.clear();
+  await Promise.all(activeHelpers.map((record) => stopXcodeMcpApproval(record)));
+  state.xcodeMcpApprovalHelpers.clear();
 }
 
 function commandSucceeds(command, args, timeoutMs) {
@@ -1002,6 +1139,8 @@ async function handlePluginEvent(state, event) {
   state.deletedSandboxSessions.add(safeID);
   state.xcodeMcpCache.delete(safeID);
   state.xcodeMcpApprovalSessions.delete(safeID);
+  const activeApproval = state.xcodeMcpApprovalHelpers.get(safeID);
+  await stopXcodeMcpApproval(activeApproval);
   await removeOwnedSandbox(state, safeID);
 }
 
@@ -1044,6 +1183,7 @@ async function detachOwnedSandboxes(state) {
   state.ownedSandboxIdentities.clear();
   state.xcodeMcpCache.clear();
   state.xcodeMcpApprovalSessions.clear();
+  state.xcodeMcpApprovalHelpers.clear();
   const cleanupTargets = await Promise.all(
     sandboxes.map(async ({ sandboxPath, sandboxIdentity }) => {
       if (!state.sandboxRoot || !sandboxIdentity) return null;
