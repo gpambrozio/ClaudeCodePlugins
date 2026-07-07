@@ -223,6 +223,12 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 self.assertTrue(entrypoint.exists())
                 self.assertEqual(expected, entrypoint.read_text(encoding="utf-8"))
 
+    def test_node_is_available_for_opencode_runtime_checks(self):
+        self.assertIsNotNone(
+            shutil.which("node"),
+            "Node.js is required for OpenCode runtime, syntax, and export checks",
+        )
+
     def test_opencode_plugin_javascript_syntax(self):
         node = shutil.which("node")
         if not node:
