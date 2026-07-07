@@ -303,6 +303,161 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             self.assertEqual(result["second"]["environment"]["PLUGIN_DATA"], str(plugin_data))
             self.assertTrue(plugin_data.is_dir())
 
+    def test_mcp_registration_preserves_existing_endpoints_under_other_names(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plugin_root = Path(tmpdir) / "plugin"
+            data_home = Path(tmpdir) / "data-home"
+            plugin_root.mkdir()
+            data_home.mkdir()
+            (plugin_root / ".mcp.json").write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "pluginRemoteDuplicate": {
+                                "url": "https://shared.example.test/mcp",
+                            },
+                            "pluginLocalDuplicate": {
+                                "command": "node",
+                                "args": ["server.js", "--shared"],
+                                "cwd": "/workspace/shared",
+                                "environment": {
+                                    "MODE": "workflow",
+                                    "WORKFLOW": "workspace",
+                                },
+                            },
+                            "pluginLocalDifferentCwd": {
+                                "command": "node",
+                                "args": ["server.js", "--shared"],
+                                "cwd": "/workspace/other",
+                                "environment": {
+                                    "MODE": "workflow",
+                                    "WORKFLOW": "workspace",
+                                },
+                            },
+                            "pluginLocalDifferentEnvironment": {
+                                "command": "node",
+                                "args": ["server.js", "--shared"],
+                                "cwd": "/workspace/shared",
+                                "environment": {
+                                    "MODE": "server",
+                                    "WORKFLOW": "workspace",
+                                },
+                            },
+                            "pluginRemoteDistinct": {
+                                "url": "https://distinct.example.test/mcp",
+                            },
+                            "pluginLocalDifferentArgs": {
+                                "command": "node",
+                                "args": ["server.js", "--distinct"],
+                                "cwd": "/workspace/shared",
+                                "environment": {
+                                    "MODE": "workflow",
+                                    "WORKFLOW": "workspace",
+                                },
+                            },
+                            "sameName": {
+                                "url": "https://plugin.example.test/mcp",
+                            },
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = self.run_node(
+                """
+                import { createOpenCodePlugin } from "./common/opencode-plugin.js?test=mcp-endpoint-deduplication";
+
+                const existingRemote = {
+                  type: "remote",
+                  url: "https://shared.example.test/mcp",
+                  headers: { "X-User": "preserved" },
+                };
+                const existingLocal = {
+                  type: "local",
+                  command: ["node", "server.js", "--shared"],
+                  cwd: "/workspace/shared",
+                  environment: {
+                    WORKFLOW: "workspace",
+                    CLAUDE_PROJECT_DIR: "/user/project",
+                    MODE: "workflow",
+                    CLAUDE_PLUGIN_DATA: "/user/plugin-data",
+                    CLAUDE_PLUGIN_ROOT: "/user/plugin-root",
+                  },
+                };
+                const existingLocalBefore = JSON.stringify(existingLocal);
+                const existingSameName = {
+                  type: "remote",
+                  url: "https://user.example.test/mcp",
+                };
+                const config = {
+                  mcp: {
+                    userRemote: existingRemote,
+                    userLocal: existingLocal,
+                    sameName: existingSameName,
+                  },
+                };
+
+                const server = createOpenCodePlugin(process.env.TEST_PLUGIN_ROOT);
+                const hooks = await server({ directory: process.cwd() });
+                await hooks.config(config);
+
+                console.log(JSON.stringify({
+                  keys: Object.keys(config.mcp),
+                  existingRemoteUnchanged:
+                    config.mcp.userRemote === existingRemote &&
+                    JSON.stringify(config.mcp.userRemote) === JSON.stringify({
+                      type: "remote",
+                      url: "https://shared.example.test/mcp",
+                      headers: { "X-User": "preserved" },
+                    }),
+                  existingLocalUnchanged:
+                    config.mcp.userLocal === existingLocal &&
+                    JSON.stringify(config.mcp.userLocal) === existingLocalBefore,
+                  sameNameUnchanged: config.mcp.sameName === existingSameName,
+                  distinctRemote: config.mcp.pluginRemoteDistinct,
+                  differentCwd: config.mcp.pluginLocalDifferentCwd,
+                  differentEnvironment:
+                    config.mcp.pluginLocalDifferentEnvironment,
+                  differentArgs: config.mcp.pluginLocalDifferentArgs,
+                }));
+                """,
+                {
+                    "TEST_PLUGIN_ROOT": str(plugin_root),
+                    "XDG_DATA_HOME": str(data_home),
+                },
+            )
+
+        self.assertEqual(
+            result["keys"],
+            [
+                "userRemote",
+                "userLocal",
+                "sameName",
+                "pluginLocalDifferentCwd",
+                "pluginLocalDifferentEnvironment",
+                "pluginRemoteDistinct",
+                "pluginLocalDifferentArgs",
+            ],
+        )
+        self.assertTrue(result["existingRemoteUnchanged"])
+        self.assertTrue(result["existingLocalUnchanged"])
+        self.assertTrue(result["sameNameUnchanged"])
+        self.assertEqual(
+            result["distinctRemote"],
+            {"type": "remote", "url": "https://distinct.example.test/mcp"},
+        )
+        self.assertEqual(result["differentCwd"]["cwd"], "/workspace/other")
+        self.assertEqual(result["differentCwd"]["environment"]["MODE"], "workflow")
+        self.assertEqual(result["differentEnvironment"]["cwd"], "/workspace/shared")
+        self.assertEqual(
+            result["differentEnvironment"]["environment"]["MODE"], "server"
+        )
+        self.assertEqual(
+            result["differentArgs"]["command"],
+            ["node", "server.js", "--distinct"],
+        )
+
     def test_mcp_required_placeholder_reports_unset_variable(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_root = Path(tmpdir) / "plugin"
@@ -569,6 +724,158 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
         self.assertFalse(result["detected"])
         self.assertFalse(result["approvalLaunched"])
 
+    def test_xcode_mcp_ignores_mcpbridge_in_an_unrelated_command_argument(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            const spawn = (command, args = []) => {
+              calls.push([command, ...args]);
+              const child = new EventEmitter();
+              child.kill = () => true;
+              child.unref = () => {};
+              queueMicrotask(() => child.emit("exit", 0));
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const plugin = (await import(
+              "./XcodeBuildTools/opencode-plugin.js?test=ignore-mcpbridge-argument"
+            )).default;
+            const hooks = await plugin.server({});
+            const config = {
+              mcp: {
+                unrelated: {
+                  type: "local",
+                  command: ["/usr/bin/printf", "--label", "mcpbridge"],
+                },
+              },
+            };
+            await hooks.config(config);
+
+            const output = { system: [] };
+            await hooks["experimental.chat.system.transform"](
+              { sessionID: "session-1" },
+              output,
+            );
+
+            console.log(JSON.stringify({
+              detected: output.system[0].includes("Xcode MCP server detected"),
+              approvalLaunched: calls.some(
+                ([command]) => command.endsWith("run-background.sh"),
+              ),
+            }));
+            """
+        )
+
+        self.assertFalse(result["detected"])
+        self.assertFalse(result["approvalLaunched"])
+
+    def test_xcode_mcp_ignores_mcpbridge_after_a_different_xcrun_tool(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            const spawn = (command, args = []) => {
+              calls.push([command, ...args]);
+              const child = new EventEmitter();
+              child.kill = () => true;
+              child.unref = () => {};
+              queueMicrotask(() => child.emit("exit", 0));
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const plugin = (await import(
+              "./XcodeBuildTools/opencode-plugin.js?test=ignore-late-xcrun-argument"
+            )).default;
+            const hooks = await plugin.server({});
+            const config = {
+              mcp: {
+                unrelated: {
+                  type: "local",
+                  command: ["xcrun", "swift", "--label", "mcpbridge"],
+                },
+              },
+            };
+            await hooks.config(config);
+
+            const output = { system: [] };
+            await hooks["experimental.chat.system.transform"](
+              { sessionID: "session-1" },
+              output,
+            );
+
+            console.log(JSON.stringify({
+              detected: output.system[0].includes("Xcode MCP server detected"),
+              approvalLaunched: calls.some(
+                ([command]) => command.endsWith("run-background.sh"),
+              ),
+            }));
+            """
+        )
+
+        self.assertFalse(result["detected"])
+        self.assertFalse(result["approvalLaunched"])
+
+    def test_xcode_mcp_recognizes_direct_and_option_prefixed_xcrun_tools(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            const spawn = (command, args = []) => {
+              calls.push([command, ...args]);
+              const child = new EventEmitter();
+              child.kill = () => true;
+              child.unref = () => {};
+              queueMicrotask(() => child.emit("exit", 0));
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const plugin = (await import(
+              "./XcodeBuildTools/opencode-plugin.js?test=xcrun-tool-operands"
+            )).default;
+            const commands = [
+              ["/usr/local/bin/mcpbridge"],
+              ["xcrun", "mcpbridge"],
+              ["xcrun", "--sdk", "macosx", "--toolchain", "swift", "mcpbridge"],
+              ["xcrun", "--sdk=macosx", "--toolchain=swift", "mcpbridge"],
+              ["xcrun", "--find", "--", "mcpbridge"],
+            ];
+            const results = [];
+
+            for (const [index, command] of commands.entries()) {
+              const hooks = await plugin.server({});
+              const config = { mcp: { xcode: { type: "local", command } } };
+              await hooks.config(config);
+              const callsBefore = calls.length;
+              const output = { system: [] };
+              await hooks["experimental.chat.system.transform"](
+                { sessionID: `session-${index}` },
+                output,
+              );
+              results.push({
+                detected: output.system[0].includes("Xcode MCP server detected"),
+                approvalLaunched: calls.slice(callsBefore).some(
+                  ([executable]) => executable.endsWith("run-background.sh"),
+                ),
+              });
+            }
+
+            console.log(JSON.stringify(results));
+            """
+        )
+
+        self.assertTrue(all(item["detected"] for item in result))
+        self.assertTrue(all(item["approvalLaunched"] for item in result))
+
     def test_xcode_mcp_detection_refreshes_after_cache_ttl(self):
         result = self.run_node(
             """
@@ -631,6 +938,131 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
         self.assertFalse(result["firstDetected"])
         self.assertTrue(result["secondDetected"])
 
+    def test_xcode_mcp_detection_force_kills_and_unrefs_a_timed_out_probe(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const signals = [];
+            let unrefCalls = 0;
+            const spawn = () => {
+              const child = new EventEmitter();
+              child.kill = (signal) => {
+                signals.push(signal);
+                return true;
+              };
+              child.unref = () => {
+                unrefCalls += 1;
+              };
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const originalSetTimeout = globalThis.setTimeout;
+            const originalClearTimeout = globalThis.clearTimeout;
+            globalThis.setTimeout = (callback) => {
+              queueMicrotask(callback);
+              return 1;
+            };
+            globalThis.clearTimeout = () => {};
+
+            try {
+              const plugin = (await import(
+                "./XcodeBuildTools/opencode-plugin.js?test=force-kill-detection-timeout"
+              )).default;
+              const hooks = await plugin.server({});
+              const config = {
+                mcp: {
+                  xcode: {
+                    type: "local",
+                    command: ["xcrun", "mcpbridge"],
+                  },
+                },
+              };
+              await hooks.config(config);
+              await hooks["experimental.chat.system.transform"](
+                { sessionID: "session-1" },
+                { system: [] },
+              );
+            } finally {
+              globalThis.setTimeout = originalSetTimeout;
+              globalThis.clearTimeout = originalClearTimeout;
+            }
+
+            console.log(JSON.stringify({ signals, unrefCalls }));
+            """
+        )
+
+        self.assertEqual(result["signals"], ["SIGTERM", "SIGKILL"])
+        self.assertEqual(result["unrefCalls"], 1)
+
+    def test_xcode_mcp_detection_rejects_success_reported_after_timeout(self):
+        result = self.run_node(
+            """
+            import { EventEmitter } from "node:events";
+            import { mock } from "node:test";
+
+            const calls = [];
+            const spawn = (command, args = []) => {
+              calls.push([command, ...args]);
+              const child = new EventEmitter();
+              child.kill = (signal) => {
+                if (signal === "SIGTERM") {
+                  queueMicrotask(() => child.emit("exit", 0));
+                }
+                return true;
+              };
+              child.unref = () => {};
+              return child;
+            };
+            mock.module("node:child_process", { namedExports: { spawn } });
+
+            const originalSetTimeout = globalThis.setTimeout;
+            const originalClearTimeout = globalThis.clearTimeout;
+            globalThis.setTimeout = (callback) => {
+              queueMicrotask(callback);
+              return 1;
+            };
+            globalThis.clearTimeout = () => {};
+
+            let output;
+            try {
+              const plugin = (await import(
+                "./XcodeBuildTools/opencode-plugin.js?test=timeout-cannot-succeed"
+              )).default;
+              const hooks = await plugin.server({});
+              const config = {
+                mcp: {
+                  xcode: {
+                    type: "local",
+                    command: ["xcrun", "mcpbridge"],
+                  },
+                },
+              };
+              await hooks.config(config);
+              output = { system: [] };
+              await hooks["experimental.chat.system.transform"](
+                { sessionID: "session-1" },
+                output,
+              );
+            } finally {
+              globalThis.setTimeout = originalSetTimeout;
+              globalThis.clearTimeout = originalClearTimeout;
+            }
+
+            console.log(JSON.stringify({
+              detected: output.system[0].includes("Xcode MCP server detected"),
+              approvalLaunched: calls.some(
+                ([command]) => command.endsWith("run-background.sh"),
+              ),
+            }));
+            """
+        )
+
+        self.assertFalse(result["detected"])
+        self.assertFalse(result["approvalLaunched"])
+
     def test_xcode_mcp_approval_runs_once_per_session(self):
         result = self.run_node(
             """
@@ -679,6 +1111,106 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
         )
 
         self.assertEqual(result["approvalLaunches"], 2)
+
+    def test_shell_env_rejects_a_symlinked_sandbox_root_without_touching_target(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import os from "node:os";
+                import path from "node:path";
+
+                const victim = path.join(os.tmpdir(), "victim");
+                const documents = path.join(victim, "Documents");
+                const keep = path.join(documents, "keep.txt");
+                const sandboxRoot = path.join(
+                  os.tmpdir(),
+                  "opencode-xcodebuildtools-sandbox",
+                );
+                fs.mkdirSync(documents, { recursive: true });
+                fs.writeFileSync(keep, "preserve me\\n", "utf8");
+                const old = new Date(Date.now() - 61_000);
+                fs.utimesSync(documents, old, old);
+                fs.symlinkSync(victim, sandboxRoot, "dir");
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=symlinked-sandbox-root"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+                const output = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "current-session" },
+                  output,
+                );
+
+                console.log(JSON.stringify({
+                  keepExists: fs.existsSync(keep),
+                  victimEntries: fs.readdirSync(victim).sort(),
+                  rootStillSymlink: fs.lstatSync(sandboxRoot).isSymbolicLink(),
+                  derivedDataConfigured: Object.hasOwn(
+                    output.env,
+                    "SANDBOX_DERIVED_DATA",
+                  ),
+                  packagesConfigured: Object.hasOwn(
+                    output.env,
+                    "SANDBOX_PACKAGES",
+                  ),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertTrue(result["keepExists"])
+        self.assertEqual(result["victimEntries"], ["Documents"])
+        self.assertTrue(result["rootStillSymlink"])
+        self.assertFalse(result["derivedDataConfigured"])
+        self.assertFalse(result["packagesConfigured"])
+
+    def test_shell_env_secures_an_existing_current_user_sandbox_root(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import os from "node:os";
+                import path from "node:path";
+
+                const sandboxRoot = path.join(
+                  os.tmpdir(),
+                  "opencode-xcodebuildtools-sandbox",
+                );
+                fs.mkdirSync(sandboxRoot, { mode: 0o755 });
+                fs.chmodSync(sandboxRoot, 0o755);
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=secure-existing-sandbox-root"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+                const output = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "current-session" },
+                  output,
+                );
+
+                console.log(JSON.stringify({
+                  rootMode: fs.statSync(sandboxRoot).mode & 0o777,
+                  rootIsDirectory: fs.lstatSync(sandboxRoot).isDirectory(),
+                  derivedDataExists: fs.statSync(
+                    output.env.SANDBOX_DERIVED_DATA,
+                  ).isDirectory(),
+                  packagesExist: fs.statSync(
+                    output.env.SANDBOX_PACKAGES,
+                  ).isDirectory(),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertEqual(result["rootMode"], 0o700)
+        self.assertTrue(result["rootIsDirectory"])
+        self.assertTrue(result["derivedDataExists"])
+        self.assertTrue(result["packagesExist"])
 
     def test_shell_env_sweeps_sandboxes_owned_by_dead_processes(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1177,19 +1709,38 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             result = self.run_node(
                 """
                 import { EventEmitter } from "node:events";
+                import fs from "node:fs";
+                import path from "node:path";
                 import { mock } from "node:test";
 
                 let commandUsed = "";
-                let killedWith = "";
-                let timeoutMs = 0;
+                const signals = [];
+                const timeoutDelays = [];
+                const clearedTimers = [];
+                let nextTimer = 0;
+                let unrefCalls = 0;
+                let stdoutDestroyCalls = 0;
+                let child;
                 const spawn = (command) => {
                   commandUsed = command;
-                  const child = new EventEmitter();
+                  child = new EventEmitter();
                   child.stdout = new EventEmitter();
                   child.stdout.setEncoding = () => {};
+                  child.stdout.destroy = () => {
+                    stdoutDestroyCalls += 1;
+                  };
                   child.kill = (signal) => {
-                    killedWith = signal;
+                    signals.push(signal);
+                    if (signal === "SIGKILL") {
+                      queueMicrotask(() => {
+                        child.stdout.emit("data", "late-start-token\\n");
+                        child.emit("close", 0);
+                      });
+                    }
                     return true;
+                  };
+                  child.unref = () => {
+                    unrefCalls += 1;
                   };
                   return child;
                 };
@@ -1198,11 +1749,14 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                 const originalSetTimeout = globalThis.setTimeout;
                 const originalClearTimeout = globalThis.clearTimeout;
                 globalThis.setTimeout = (callback, delay) => {
-                  timeoutMs = delay;
+                  timeoutDelays.push(delay);
                   queueMicrotask(callback);
-                  return 1;
+                  nextTimer += 1;
+                  return nextTimer;
                 };
-                globalThis.clearTimeout = () => {};
+                globalThis.clearTimeout = (timer) => {
+                  clearedTimers.push(timer);
+                };
 
                 let output;
                 try {
@@ -1221,10 +1775,20 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                   globalThis.clearTimeout = originalClearTimeout;
                 }
 
+                const sandbox = path.dirname(output.env.SANDBOX_DERIVED_DATA);
+                const owner = fs.readFileSync(path.join(sandbox, "owner.pid"), "utf8");
+
                 console.log(JSON.stringify({
                   commandUsed,
-                  killedWith,
-                  timeoutMs,
+                  signals,
+                  timeoutDelays,
+                  clearedTimers,
+                  unrefCalls,
+                  stdoutDestroyCalls,
+                  stdoutDataListeners: child.stdout.listenerCount("data"),
+                  childErrorListeners: child.listenerCount("error"),
+                  childCloseListeners: child.listenerCount("close"),
+                  processStartToken: owner.split(/\\r?\\n/)[2],
                   sandboxConfigured: Boolean(output.env.SANDBOX_DERIVED_DATA),
                 }));
                 """,
@@ -1233,8 +1797,15 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
             )
 
         self.assertEqual(result["commandUsed"], "/bin/ps")
-        self.assertEqual(result["killedWith"], "SIGTERM")
-        self.assertGreater(result["timeoutMs"], 0)
+        self.assertEqual(result["signals"], ["SIGTERM", "SIGKILL"])
+        self.assertEqual(result["timeoutDelays"], [5_000, 250])
+        self.assertEqual(result["clearedTimers"], [1, 2])
+        self.assertEqual(result["unrefCalls"], 1)
+        self.assertEqual(result["stdoutDestroyCalls"], 1)
+        self.assertEqual(result["stdoutDataListeners"], 0)
+        self.assertEqual(result["childErrorListeners"], 0)
+        self.assertEqual(result["childCloseListeners"], 0)
+        self.assertEqual(result["processStartToken"], "")
         self.assertTrue(result["sandboxConfigured"])
 
     def test_process_start_token_bounds_stdout(self):
