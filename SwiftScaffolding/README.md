@@ -31,7 +31,7 @@ OpenCode:
 }
 ```
 
-Restart OpenCode after changing config. The OpenCode entry point registers this plugin's skill, XcodeBuildMCP server, session context, and command guardrails.
+Restart OpenCode after changing config. The OpenCode entry point registers this plugin's skill, XcodeBuildMCP server, and session context.
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ Use the `scaffolding` skill to scaffold Swift projects.
 
 ### 0.4.4
 - Added `opencode-plugin.js` for OpenCode users
-- The OpenCode entry point registers the `scaffolding` skill, XcodeBuildMCP server, session context, and command guardrails
+- The OpenCode entry point registers the `scaffolding` skill, XcodeBuildMCP server, and session context
 
 ### 0.4.3
 - Migrated the legacy scaffolding prompt to the `scaffolding` skill

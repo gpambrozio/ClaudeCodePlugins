@@ -6,7 +6,7 @@
     "versions": [
         {
             "version": "0.4.4",
-            "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, MCP servers, session-start context, and pre-tool-use command guardrails."
+            "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, MCP servers, and session-start context."
         },
         {
             "version": "0.4.3",
