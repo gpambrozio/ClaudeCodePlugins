@@ -12,6 +12,8 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 
 ## Installation
 
+Claude Code:
+
 ```bash
 # Add the marketplace
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
@@ -19,6 +21,19 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 # Install this plugin
 /plugin install iOSSimulator@ClaudeCodePlugins
 ```
+
+OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/iOSSimulator/opencode-plugin.js"
+  ]
+}
+```
+
+Restart OpenCode after changing config. The OpenCode entry point registers this plugin's skill, session context, and command guardrails.
 
 ## Prerequisites
 
@@ -100,6 +115,10 @@ Agents with image input can view screenshots. The recommended workflow:
 5. Repeat for complex workflows
 
 ## Changelog
+
+### 0.6.6
+- Added `opencode-plugin.js` for OpenCode users
+- The OpenCode entry point registers the `ios-simulator` skill, session context, and command guardrails
 
 ### 0.6.5
 - Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in `hooks/hooks.json` instead of generated `common/hooks.json` templates

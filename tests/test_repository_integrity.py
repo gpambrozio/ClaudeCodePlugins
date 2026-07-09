@@ -1,6 +1,7 @@
 import json
 import py_compile
 import re
+import shutil
 import shlex
 import subprocess
 import sys
@@ -11,11 +12,29 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SYNC_COMMON_SCRIPT = REPO_ROOT / "scripts" / "sync-plugin-common.py"
+OPENCODE_GUARDRAIL_REGISTRATION_CLAIM = re.compile(
+    r"\bentry point(?: that)? register(?:s|ed)?\b"
+    r"[^.\n]*\b(?:pre-tool-use\s+)?command\s+guardrails\b",
+    re.IGNORECASE,
+)
 
 
 def load_json(path):
     with path.open(encoding="utf-8") as file:
         return json.load(file)
+
+
+def registered_guardrail_claim_has_rules(info, *current_texts):
+    has_claim = any(
+        isinstance(text, str)
+        and OPENCODE_GUARDRAIL_REGISTRATION_CLAIM.search(text)
+        for text in current_texts
+    )
+    if not has_claim:
+        return True
+
+    rules = info.get("pre-tool-use-rules") if info else None
+    return isinstance(rules, list) and bool(rules)
 
 
 def plugin_dirs():
@@ -90,6 +109,122 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
             with self.subTest(plugin=plugin_dir.name):
                 self.assertIn(f"### {manifest['version']}", readme)
+
+    def test_current_registered_guardrail_claims_have_rules(self):
+        for plugin_dir in plugin_dirs():
+            info_path = plugin_dir / "info.json"
+            readme_path = plugin_dir / "README.md"
+            if not info_path.exists() and not readme_path.exists():
+                continue
+
+            manifest = load_json(plugin_dir / ".claude-plugin" / "plugin.json")
+            current_version = manifest["version"]
+            info = None
+            current_texts = []
+            if info_path.exists():
+                info = load_json(info_path)
+                current_info = next(
+                    (
+                        entry
+                        for entry in info.get("versions", [])
+                        if entry.get("version") == current_version
+                    ),
+                    None,
+                )
+                self.assertIsNotNone(
+                    current_info,
+                    f"{plugin_dir.name} info.json should describe version {current_version}",
+                )
+                current_texts.append(current_info.get("changes", ""))
+
+            if readme_path.exists():
+                readme = readme_path.read_text(encoding="utf-8")
+                current_prose, separator, changelog = readme.partition("\n## Changelog\n")
+                self.assertTrue(
+                    separator,
+                    f"{plugin_dir.name} README should include a Changelog section",
+                )
+                changelog_match = re.search(
+                    rf"(?ms)^###\s+{re.escape(current_version)}\s*$\n"
+                    r"(?P<section>.*?)(?=^###\s+|\Z)",
+                    changelog,
+                )
+                self.assertIsNotNone(
+                    changelog_match,
+                    f"{plugin_dir.name} README should describe version {current_version}",
+                )
+                current_texts.extend(
+                    (current_prose, changelog_match.group("section"))
+                )
+
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertTrue(
+                    registered_guardrail_claim_has_rules(
+                        info,
+                        *current_texts,
+                    ),
+                    "registered command guardrails require nonempty pre-tool-use-rules",
+                )
+
+    def test_only_templated_registration_claim_requires_rules(self):
+        original_claim = (
+            "The OpenCode entry point registers the scaffolding skill, "
+            "session context, and command guardrails."
+        )
+        original_info_claim = (
+            "Added an opencode-plugin.js entry point that registers skills, "
+            "session-start context, and pre-tool-use command guardrails."
+        )
+        current_claim = (
+            "The OpenCode entry point registers the scaffolding skill "
+            "and session context."
+        )
+
+        cases = (
+            ("original", {}, original_claim, False),
+            ("original-info", {}, original_info_claim, False),
+            (
+                "configured",
+                {"pre-tool-use-rules": [{}]},
+                original_claim,
+                True,
+            ),
+            ("current", {}, current_claim, True),
+            ("non-template", {}, "Added command guardrails.", True),
+        )
+
+        for name, info, claim, expected in cases:
+            with self.subTest(name=name):
+                self.assertEqual(
+                    expected,
+                    registered_guardrail_claim_has_rules(
+                        info,
+                        claim,
+                    ),
+                )
+
+    def test_known_registered_guardrail_plugins_have_rules(self):
+        for plugin_name in ("iOSSimulator", "XcodeBuildTools"):
+            plugin_dir = REPO_ROOT / plugin_name
+            manifest = load_json(plugin_dir / ".claude-plugin" / "plugin.json")
+            info = load_json(plugin_dir / "info.json")
+            current_info = next(
+                entry
+                for entry in info["versions"]
+                if entry["version"] == manifest["version"]
+            )
+
+            with self.subTest(plugin=plugin_name):
+                self.assertRegex(
+                    current_info["changes"],
+                    OPENCODE_GUARDRAIL_REGISTRATION_CLAIM,
+                )
+                self.assertTrue(
+                    registered_guardrail_claim_has_rules(
+                        info,
+                        current_info["changes"],
+                    )
+                )
 
     def test_info_skill_list_matches_skill_directories(self):
         for plugin_dir in plugin_dirs():
@@ -199,6 +334,78 @@ class RepositoryIntegrityTests(unittest.TestCase):
                         sync_common.generated_bytes(shared_file, REPO_ROOT),
                         plugin_file.read_bytes(),
                     )
+
+    def test_common_js_helpers_use_javascript_comment_headers(self):
+        sync_common = load_sync_common_module()
+        source = REPO_ROOT / "common" / "opencode-plugin.js"
+
+        self.assertTrue(source.exists())
+        self.assertTrue(sync_common.generated_bytes(source, REPO_ROOT).startswith(b"// Generated from"))
+
+    def test_opencode_plugin_entrypoints_exist_for_local_plugins(self):
+        for plugin_dir in plugin_dirs():
+            entrypoint = plugin_dir / "opencode-plugin.js"
+            expected = (
+                'import { createOpenCodePlugin } from "./common/opencode-plugin.js";\n\n'
+                "export default {\n"
+                f'  id: "{plugin_dir.name}",\n'
+                '  server: createOpenCodePlugin(new URL(".", import.meta.url)),\n'
+                "};\n"
+            )
+
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertTrue(entrypoint.exists())
+                self.assertEqual(expected, entrypoint.read_text(encoding="utf-8"))
+
+    def test_node_is_available_for_opencode_runtime_checks(self):
+        self.assertIsNotNone(
+            shutil.which("node"),
+            "Node.js is required for OpenCode runtime, syntax, and export checks",
+        )
+
+    def test_opencode_plugin_javascript_syntax(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not available")
+
+        script_paths = [REPO_ROOT / "common" / "opencode-plugin.js"]
+        script_paths.extend(plugin_dir / "opencode-plugin.js" for plugin_dir in plugin_dirs())
+
+        for script_path in script_paths:
+            result = subprocess.run(
+                [node, "--input-type=module", "--check"],
+                cwd=REPO_ROOT,
+                input=script_path.read_text(encoding="utf-8"),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            with self.subTest(script=str(script_path.relative_to(REPO_ROOT))):
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_opencode_plugin_entrypoints_export_server_plugin_objects(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not available")
+
+        for plugin_dir in plugin_dirs():
+            entrypoint = plugin_dir / "opencode-plugin.js"
+            script = (
+                f'import plugin from "./{entrypoint.relative_to(REPO_ROOT)}";\n'
+                f'if (plugin?.id !== "{plugin_dir.name}") process.exit(1);\n'
+                'if (typeof plugin.server !== "function") process.exit(2);\n'
+            )
+            result = subprocess.run(
+                [node, "--input-type=module", "-e", script],
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            with self.subTest(plugin=plugin_dir.name):
+                self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_sync_plugin_common_script_reports_clean_checkout(self):
         result = subprocess.run(

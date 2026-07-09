@@ -44,7 +44,8 @@ def generated_bytes(source, repo_root):
         ).encode("utf-8") + b"\n"
 
     text = source.read_text(encoding="utf-8")
-    header = f"# {message}\n"
+    comment = "//" if source.suffix in {".js", ".ts"} else "#"
+    header = f"{comment} {message}\n"
     if text.startswith("#!"):
         first_line, separator, remainder = text.partition("\n")
         text = first_line + separator + header + remainder

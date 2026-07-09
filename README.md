@@ -4,12 +4,14 @@ A curated collection of Claude Code-compatible plugins for various development w
 
 The marketplace uses Claude Code's plugin packaging contracts (`.claude-plugin`,
 `CLAUDE_PLUGIN_ROOT`, plugin install commands), but agent-facing instructions are
-kept neutral so compatible hosts such as Codex can consume the same skills and
+kept neutral so compatible hosts such as OpenCode and Codex can consume the same skills and
 prompts where supported.
 
 ## Quick Start
 
-### Adding the Marketplace
+### Claude Code
+
+#### Adding the Marketplace
 
 Install this marketplace to access all available plugins:
 
@@ -21,7 +23,7 @@ Install this marketplace to access all available plugins:
 /plugin marketplace add /path/to/ClaudeCodePlugins
 ```
 
-### Installing Plugins
+#### Installing Plugins
 
 Once the marketplace is added, install plugins:
 
@@ -32,6 +34,21 @@ Once the marketplace is added, install plugins:
 # Install a specific plugin
 /plugin install XcodeBuildTools@ClaudeCodePlugins
 ```
+
+### OpenCode
+
+OpenCode does not consume Claude Code marketplace manifests directly. Clone this repository and add the local plugin entry point for each plugin you want to use to `~/.config/opencode/opencode.json` or a project `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/XcodeBuildTools/opencode-plugin.js"
+  ]
+}
+```
+
+Use the matching plugin directory for other plugins, for example `iOSSimulator/opencode-plugin.js`, `SwiftScaffolding/opencode-plugin.js`, or `MarvinOutputStyle/opencode-plugin.js`. Restart OpenCode after changing config. The entry point registers the plugin's skills, MCP servers, session context, and OpenCode hooks.
 
 ## Available Plugins
 
@@ -84,12 +101,27 @@ Follow the standard Claude Code-compatible plugin structure:
 YourPlugin/
 ├── .claude-plugin/
 │   └── plugin.json
+├── common/                 # Generated shared helpers
 ├── skills/                 # Optional: agent skills
 ├── agents/                 # Optional: custom agents
 ├── hooks/                  # Optional: lifecycle hooks
 ├── .mcp.json              # Optional: MCP servers
+├── opencode-plugin.js     # OpenCode local plugin entry point
 └── README.md
 ```
+
+Create `YourPlugin/opencode-plugin.js` with an ID that exactly matches the plugin folder:
+
+```js
+import { createOpenCodePlugin } from "./common/opencode-plugin.js";
+
+export default {
+  id: "YourPlugin",
+  server: createOpenCodePlugin(new URL(".", import.meta.url)),
+};
+```
+
+Then run `python3 scripts/sync-plugin-common.py` from the repository root to generate the plugin's self-contained `common/` helpers.
 
 ### 2. Add to Repository
 
@@ -167,6 +199,8 @@ The same command runs in GitHub Actions on push and pull request.
 
 ### Testing Plugin Installation
 
+Claude Code:
+
 ```bash
 # Add marketplace from local directory
 /plugin marketplace add /path/to/ClaudeCodePlugins
@@ -178,6 +212,19 @@ The same command runs in GitHub Actions on push and pull request.
 /plugin list
 ```
 
+OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/XcodeBuildTools/opencode-plugin.js"
+  ]
+}
+```
+
+Restart OpenCode after changing the config.
+
 ### Creating New Plugins
 
 Use an existing plugin as a template:
@@ -186,9 +233,13 @@ Use an existing plugin as a template:
 # Copy structure from an existing plugin
 cp -r XcodeBuildTools YourNewPlugin
 
-# Update metadata in .claude-plugin/plugin.json
+# Update metadata in .claude-plugin/plugin.json and marketplace.json
+# Change the id in opencode-plugin.js to exactly match YourNewPlugin
 # Customize skills, hooks, agents
 # Update README.md
+
+# Refresh the generated common helpers
+python3 scripts/sync-plugin-common.py
 ```
 
 ## Resources

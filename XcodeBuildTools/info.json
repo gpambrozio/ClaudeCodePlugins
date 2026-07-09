@@ -47,6 +47,10 @@
     ],
     "versions": [
         {
+            "version": "0.5.11",
+            "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, MCP servers, session-start context, pre-tool-use command guardrails, the Xcode MCP auto-approval helper, and Xcode build sandbox shell environment setup."
+        },
+        {
             "version": "0.5.10",
             "changes": "Migrated the legacy analyze and swiftui-modernize command prompts to skills and registered swift-code-analysis and swiftui-modernize in info.json. Released self-contained common helper copies so the plugin package no longer depends on repository-level symlinks, while keeping hook configuration in hooks/hooks.json instead of generated common/hooks.json templates. Preserved the host hook owner PID when launching SessionStart helpers in the background so sandbox inheritance across /clear can keep finding the prior anchor."
         },

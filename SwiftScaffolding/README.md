@@ -10,6 +10,8 @@ Swift project scaffolding and code generation tools.
 
 ## Installation
 
+Claude Code:
+
 ```bash
 # Add the marketplace
 /plugin marketplace add gpambrozio/ClaudeCodePlugins
@@ -17,6 +19,19 @@ Swift project scaffolding and code generation tools.
 # Install this plugin
 /plugin install SwiftScaffolding@ClaudeCodePlugins
 ```
+
+OpenCode:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "/path/to/ClaudeCodePlugins/SwiftScaffolding/opencode-plugin.js"
+  ]
+}
+```
+
+Restart OpenCode after changing config. The OpenCode entry point registers this plugin's skill, XcodeBuildMCP server, and session context.
 
 ## Prerequisites
 
@@ -28,6 +43,10 @@ Swift project scaffolding and code generation tools.
 Use the `scaffolding` skill to scaffold Swift projects.
 
 ## Changelog
+
+### 0.4.4
+- Added `opencode-plugin.js` for OpenCode users
+- The OpenCode entry point registers the `scaffolding` skill, XcodeBuildMCP server, and session context
 
 ### 0.4.3
 - Migrated the legacy scaffolding prompt to the `scaffolding` skill
