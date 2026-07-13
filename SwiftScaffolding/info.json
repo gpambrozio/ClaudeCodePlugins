@@ -5,6 +5,10 @@
     "welcomeMessage": "You can scaffold Swift projects using the scaffolding skill.",
     "versions": [
         {
+            "version": "0.4.5",
+            "changes": "Fixed XcodeBuildMCP registration: added the missing \"mcp\" subcommand in args to prevent connection closure on startup."
+        },
+        {
             "version": "0.4.4",
             "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, MCP servers, and session-start context."
         },
