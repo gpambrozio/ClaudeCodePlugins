@@ -44,6 +44,9 @@ Use the `scaffolding` skill to scaffold Swift projects.
 
 ## Changelog
 
+### 0.4.5
+- Fixed XcodeBuildMCP registration in `.mcp.json` — added the `"mcp"` subcommand to args so the MCP server starts in stdio mode instead of printing help and exiting
+
 ### 0.4.4
 - Added `opencode-plugin.js` for OpenCode users
 - The OpenCode entry point registers the `scaffolding` skill, XcodeBuildMCP server, and session context
