@@ -1152,6 +1152,8 @@ async function handlePluginEvent(state, event) {
   if (typeof sessionID !== "string" || !sessionID) return;
 
   const safeID = safeSessionID(sessionID);
+  const parentID =
+    event.properties?.info?.parentID ?? state.sessionParents.get(safeID);
   state.deletedSandboxSessions.add(safeID);
   state.sessionParents.delete(safeID);
   state.lastSessionSandbox.delete(safeID);
@@ -1160,6 +1162,10 @@ async function handlePluginEvent(state, event) {
   const activeApproval = state.xcodeMcpApprovalHelpers.get(safeID);
   await stopXcodeMcpApproval(activeApproval);
   await removeOwnedSandbox(state, safeID);
+  // A deleted main session drains the free pool: pooled sandboxes existed to
+  // serve its subagents, so reclaim the disk now rather than at dispose.
+  // Sandboxes still leased by live sessions are untouched.
+  if (!parentID) await drainFreeSandboxes(state);
 }
 
 // Leasing order: the sandbox this session already holds, then the sandbox it
@@ -1226,6 +1232,28 @@ async function removeOwnedSandbox(state, sessionID) {
   state.ownedSandboxIdentities.delete(sessionID);
   if (!state.sandboxRoot || !sandboxIdentity) return;
 
+  await quarantineAndRemoveSandbox(state, sandboxPath, sandboxIdentity);
+}
+
+async function drainFreeSandboxes(state) {
+  const entries = state.freeSandboxes.splice(0, state.freeSandboxes.length);
+  if (entries.length === 0) return;
+
+  const drainedPaths = new Set(entries.map((entry) => entry.path));
+  for (const [sessionID, sandboxPath] of state.lastSessionSandbox) {
+    if (drainedPaths.has(sandboxPath)) state.lastSessionSandbox.delete(sessionID);
+  }
+  if (!state.sandboxRoot) return;
+
+  await Promise.all(
+    entries.map(async ({ path: sandboxPath, identity }) => {
+      markPendingSandboxCleanup(sandboxPath);
+      await quarantineAndRemoveSandbox(state, sandboxPath, identity);
+    }),
+  );
+}
+
+async function quarantineAndRemoveSandbox(state, sandboxPath, sandboxIdentity) {
   const quarantinedPath = await quarantineOwnedSandbox(
     sandboxPath,
     state.instanceID,

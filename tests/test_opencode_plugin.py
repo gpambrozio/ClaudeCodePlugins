@@ -3470,6 +3470,124 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
 
         self.assertNotEqual(result["firstSandbox"], result["secondSandbox"])
 
+    def test_main_session_deletion_drains_the_free_pool(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-drain"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                const leases = {};
+                for (const sessionID of ["child-1", "child-2"]) {
+                  await hooks.event({
+                    event: {
+                      type: "session.updated",
+                      properties: { info: { id: sessionID, parentID: "main-1" } },
+                    },
+                  });
+                  const output = { env: {} };
+                  await hooks["shell.env"](
+                    { cwd: process.cwd(), sessionID },
+                    output,
+                  );
+                  leases[sessionID] = path.dirname(output.env.SANDBOX_DERIVED_DATA);
+                }
+
+                // child-1 finishes (its sandbox is pooled); child-2 stays live.
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                await hooks.event({
+                  event: {
+                    type: "session.deleted",
+                    properties: { info: { id: "main-1" } },
+                  },
+                });
+
+                console.log(JSON.stringify({
+                  pooledExists: fs.existsSync(leases["child-1"]),
+                  leasedExists: fs.existsSync(leases["child-2"]),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertFalse(result["pooledExists"])
+        self.assertTrue(result["leasedExists"])
+
+    def test_deleting_a_finished_subagent_keeps_the_reused_sandbox(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-no-double-free"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+                const first = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  first,
+                );
+
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-2", parentID: "main-1" } },
+                  },
+                });
+                const second = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-2" },
+                  second,
+                );
+                const reused = path.dirname(second.env.SANDBOX_DERIVED_DATA);
+
+                // Deleting the finished child must not touch the sandbox that
+                // child-2 is now leasing.
+                await hooks.event({
+                  event: {
+                    type: "session.deleted",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+
+                console.log(JSON.stringify({
+                  reusedExists: fs.existsSync(reused),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertTrue(result["reusedExists"])
+
 
 if __name__ == "__main__":
     unittest.main()
