@@ -3638,6 +3638,144 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
 
         self.assertFalse(result["sandboxExists"])
 
+    def test_reprompted_subagent_does_not_share_a_taken_sandbox(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-reprompt"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+                const first = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  first,
+                );
+                const firstSandbox = path.dirname(first.env.SANDBOX_DERIVED_DATA);
+
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-2", parentID: "main-1" } },
+                  },
+                });
+                const second = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-2" },
+                  second,
+                );
+                const secondSandbox = path.dirname(second.env.SANDBOX_DERIVED_DATA);
+
+                // child-2 took child-1's pooled sandbox. A re-prompted
+                // child-1 hits the fresh-path fallback with an empty pool
+                // and must NOT be handed the sandbox child-2 is leasing.
+                const reprompted = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  reprompted,
+                );
+                const repromptedSandbox = path.dirname(
+                  reprompted.env.SANDBOX_DERIVED_DATA,
+                );
+
+                // Deleting child-1 must remove only child-1's own sandbox,
+                // never the one child-2 is leasing.
+                await hooks.event({
+                  event: {
+                    type: "session.deleted",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+
+                console.log(JSON.stringify({
+                  reused: secondSandbox === firstSandbox,
+                  shared: repromptedSandbox === secondSandbox,
+                  child2SandboxExists: fs.existsSync(secondSandbox),
+                  repromptedSandboxExists: fs.existsSync(repromptedSandbox),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertTrue(result["reused"])
+        self.assertFalse(result["shared"])
+        self.assertTrue(result["child2SandboxExists"])
+        self.assertFalse(result["repromptedSandboxExists"])
+
+    def test_subagent_deletion_does_not_drain_the_free_pool(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-child-delete"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                const leases = {};
+                for (const sessionID of ["child-1", "child-2"]) {
+                  await hooks.event({
+                    event: {
+                      type: "session.updated",
+                      properties: { info: { id: sessionID, parentID: "main-1" } },
+                    },
+                  });
+                  const output = { env: {} };
+                  await hooks["shell.env"](
+                    { cwd: process.cwd(), sessionID },
+                    output,
+                  );
+                  leases[sessionID] = path.dirname(output.env.SANDBOX_DERIVED_DATA);
+                }
+
+                // child-1's sandbox sits in the free pool when the OTHER
+                // subagent is deleted: only a MAIN session's deletion may
+                // drain the pool.
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+                await hooks.event({
+                  event: {
+                    type: "session.deleted",
+                    properties: { info: { id: "child-2", parentID: "main-1" } },
+                  },
+                });
+
+                console.log(JSON.stringify({
+                  pooledExists: fs.existsSync(leases["child-1"]),
+                  deletedExists: fs.existsSync(leases["child-2"]),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertTrue(result["pooledExists"])
+        self.assertFalse(result["deletedExists"])
+
 
 if __name__ == "__main__":
     unittest.main()

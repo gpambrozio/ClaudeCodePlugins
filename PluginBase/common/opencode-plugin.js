@@ -1199,8 +1199,14 @@ function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
 
   // Plugin instances never create a sandbox path used by another instance, so
   // an older instance cannot delete a replacement instance's active sandbox
-  // after an ownership check.
-  return path.join(sandboxRootIdentity.path, `${sessionID}-${state.instanceID}`);
+  // after an ownership check. Within this instance the deterministic name can
+  // collide: pooling decouples directory names from sessions, so a sandbox
+  // named after this session may now be leased by a different session. Never
+  // share a live sandbox — fall back to a unique suffix instead.
+  const fresh = path.join(sandboxRootIdentity.path, `${sessionID}-${state.instanceID}`);
+  const leasedPaths = new Set(state.ownedSandboxes.values());
+  if (!leasedPaths.has(fresh)) return fresh;
+  return path.join(sandboxRootIdentity.path, `${sessionID}-${randomUUID()}`);
 }
 
 function recordSessionParent(state, info) {
@@ -1287,6 +1293,8 @@ async function detachOwnedSandboxes(state) {
   for (const sandboxPath of sandboxPaths) markPendingSandboxCleanup(sandboxPath);
   state.ownedSandboxes.clear();
   state.ownedSandboxIdentities.clear();
+  // Pooled entries were folded into `sandboxes` above; clear the pool and
+  // session-tracking state so a disposed instance can never lease or release.
   state.freeSandboxes.length = 0;
   state.sessionParents.clear();
   state.lastSessionSandbox.clear();
