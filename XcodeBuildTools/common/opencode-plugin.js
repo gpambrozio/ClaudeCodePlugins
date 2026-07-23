@@ -86,6 +86,7 @@ export function createOpenCodePlugin(pluginRootUrl) {
       sessionParents: new Map(),
       freeSandboxes: [],
       lastSessionSandbox: new Map(),
+      activeBashCounts: new Map(),
       sandboxSweepDone: false,
       disposed: false,
     };
@@ -118,6 +119,11 @@ export function createOpenCodePlugin(pluginRootUrl) {
       "tool.execute.before": async (input, output) => {
         loadMetadata(pluginRoot, state);
         applyPreToolUseRules(state, input, output);
+        trackBashStart(state, input);
+      },
+
+      "tool.execute.after": async (input) => {
+        trackBashEnd(state, input);
       },
 
       "shell.env": async (input, output) => {
@@ -1132,6 +1138,7 @@ function releaseSandboxOwnerLock(ownerLock) {
 
 async function handlePluginEvent(state, event) {
   if (event?.type === "session.created" || event?.type === "session.updated") {
+    if (state.disposed) return;
     recordSessionParent(state, event.properties?.info);
     return;
   }
@@ -1140,6 +1147,11 @@ async function handlePluginEvent(state, event) {
     const rawSessionID = event.properties?.sessionID;
     if (state.disposed || typeof rawSessionID !== "string" || !rawSessionID) return;
     const safeID = safeSessionID(rawSessionID);
+    // A stale idle — delivered after the session was already re-prompted —
+    // must not pool a sandbox an in-flight bash command is still writing to.
+    // Skipping is safe: the re-prompted turn ends with its own idle, which
+    // performs the release once no command is running.
+    if ((state.activeBashCounts.get(safeID) ?? 0) > 0) return;
     // Only subagent (child) sessions release on idle. A main session going
     // idle is just the end of a turn; it keeps its sandbox for the next one.
     if (state.sessionParents.get(safeID)) releaseSandboxToPool(state, safeID);
@@ -1154,9 +1166,15 @@ async function handlePluginEvent(state, event) {
   const safeID = safeSessionID(sessionID);
   const parentID =
     event.properties?.info?.parentID ?? state.sessionParents.get(safeID);
+  // Only a session this instance actually observed as parentless counts as a
+  // main session. A deletion for a session we never tracked (created before
+  // the plugin loaded) proves nothing about the pool, so it must not drain
+  // warm caches that may belong to a still-live main.
+  const knownMain = !parentID && state.sessionParents.has(safeID);
   state.deletedSandboxSessions.add(safeID);
   state.sessionParents.delete(safeID);
   state.lastSessionSandbox.delete(safeID);
+  state.activeBashCounts.delete(safeID);
   state.xcodeMcpCache.delete(safeID);
   state.xcodeMcpApprovalSessions.delete(safeID);
   const activeApproval = state.xcodeMcpApprovalHelpers.get(safeID);
@@ -1165,7 +1183,7 @@ async function handlePluginEvent(state, event) {
   // A deleted main session drains the free pool: pooled sandboxes existed to
   // serve its subagents, so reclaim the disk now rather than at dispose.
   // Sandboxes still leased by live sessions are untouched.
-  if (!parentID) await drainFreeSandboxes(state);
+  if (knownMain) await drainFreeSandboxes(state);
 }
 
 // Leasing order: the sandbox this session already holds, then the sandbox it
@@ -1188,6 +1206,10 @@ function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
     if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
       return entry.path;
     }
+    // Discarded entries stay marked pending: this instance's sweep already
+    // ran, so without the marker a transient inspect failure would orphan
+    // the directory until another process claims the sandbox root.
+    markPendingSandboxCleanup(entry.path);
   }
 
   while (state.freeSandboxes.length > 0) {
@@ -1195,6 +1217,7 @@ function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
     if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
       return entry.path;
     }
+    markPendingSandboxCleanup(entry.path);
   }
 
   // Plugin instances never create a sandbox path used by another instance, so
@@ -1212,9 +1235,33 @@ function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
 function recordSessionParent(state, info) {
   const id = info?.id;
   if (typeof id !== "string" || !id) return;
+  const safeID = safeSessionID(id);
   const parentID =
     typeof info.parentID === "string" && info.parentID ? info.parentID : null;
-  state.sessionParents.set(safeSessionID(id), parentID);
+  // A payload without parentID normally means "main session", but never let
+  // it downgrade a session we already classified: a partial update would
+  // otherwise stop a known child from releasing on idle and let its
+  // deletion drain the pool.
+  if (parentID === null && state.sessionParents.has(safeID)) return;
+  state.sessionParents.set(safeID, parentID);
+}
+
+// In-flight bash tracking exists solely to gate the idle-release against
+// stale events. Counts only ever prevent a release, so a missed
+// tool.execute.after degrades to "the sandbox stays leased" — the pre-pool
+// behavior, reclaimed on deletion/dispose — never to a premature release.
+function trackBashStart(state, input) {
+  if (String(input?.tool ?? "").toLowerCase() !== "bash") return;
+  const safeID = safeSessionID(input?.sessionID ?? "global");
+  state.activeBashCounts.set(safeID, (state.activeBashCounts.get(safeID) ?? 0) + 1);
+}
+
+function trackBashEnd(state, input) {
+  if (String(input?.tool ?? "").toLowerCase() !== "bash") return;
+  const safeID = safeSessionID(input?.sessionID ?? "global");
+  const count = state.activeBashCounts.get(safeID) ?? 0;
+  if (count <= 1) state.activeBashCounts.delete(safeID);
+  else state.activeBashCounts.set(safeID, count - 1);
 }
 
 function releaseSandboxToPool(state, sessionID) {
@@ -1251,15 +1298,25 @@ async function drainFreeSandboxes(state) {
   }
   if (!state.sandboxRoot) return;
 
+  // Removal is detached (/bin/rm) rather than awaited: draining several
+  // multi-GB trees in-process would stall serialized event delivery — the
+  // very lag that turns a delayed session.idle stale.
   await Promise.all(
     entries.map(async ({ path: sandboxPath, identity }) => {
       markPendingSandboxCleanup(sandboxPath);
-      await quarantineAndRemoveSandbox(state, sandboxPath, identity);
+      await quarantineAndRemoveSandbox(state, sandboxPath, identity, {
+        detach: true,
+      });
     }),
   );
 }
 
-async function quarantineAndRemoveSandbox(state, sandboxPath, sandboxIdentity) {
+async function quarantineAndRemoveSandbox(
+  state,
+  sandboxPath,
+  sandboxIdentity,
+  { detach = false } = {},
+) {
   const quarantinedPath = await quarantineOwnedSandbox(
     sandboxPath,
     state.instanceID,
@@ -1269,9 +1326,20 @@ async function quarantineAndRemoveSandbox(state, sandboxPath, sandboxIdentity) {
   const cleanupIdentity = quarantinedPath
     ? relocatedSandboxIdentity(sandboxIdentity, quarantinedPath)
     : sandboxIdentity;
+  const removalPath = quarantinedPath || sandboxPath;
+  const expectedInstanceID = quarantinedPath ? "" : state.instanceID;
+  if (detach) {
+    await detachManagedSandbox(
+      removalPath,
+      expectedInstanceID,
+      state.sandboxRoot,
+      cleanupIdentity,
+    );
+    return;
+  }
   await removeManagedSandbox(
-    quarantinedPath || sandboxPath,
-    quarantinedPath ? "" : state.instanceID,
+    removalPath,
+    expectedInstanceID,
     state.sandboxRoot,
     cleanupIdentity,
   );
@@ -1298,6 +1366,7 @@ async function detachOwnedSandboxes(state) {
   state.freeSandboxes.length = 0;
   state.sessionParents.clear();
   state.lastSessionSandbox.clear();
+  state.activeBashCounts.clear();
   state.xcodeMcpCache.clear();
   state.xcodeMcpApprovalSessions.clear();
   state.xcodeMcpApprovalHelpers.clear();

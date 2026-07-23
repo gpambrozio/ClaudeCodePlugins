@@ -3483,6 +3483,15 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                 const hooks = await plugin.server({});
                 await hooks.config({});
 
+                // Register main-1 so the deletion handler can classify it as
+                // a KNOWN main session — unknown deletions must not drain.
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "main-1" } },
+                  },
+                });
+
                 const leases = {};
                 for (const sessionID of ["child-1", "child-2"]) {
                   await hooks.event({
@@ -3513,6 +3522,12 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
                     properties: { info: { id: "main-1" } },
                   },
                 });
+
+                // Drain removal is detached (/bin/rm), so poll for it.
+                for (let attempt = 0; attempt < 200; attempt += 1) {
+                  if (!fs.existsSync(leases["child-1"])) break;
+                  await new Promise((resolve) => setTimeout(resolve, 25));
+                }
 
                 console.log(JSON.stringify({
                   pooledExists: fs.existsSync(leases["child-1"]),
@@ -3775,6 +3790,208 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
 
         self.assertTrue(result["pooledExists"])
         self.assertFalse(result["deletedExists"])
+
+    def test_stale_idle_with_inflight_bash_does_not_pool_the_sandbox(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-stale-idle"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+                const first = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  first,
+                );
+                const firstSandbox = path.dirname(first.env.SANDBOX_DERIVED_DATA);
+
+                // A command is in flight when a delayed (stale) idle for the
+                // re-prompted session is finally processed: the release must
+                // be skipped, or another session could lease a sandbox the
+                // running build is writing to.
+                await hooks["tool.execute.before"](
+                  { tool: "bash", sessionID: "child-1" },
+                  { args: { command: "true" } },
+                );
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-2", parentID: "main-1" } },
+                  },
+                });
+                const second = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-2" },
+                  second,
+                );
+                const secondSandbox = path.dirname(second.env.SANDBOX_DERIVED_DATA);
+
+                // Once the command completes, the next idle releases as usual.
+                await hooks["tool.execute.after"](
+                  { tool: "bash", sessionID: "child-1" },
+                );
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-3", parentID: "main-1" } },
+                  },
+                });
+                const third = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-3" },
+                  third,
+                );
+                const thirdSandbox = path.dirname(third.env.SANDBOX_DERIVED_DATA);
+
+                console.log(JSON.stringify({
+                  pooledWhileInflight: secondSandbox === firstSandbox,
+                  pooledAfterCompletion: thirdSandbox === firstSandbox,
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertFalse(result["pooledWhileInflight"])
+        self.assertTrue(result["pooledAfterCompletion"])
+
+    def test_session_created_event_registers_parentage(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-created"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                const sandboxes = {};
+                for (const sessionID of ["child-1", "child-2"]) {
+                  await hooks.event({
+                    event: {
+                      type: "session.created",
+                      properties: { info: { id: sessionID, parentID: "main-1" } },
+                    },
+                  });
+                }
+
+                const first = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  first,
+                );
+                sandboxes["child-1"] = path.dirname(first.env.SANDBOX_DERIVED_DATA);
+
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                const second = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-2" },
+                  second,
+                );
+                sandboxes["child-2"] = path.dirname(second.env.SANDBOX_DERIVED_DATA);
+
+                console.log(JSON.stringify({
+                  reused: sandboxes["child-1"] === sandboxes["child-2"],
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertTrue(result["reused"])
+
+    def test_partial_session_update_keeps_child_parentage(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-partial-update"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+                // A later payload without parentID must not downgrade the
+                // known child to a main session.
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1" } },
+                  },
+                });
+
+                const first = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  first,
+                );
+                const firstSandbox = path.dirname(first.env.SANDBOX_DERIVED_DATA);
+
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-2", parentID: "main-1" } },
+                  },
+                });
+                const second = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-2" },
+                  second,
+                );
+                const secondSandbox = path.dirname(second.env.SANDBOX_DERIVED_DATA);
+
+                console.log(JSON.stringify({
+                  released: secondSandbox === firstSandbox,
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertTrue(result["released"])
 
 
 if __name__ == "__main__":
