@@ -1272,14 +1272,23 @@ async function quarantineAndRemoveSandbox(state, sandboxPath, sandboxIdentity) {
 
 async function detachOwnedSandboxes(state) {
   state.disposed = true;
-  const sandboxes = [...state.ownedSandboxes.entries()].map(([sessionID, sandboxPath]) => ({
-    sandboxPath,
-    sandboxIdentity: state.ownedSandboxIdentities.get(sessionID),
-  }));
+  const sandboxes = [
+    ...[...state.ownedSandboxes.entries()].map(([sessionID, sandboxPath]) => ({
+      sandboxPath,
+      sandboxIdentity: state.ownedSandboxIdentities.get(sessionID),
+    })),
+    ...state.freeSandboxes.map((entry) => ({
+      sandboxPath: entry.path,
+      sandboxIdentity: entry.identity,
+    })),
+  ];
   const sandboxPaths = [...new Set(sandboxes.map(({ sandboxPath }) => sandboxPath))];
   for (const sandboxPath of sandboxPaths) markPendingSandboxCleanup(sandboxPath);
   state.ownedSandboxes.clear();
   state.ownedSandboxIdentities.clear();
+  state.freeSandboxes.length = 0;
+  state.sessionParents.clear();
+  state.lastSessionSandbox.clear();
   state.xcodeMcpCache.clear();
   state.xcodeMcpApprovalSessions.clear();
   state.xcodeMcpApprovalHelpers.clear();

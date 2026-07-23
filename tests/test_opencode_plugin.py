@@ -3588,6 +3588,56 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
 
         self.assertTrue(result["reusedExists"])
 
+    def test_plugin_dispose_removes_pooled_sandboxes(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-dispose"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+                const output = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  output,
+                );
+                const sandbox = path.dirname(output.env.SANDBOX_DERIVED_DATA);
+
+                // Release to the pool, then dispose: the pooled sandbox must
+                // be cleaned up even though no session owns it anymore.
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+                await hooks.dispose();
+
+                for (let attempt = 0; attempt < 100; attempt += 1) {
+                  if (!fs.existsSync(sandbox)) break;
+                  await new Promise((resolve) => setTimeout(resolve, 5));
+                }
+
+                console.log(JSON.stringify({
+                  sandboxExists: fs.existsSync(sandbox),
+                }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertFalse(result["sandboxExists"])
+
 
 if __name__ == "__main__":
     unittest.main()
