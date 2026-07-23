@@ -3411,6 +3411,65 @@ class OpenCodePluginRuntimeTests(unittest.TestCase):
 
         self.assertEqual(result["previous"], result["returningSandbox"])
 
+    def test_invalid_pool_entries_are_discarded_on_lease(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = self.run_node(
+                """
+                import fs from "node:fs";
+                import path from "node:path";
+
+                const plugin = (await import(
+                  "./XcodeBuildTools/opencode-plugin.js?test=pool-discard"
+                )).default;
+                const hooks = await plugin.server({});
+                await hooks.config({});
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-1", parentID: "main-1" } },
+                  },
+                });
+                const first = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-1" },
+                  first,
+                );
+                const firstSandbox = path.dirname(first.env.SANDBOX_DERIVED_DATA);
+
+                await hooks.event({
+                  event: {
+                    type: "session.idle",
+                    properties: { sessionID: "child-1" },
+                  },
+                });
+
+                // Replace the pooled directory behind the pool's back: same
+                // path, new inode. Identity revalidation must reject it and
+                // the next lease must fall through to a fresh directory.
+                fs.rmSync(firstSandbox, { recursive: true, force: true });
+                fs.mkdirSync(firstSandbox, { mode: 0o700 });
+
+                await hooks.event({
+                  event: {
+                    type: "session.updated",
+                    properties: { info: { id: "child-2", parentID: "main-1" } },
+                  },
+                });
+                const second = { env: {} };
+                await hooks["shell.env"](
+                  { cwd: process.cwd(), sessionID: "child-2" },
+                  second,
+                );
+                const secondSandbox = path.dirname(second.env.SANDBOX_DERIVED_DATA);
+
+                console.log(JSON.stringify({ firstSandbox, secondSandbox }));
+                """,
+                {"TMPDIR": tmpdir},
+            )
+
+        self.assertNotEqual(result["firstSandbox"], result["secondSandbox"])
+
 
 if __name__ == "__main__":
     unittest.main()
