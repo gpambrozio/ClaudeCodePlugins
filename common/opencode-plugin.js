@@ -82,6 +82,9 @@ export function createOpenCodePlugin(pluginRootUrl) {
       ownedSandboxes: new Map(),
       ownedSandboxIdentities: new Map(),
       deletedSandboxSessions: new Set(),
+      sessionParents: new Map(),
+      freeSandboxes: [],
+      lastSessionSandbox: new Map(),
       sandboxSweepDone: false,
       disposed: false,
     };
@@ -736,9 +739,7 @@ async function configureShellEnvironment(pluginRoot, state, input, output) {
   const sessionID = safeSessionID(input.sessionID ?? input.cwd ?? "default");
   if (state.disposed || state.deletedSandboxSessions.has(sessionID)) return;
   const sandboxRoot = secureSandboxRoot(state);
-  // Plugin instances never reuse a sandbox path, so an older instance cannot
-  // delete a replacement instance's active sandbox after an ownership check.
-  const sandboxBase = path.join(sandboxRoot.path, `${sessionID}-${state.instanceID}`);
+  const sandboxBase = leaseSandboxPath(state, sandboxRoot, sessionID);
   state.ownedSandboxes.set(sessionID, sandboxBase);
 
   if (!state.processStartToken) {
@@ -1129,6 +1130,21 @@ function releaseSandboxOwnerLock(ownerLock) {
 }
 
 async function handlePluginEvent(state, event) {
+  if (event?.type === "session.created" || event?.type === "session.updated") {
+    recordSessionParent(state, event.properties?.info);
+    return;
+  }
+
+  if (event?.type === "session.idle") {
+    const rawSessionID = event.properties?.sessionID;
+    if (state.disposed || typeof rawSessionID !== "string" || !rawSessionID) return;
+    const safeID = safeSessionID(rawSessionID);
+    // Only subagent (child) sessions release on idle. A main session going
+    // idle is just the end of a turn; it keeps its sandbox for the next one.
+    if (state.sessionParents.get(safeID)) releaseSandboxToPool(state, safeID);
+    return;
+  }
+
   if (event?.type !== "session.deleted") return;
 
   const sessionID = event.properties?.info?.id;
@@ -1136,11 +1152,67 @@ async function handlePluginEvent(state, event) {
 
   const safeID = safeSessionID(sessionID);
   state.deletedSandboxSessions.add(safeID);
+  state.sessionParents.delete(safeID);
+  state.lastSessionSandbox.delete(safeID);
   state.xcodeMcpCache.delete(safeID);
   state.xcodeMcpApprovalSessions.delete(safeID);
   const activeApproval = state.xcodeMcpApprovalHelpers.get(safeID);
   await stopXcodeMcpApproval(activeApproval);
   await removeOwnedSandbox(state, safeID);
+}
+
+// Leasing order: the sandbox this session already holds, then the sandbox it
+// held before releasing (warm caches for a re-prompted subagent), then the
+// most recently freed pool entry, then a fresh directory. Pool entries are
+// revalidated before reuse and dropped if they fail the identity checks.
+// Reused directories keep their original <sessionID>-<instanceID> name and
+// are never renamed — SPM and Xcode state files embed absolute paths.
+function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
+  const existing = state.ownedSandboxes.get(sessionID);
+  if (existing) return existing;
+
+  const preferred = state.lastSessionSandbox.get(sessionID);
+  const preferredIndex =
+    typeof preferred === "string"
+      ? state.freeSandboxes.findIndex((entry) => entry.path === preferred)
+      : -1;
+  if (preferredIndex !== -1) {
+    const [entry] = state.freeSandboxes.splice(preferredIndex, 1);
+    if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
+      return entry.path;
+    }
+  }
+
+  while (state.freeSandboxes.length > 0) {
+    const entry = state.freeSandboxes.pop();
+    if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
+      return entry.path;
+    }
+  }
+
+  // Plugin instances never create a sandbox path used by another instance, so
+  // an older instance cannot delete a replacement instance's active sandbox
+  // after an ownership check.
+  return path.join(sandboxRootIdentity.path, `${sessionID}-${state.instanceID}`);
+}
+
+function recordSessionParent(state, info) {
+  const id = info?.id;
+  if (typeof id !== "string" || !id) return;
+  const parentID =
+    typeof info.parentID === "string" && info.parentID ? info.parentID : null;
+  state.sessionParents.set(safeSessionID(id), parentID);
+}
+
+function releaseSandboxToPool(state, sessionID) {
+  const sandboxPath = state.ownedSandboxes.get(sessionID);
+  const identity = state.ownedSandboxIdentities.get(sessionID);
+  if (!sandboxPath || !identity) return;
+
+  state.ownedSandboxes.delete(sessionID);
+  state.ownedSandboxIdentities.delete(sessionID);
+  state.lastSessionSandbox.set(sessionID, sandboxPath);
+  state.freeSandboxes.push({ path: sandboxPath, identity });
 }
 
 async function removeOwnedSandbox(state, sessionID) {
