@@ -1136,6 +1136,19 @@ function releaseSandboxOwnerLock(ownerLock) {
   }
 }
 
+// Field-diagnosable pool decisions: when $TMPDIR/xbt-sandbox-debug exists,
+// every lease/release decision (and every refusal, with its reason) is
+// appended to $TMPDIR/xbt-sandbox-debug.log. Inert without the flag file.
+function sandboxDebugLog(message) {
+  try {
+    const flag = path.join(os.tmpdir(), "xbt-sandbox-debug");
+    if (!fs.existsSync(flag)) return;
+    fs.appendFileSync(`${flag}.log`, `${new Date().toISOString()} ${message}\n`);
+  } catch {
+    // Diagnostics must never interfere with sandbox management.
+  }
+}
+
 async function handlePluginEvent(state, event) {
   if (event?.type === "session.created" || event?.type === "session.updated") {
     if (state.disposed) return;
@@ -1151,10 +1164,21 @@ async function handlePluginEvent(state, event) {
     // must not pool a sandbox an in-flight bash command is still writing to.
     // Skipping is safe: the re-prompted turn ends with its own idle, which
     // performs the release once no command is running.
-    if ((state.activeBashCounts.get(safeID) ?? 0) > 0) return;
+    if ((state.activeBashCounts.get(safeID) ?? 0) > 0) {
+      sandboxDebugLog(
+        `idle ${safeID}: release refused, ${state.activeBashCounts.get(safeID)} bash in flight`,
+      );
+      return;
+    }
     // Only subagent (child) sessions release on idle. A main session going
     // idle is just the end of a turn; it keeps its sandbox for the next one.
-    if (state.sessionParents.get(safeID)) releaseSandboxToPool(state, safeID);
+    if (state.sessionParents.get(safeID)) {
+      releaseSandboxToPool(state, safeID);
+    } else {
+      sandboxDebugLog(
+        `idle ${safeID}: release refused, parent=${JSON.stringify(state.sessionParents.get(safeID) ?? null)} known=${state.sessionParents.has(safeID)}`,
+      );
+    }
     return;
   }
 
@@ -1183,6 +1207,9 @@ async function handlePluginEvent(state, event) {
   // A deleted main session drains the free pool: pooled sandboxes existed to
   // serve its subagents, so reclaim the disk now rather than at dispose.
   // Sandboxes still leased by live sessions are untouched.
+  sandboxDebugLog(
+    `deleted ${safeID}: knownMain=${knownMain} drain=${knownMain ? state.freeSandboxes.length : 0} pooled`,
+  );
   if (knownMain) await drainFreeSandboxes(state);
 }
 
@@ -1204,20 +1231,24 @@ function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
   if (preferredIndex !== -1) {
     const [entry] = state.freeSandboxes.splice(preferredIndex, 1);
     if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
+      sandboxDebugLog(`lease ${sessionID}: reused previous ${path.basename(entry.path)}`);
       return entry.path;
     }
     // Discarded entries stay marked pending: this instance's sweep already
     // ran, so without the marker a transient inspect failure would orphan
     // the directory until another process claims the sandbox root.
     markPendingSandboxCleanup(entry.path);
+    sandboxDebugLog(`lease ${sessionID}: discarded invalid ${path.basename(entry.path)}`);
   }
 
   while (state.freeSandboxes.length > 0) {
     const entry = state.freeSandboxes.pop();
     if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
+      sandboxDebugLog(`lease ${sessionID}: reused pooled ${path.basename(entry.path)}`);
       return entry.path;
     }
     markPendingSandboxCleanup(entry.path);
+    sandboxDebugLog(`lease ${sessionID}: discarded invalid ${path.basename(entry.path)}`);
   }
 
   // Plugin instances never create a sandbox path used by another instance, so
@@ -1228,8 +1259,13 @@ function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
   // share a live sandbox — fall back to a unique suffix instead.
   const fresh = path.join(sandboxRootIdentity.path, `${sessionID}-${state.instanceID}`);
   const leasedPaths = new Set(state.ownedSandboxes.values());
-  if (!leasedPaths.has(fresh)) return fresh;
-  return path.join(sandboxRootIdentity.path, `${sessionID}-${randomUUID()}`);
+  if (!leasedPaths.has(fresh)) {
+    sandboxDebugLog(`lease ${sessionID}: fresh ${path.basename(fresh)}`);
+    return fresh;
+  }
+  const disambiguated = path.join(sandboxRootIdentity.path, `${sessionID}-${randomUUID()}`);
+  sandboxDebugLog(`lease ${sessionID}: fresh (collision) ${path.basename(disambiguated)}`);
+  return disambiguated;
 }
 
 function recordSessionParent(state, info) {
@@ -1273,6 +1309,7 @@ function releaseSandboxToPool(state, sessionID) {
   state.ownedSandboxIdentities.delete(sessionID);
   state.lastSessionSandbox.set(sessionID, sandboxPath);
   state.freeSandboxes.push({ path: sandboxPath, identity });
+  sandboxDebugLog(`release ${sessionID}: pooled ${path.basename(sandboxPath)}`);
 }
 
 async function removeOwnedSandbox(state, sessionID) {
