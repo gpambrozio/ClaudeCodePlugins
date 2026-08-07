@@ -53,6 +53,7 @@ const XCODE_SANDBOX_DIR = "opencode-xcodebuildtools-sandbox";
 const XCODE_SANDBOX_MODE = 0o700;
 const XCODE_SANDBOX_OWNER_GRACE_MS = 60_000;
 const XCODE_SANDBOX_OWNER_LOCK = ".owner.lock";
+const XCODE_SANDBOX_CREATION_TOKEN = ".creation-token";
 const XCODE_SANDBOX_QUARANTINE_RE =
   /^\.quarantine-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const XCODE_SANDBOX_PENDING_CLEANUPS_KEY = Symbol.for(
@@ -82,6 +83,10 @@ export function createOpenCodePlugin(pluginRootUrl) {
       ownedSandboxes: new Map(),
       ownedSandboxIdentities: new Map(),
       deletedSandboxSessions: new Set(),
+      sessionParents: new Map(),
+      freeSandboxes: [],
+      lastSessionSandbox: new Map(),
+      activeBashCounts: new Map(),
       sandboxSweepDone: false,
       disposed: false,
     };
@@ -114,6 +119,11 @@ export function createOpenCodePlugin(pluginRootUrl) {
       "tool.execute.before": async (input, output) => {
         loadMetadata(pluginRoot, state);
         applyPreToolUseRules(state, input, output);
+        trackBashStart(state, input);
+      },
+
+      "tool.execute.after": async (input) => {
+        trackBashEnd(state, input);
       },
 
       "shell.env": async (input, output) => {
@@ -736,9 +746,7 @@ async function configureShellEnvironment(pluginRoot, state, input, output) {
   const sessionID = safeSessionID(input.sessionID ?? input.cwd ?? "default");
   if (state.disposed || state.deletedSandboxSessions.has(sessionID)) return;
   const sandboxRoot = secureSandboxRoot(state);
-  // Plugin instances never reuse a sandbox path, so an older instance cannot
-  // delete a replacement instance's active sandbox after an ownership check.
-  const sandboxBase = path.join(sandboxRoot.path, `${sessionID}-${state.instanceID}`);
+  const sandboxBase = leaseSandboxPath(state, sandboxRoot, sessionID);
   state.ownedSandboxes.set(sessionID, sandboxBase);
 
   if (!state.processStartToken) {
@@ -756,6 +764,7 @@ async function configureShellEnvironment(pluginRoot, state, input, output) {
   const packagesDir = path.join(sandboxBase, "packages");
 
   const sandboxIdentity = secureSandboxDirectory(sandboxBase, sandboxRoot);
+  sandboxIdentity.creationToken = ensureSandboxCreationToken(sandboxBase);
   state.ownedSandboxIdentities.set(sessionID, sandboxIdentity);
   if (sandboxSetupIsCancelled(state, sessionID, sandboxBase)) return;
   secureSandboxDirectory(buildDir, sandboxIdentity);
@@ -821,6 +830,32 @@ function createDirectoryNonRecursively(directoryPath) {
     fs.mkdirSync(directoryPath, { mode: XCODE_SANDBOX_MODE });
   } catch (error) {
     if (error?.code !== "EEXIST") throw error;
+  }
+}
+
+// Written once, the first time a sandbox directory is created, and never
+// rewritten. dev+ino+uid alone can't distinguish "still the sandbox we
+// leased" from "something recreated this exact path" on filesystems that
+// recycle inode numbers quickly (tmpfs, the common $TMPDIR backing on Linux
+// CI runners) — a same-path replacement can't reproduce this token's
+// content by coincidence the way it can reproduce a recycled inode number.
+function ensureSandboxCreationToken(sandboxBase) {
+  const tokenPath = path.join(sandboxBase, XCODE_SANDBOX_CREATION_TOKEN);
+  try {
+    const token = randomUUID();
+    fs.writeFileSync(tokenPath, token, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return token;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+  return readSandboxCreationToken(sandboxBase);
+}
+
+function readSandboxCreationToken(sandboxBase) {
+  try {
+    return fs.readFileSync(path.join(sandboxBase, XCODE_SANDBOX_CREATION_TOKEN), "utf8");
+  } catch {
+    return null;
   }
 }
 
@@ -1128,19 +1163,180 @@ function releaseSandboxOwnerLock(ownerLock) {
   }
 }
 
+// Field-diagnosable pool decisions: when $TMPDIR/xbt-sandbox-debug exists,
+// every lease/release decision (and every refusal, with its reason) is
+// appended to $TMPDIR/xbt-sandbox-debug.log. Inert without the flag file.
+function sandboxDebugLog(message) {
+  try {
+    const flag = path.join(os.tmpdir(), "xbt-sandbox-debug");
+    if (!fs.existsSync(flag)) return;
+    fs.appendFileSync(`${flag}.log`, `${new Date().toISOString()} ${message}\n`);
+  } catch {
+    // Diagnostics must never interfere with sandbox management.
+  }
+}
+
 async function handlePluginEvent(state, event) {
+  if (event?.type === "session.created" || event?.type === "session.updated") {
+    if (state.disposed) return;
+    recordSessionParent(state, event.properties?.info);
+    return;
+  }
+
+  if (event?.type === "session.idle") {
+    const rawSessionID = event.properties?.sessionID;
+    if (state.disposed || typeof rawSessionID !== "string" || !rawSessionID) return;
+    const safeID = safeSessionID(rawSessionID);
+    // A stale idle — delivered after the session was already re-prompted —
+    // must not pool a sandbox an in-flight bash command is still writing to.
+    // Skipping is safe: the re-prompted turn ends with its own idle, which
+    // performs the release once no command is running.
+    if ((state.activeBashCounts.get(safeID) ?? 0) > 0) {
+      sandboxDebugLog(
+        `idle ${safeID}: release refused, ${state.activeBashCounts.get(safeID)} bash in flight`,
+      );
+      return;
+    }
+    // Only subagent (child) sessions release on idle. A main session going
+    // idle is just the end of a turn; it keeps its sandbox for the next one.
+    if (state.sessionParents.get(safeID)) {
+      releaseSandboxToPool(state, safeID);
+    } else {
+      sandboxDebugLog(
+        `idle ${safeID}: release refused, parent=${JSON.stringify(state.sessionParents.get(safeID) ?? null)} known=${state.sessionParents.has(safeID)}`,
+      );
+    }
+    return;
+  }
+
   if (event?.type !== "session.deleted") return;
 
   const sessionID = event.properties?.info?.id;
   if (typeof sessionID !== "string" || !sessionID) return;
 
   const safeID = safeSessionID(sessionID);
+  const parentID =
+    event.properties?.info?.parentID ?? state.sessionParents.get(safeID);
+  // Only a session this instance actually observed as parentless counts as a
+  // main session. A deletion for a session we never tracked (created before
+  // the plugin loaded) proves nothing about the pool, so it must not drain
+  // warm caches that may belong to a still-live main.
+  const knownMain = !parentID && state.sessionParents.has(safeID);
   state.deletedSandboxSessions.add(safeID);
+  state.sessionParents.delete(safeID);
+  state.lastSessionSandbox.delete(safeID);
+  state.activeBashCounts.delete(safeID);
   state.xcodeMcpCache.delete(safeID);
   state.xcodeMcpApprovalSessions.delete(safeID);
   const activeApproval = state.xcodeMcpApprovalHelpers.get(safeID);
   await stopXcodeMcpApproval(activeApproval);
   await removeOwnedSandbox(state, safeID);
+  // A deleted main session drains the free pool: pooled sandboxes existed to
+  // serve its subagents, so reclaim the disk now rather than at dispose.
+  // Sandboxes still leased by live sessions are untouched.
+  sandboxDebugLog(
+    `deleted ${safeID}: knownMain=${knownMain} drain=${knownMain ? state.freeSandboxes.length : 0} pooled`,
+  );
+  if (knownMain) await drainFreeSandboxes(state);
+}
+
+// Leasing order: the sandbox this session already holds, then the sandbox it
+// held before releasing (warm caches for a re-prompted subagent), then the
+// most recently freed pool entry, then a fresh directory. Pool entries are
+// revalidated before reuse and dropped if they fail the identity checks.
+// Reused directories keep their original <sessionID>-<instanceID> name and
+// are never renamed — SPM and Xcode state files embed absolute paths.
+function leaseSandboxPath(state, sandboxRootIdentity, sessionID) {
+  const existing = state.ownedSandboxes.get(sessionID);
+  if (existing) return existing;
+
+  const preferred = state.lastSessionSandbox.get(sessionID);
+  const preferredIndex =
+    typeof preferred === "string"
+      ? state.freeSandboxes.findIndex((entry) => entry.path === preferred)
+      : -1;
+  if (preferredIndex !== -1) {
+    const [entry] = state.freeSandboxes.splice(preferredIndex, 1);
+    if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
+      sandboxDebugLog(`lease ${sessionID}: reused previous ${path.basename(entry.path)}`);
+      return entry.path;
+    }
+    // Discarded entries stay marked pending: this instance's sweep already
+    // ran, so without the marker a transient inspect failure would orphan
+    // the directory until another process claims the sandbox root.
+    markPendingSandboxCleanup(entry.path);
+    sandboxDebugLog(`lease ${sessionID}: discarded invalid ${path.basename(entry.path)}`);
+  }
+
+  while (state.freeSandboxes.length > 0) {
+    const entry = state.freeSandboxes.pop();
+    if (secureExistingManagedSandbox(entry.path, sandboxRootIdentity, entry.identity)) {
+      sandboxDebugLog(`lease ${sessionID}: reused pooled ${path.basename(entry.path)}`);
+      return entry.path;
+    }
+    markPendingSandboxCleanup(entry.path);
+    sandboxDebugLog(`lease ${sessionID}: discarded invalid ${path.basename(entry.path)}`);
+  }
+
+  // Plugin instances never create a sandbox path used by another instance, so
+  // an older instance cannot delete a replacement instance's active sandbox
+  // after an ownership check. Within this instance the deterministic name can
+  // collide: pooling decouples directory names from sessions, so a sandbox
+  // named after this session may now be leased by a different session. Never
+  // share a live sandbox — fall back to a unique suffix instead.
+  const fresh = path.join(sandboxRootIdentity.path, `${sessionID}-${state.instanceID}`);
+  const leasedPaths = new Set(state.ownedSandboxes.values());
+  if (!leasedPaths.has(fresh)) {
+    sandboxDebugLog(`lease ${sessionID}: fresh ${path.basename(fresh)}`);
+    return fresh;
+  }
+  const disambiguated = path.join(sandboxRootIdentity.path, `${sessionID}-${randomUUID()}`);
+  sandboxDebugLog(`lease ${sessionID}: fresh (collision) ${path.basename(disambiguated)}`);
+  return disambiguated;
+}
+
+function recordSessionParent(state, info) {
+  const id = info?.id;
+  if (typeof id !== "string" || !id) return;
+  const safeID = safeSessionID(id);
+  const parentID =
+    typeof info.parentID === "string" && info.parentID ? info.parentID : null;
+  // A payload without parentID normally means "main session", but never let
+  // it downgrade a session we already classified: a partial update would
+  // otherwise stop a known child from releasing on idle and let its
+  // deletion drain the pool.
+  if (parentID === null && state.sessionParents.has(safeID)) return;
+  state.sessionParents.set(safeID, parentID);
+}
+
+// In-flight bash tracking exists solely to gate the idle-release against
+// stale events. Counts only ever prevent a release, so a missed
+// tool.execute.after degrades to "the sandbox stays leased" — the pre-pool
+// behavior, reclaimed on deletion/dispose — never to a premature release.
+function trackBashStart(state, input) {
+  if (String(input?.tool ?? "").toLowerCase() !== "bash") return;
+  const safeID = safeSessionID(input?.sessionID ?? "global");
+  state.activeBashCounts.set(safeID, (state.activeBashCounts.get(safeID) ?? 0) + 1);
+}
+
+function trackBashEnd(state, input) {
+  if (String(input?.tool ?? "").toLowerCase() !== "bash") return;
+  const safeID = safeSessionID(input?.sessionID ?? "global");
+  const count = state.activeBashCounts.get(safeID) ?? 0;
+  if (count <= 1) state.activeBashCounts.delete(safeID);
+  else state.activeBashCounts.set(safeID, count - 1);
+}
+
+function releaseSandboxToPool(state, sessionID) {
+  const sandboxPath = state.ownedSandboxes.get(sessionID);
+  const identity = state.ownedSandboxIdentities.get(sessionID);
+  if (!sandboxPath || !identity) return;
+
+  state.ownedSandboxes.delete(sessionID);
+  state.ownedSandboxIdentities.delete(sessionID);
+  state.lastSessionSandbox.set(sessionID, sandboxPath);
+  state.freeSandboxes.push({ path: sandboxPath, identity });
+  sandboxDebugLog(`release ${sessionID}: pooled ${path.basename(sandboxPath)}`);
 }
 
 async function removeOwnedSandbox(state, sessionID) {
@@ -1153,6 +1349,38 @@ async function removeOwnedSandbox(state, sessionID) {
   state.ownedSandboxIdentities.delete(sessionID);
   if (!state.sandboxRoot || !sandboxIdentity) return;
 
+  await quarantineAndRemoveSandbox(state, sandboxPath, sandboxIdentity);
+}
+
+async function drainFreeSandboxes(state) {
+  const entries = state.freeSandboxes.splice(0, state.freeSandboxes.length);
+  if (entries.length === 0) return;
+
+  const drainedPaths = new Set(entries.map((entry) => entry.path));
+  for (const [sessionID, sandboxPath] of state.lastSessionSandbox) {
+    if (drainedPaths.has(sandboxPath)) state.lastSessionSandbox.delete(sessionID);
+  }
+  if (!state.sandboxRoot) return;
+
+  // Removal is detached (/bin/rm) rather than awaited: draining several
+  // multi-GB trees in-process would stall serialized event delivery — the
+  // very lag that turns a delayed session.idle stale.
+  await Promise.all(
+    entries.map(async ({ path: sandboxPath, identity }) => {
+      markPendingSandboxCleanup(sandboxPath);
+      await quarantineAndRemoveSandbox(state, sandboxPath, identity, {
+        detach: true,
+      });
+    }),
+  );
+}
+
+async function quarantineAndRemoveSandbox(
+  state,
+  sandboxPath,
+  sandboxIdentity,
+  { detach = false } = {},
+) {
   const quarantinedPath = await quarantineOwnedSandbox(
     sandboxPath,
     state.instanceID,
@@ -1162,9 +1390,20 @@ async function removeOwnedSandbox(state, sessionID) {
   const cleanupIdentity = quarantinedPath
     ? relocatedSandboxIdentity(sandboxIdentity, quarantinedPath)
     : sandboxIdentity;
+  const removalPath = quarantinedPath || sandboxPath;
+  const expectedInstanceID = quarantinedPath ? "" : state.instanceID;
+  if (detach) {
+    await detachManagedSandbox(
+      removalPath,
+      expectedInstanceID,
+      state.sandboxRoot,
+      cleanupIdentity,
+    );
+    return;
+  }
   await removeManagedSandbox(
-    quarantinedPath || sandboxPath,
-    quarantinedPath ? "" : state.instanceID,
+    removalPath,
+    expectedInstanceID,
     state.sandboxRoot,
     cleanupIdentity,
   );
@@ -1172,14 +1411,26 @@ async function removeOwnedSandbox(state, sessionID) {
 
 async function detachOwnedSandboxes(state) {
   state.disposed = true;
-  const sandboxes = [...state.ownedSandboxes.entries()].map(([sessionID, sandboxPath]) => ({
-    sandboxPath,
-    sandboxIdentity: state.ownedSandboxIdentities.get(sessionID),
-  }));
+  const sandboxes = [
+    ...[...state.ownedSandboxes.entries()].map(([sessionID, sandboxPath]) => ({
+      sandboxPath,
+      sandboxIdentity: state.ownedSandboxIdentities.get(sessionID),
+    })),
+    ...state.freeSandboxes.map((entry) => ({
+      sandboxPath: entry.path,
+      sandboxIdentity: entry.identity,
+    })),
+  ];
   const sandboxPaths = [...new Set(sandboxes.map(({ sandboxPath }) => sandboxPath))];
   for (const sandboxPath of sandboxPaths) markPendingSandboxCleanup(sandboxPath);
   state.ownedSandboxes.clear();
   state.ownedSandboxIdentities.clear();
+  // Pooled entries were folded into `sandboxes` above; clear the pool and
+  // session-tracking state so a disposed instance can never lease or release.
+  state.freeSandboxes.length = 0;
+  state.sessionParents.clear();
+  state.lastSessionSandbox.clear();
+  state.activeBashCounts.clear();
   state.xcodeMcpCache.clear();
   state.xcodeMcpApprovalSessions.clear();
   state.xcodeMcpApprovalHelpers.clear();
@@ -1671,6 +1922,19 @@ function secureExistingManagedSandbox(
     ) {
       return null;
     }
+    // dev+ino+uid alone can't tell "still the sandbox we handed out" from
+    // "something recreated this exact path": tmpfs (the common $TMPDIR
+    // backing on Linux CI runners) can hand a freshly created directory the
+    // same inode a just-removed directory held. The creation token is
+    // content written once when the directory was first made, so a
+    // same-path replacement can't produce a match by coincidence.
+    if (
+      expectedSandboxIdentity?.creationToken &&
+      readSandboxCreationToken(candidate) !== expectedSandboxIdentity.creationToken
+    ) {
+      return null;
+    }
+    current.creationToken = expectedSandboxIdentity?.creationToken;
     return current;
   } catch {
     return null;
