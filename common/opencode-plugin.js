@@ -53,6 +53,7 @@ const XCODE_SANDBOX_DIR = "opencode-xcodebuildtools-sandbox";
 const XCODE_SANDBOX_MODE = 0o700;
 const XCODE_SANDBOX_OWNER_GRACE_MS = 60_000;
 const XCODE_SANDBOX_OWNER_LOCK = ".owner.lock";
+const XCODE_SANDBOX_CREATION_TOKEN = ".creation-token";
 const XCODE_SANDBOX_QUARANTINE_RE =
   /^\.quarantine-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const XCODE_SANDBOX_PENDING_CLEANUPS_KEY = Symbol.for(
@@ -763,6 +764,7 @@ async function configureShellEnvironment(pluginRoot, state, input, output) {
   const packagesDir = path.join(sandboxBase, "packages");
 
   const sandboxIdentity = secureSandboxDirectory(sandboxBase, sandboxRoot);
+  sandboxIdentity.creationToken = ensureSandboxCreationToken(sandboxBase);
   state.ownedSandboxIdentities.set(sessionID, sandboxIdentity);
   if (sandboxSetupIsCancelled(state, sessionID, sandboxBase)) return;
   secureSandboxDirectory(buildDir, sandboxIdentity);
@@ -828,6 +830,32 @@ function createDirectoryNonRecursively(directoryPath) {
     fs.mkdirSync(directoryPath, { mode: XCODE_SANDBOX_MODE });
   } catch (error) {
     if (error?.code !== "EEXIST") throw error;
+  }
+}
+
+// Written once, the first time a sandbox directory is created, and never
+// rewritten. dev+ino+uid alone can't distinguish "still the sandbox we
+// leased" from "something recreated this exact path" on filesystems that
+// recycle inode numbers quickly (tmpfs, the common $TMPDIR backing on Linux
+// CI runners) — a same-path replacement can't reproduce this token's
+// content by coincidence the way it can reproduce a recycled inode number.
+function ensureSandboxCreationToken(sandboxBase) {
+  const tokenPath = path.join(sandboxBase, XCODE_SANDBOX_CREATION_TOKEN);
+  try {
+    const token = randomUUID();
+    fs.writeFileSync(tokenPath, token, { encoding: "utf8", flag: "wx", mode: 0o600 });
+    return token;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+  return readSandboxCreationToken(sandboxBase);
+}
+
+function readSandboxCreationToken(sandboxBase) {
+  try {
+    return fs.readFileSync(path.join(sandboxBase, XCODE_SANDBOX_CREATION_TOKEN), "utf8");
+  } catch {
+    return null;
   }
 }
 
@@ -1894,6 +1922,19 @@ function secureExistingManagedSandbox(
     ) {
       return null;
     }
+    // dev+ino+uid alone can't tell "still the sandbox we handed out" from
+    // "something recreated this exact path": tmpfs (the common $TMPDIR
+    // backing on Linux CI runners) can hand a freshly created directory the
+    // same inode a just-removed directory held. The creation token is
+    // content written once when the directory was first made, so a
+    // same-path replacement can't produce a match by coincidence.
+    if (
+      expectedSandboxIdentity?.creationToken &&
+      readSandboxCreationToken(candidate) !== expectedSandboxIdentity.creationToken
+    ) {
+      return null;
+    }
+    current.creationToken = expectedSandboxIdentity?.creationToken;
     return current;
   } catch {
     return null;
