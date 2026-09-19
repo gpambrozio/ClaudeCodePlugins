@@ -9,6 +9,7 @@ Control iOS Simulators using native macOS tools. No additional dependencies requ
 - **Screenshots & Recording**: Capture screenshots and record video
 - **UI Automation**: Tap, swipe, type text, shake
 - **System Features**: Set location, appearance (dark/light), open URLs
+- **Simulator Slimming**: Disable unneeded background daemons to cut simulator memory ~4x
 
 ## Installation
 
@@ -63,6 +64,8 @@ python3 skills/ios-simulator/scripts/sim-type.py --text "Hello!"
 
 ## Available Scripts
 
+### Simulator Control (`skills/ios-simulator/scripts/`)
+
 | Script | Description |
 |--------|-------------|
 | `sim-list.py` | List available simulators |
@@ -95,6 +98,18 @@ python3 skills/ios-simulator/scripts/sim-type.py --text "Hello!"
 | `sim-visual-diff.py` | Screenshot comparison (requires Pillow) |
 | `sim-device-info.py` | Device details and screen dimensions |
 
+### Simulator Slimming (`skills/simulator-slimming/scripts/`)
+
+| Script | Description |
+|--------|-------------|
+| `sim-slim.py` | Disable unneeded background daemons (supports `--dry-run`) |
+| `sim-slim-off.py` | Restore a slimmed simulator to stock |
+| `sim-slim-status.py` | Report whether a simulator is still slim |
+| `sim-slim-profiles.py` | List what a slim boot turns off, and its downsides |
+| `sim-slim-measure.py` | Measure a simulator's real memory footprint |
+| `sim-slim-doctor.py` | Check that required features still work |
+| `sim-slim-verify.py` | Detect drift from a slimming profile |
+
 ## How It Works
 
 This plugin uses native macOS tools:
@@ -115,6 +130,12 @@ Agents with image input can view screenshots. The recommended workflow:
 5. Repeat for complex workflows
 
 ## Changelog
+
+### 0.7.0
+- Added the `simulator-slimming` skill: disable the ~170 background daemons a simulator does not need, cutting its memory roughly 4x so many more simulators fit on one Mac
+- Category, per-daemon, and JSON profile-file selection, plus `--no-reboot` for runtimes that cannot persist overrides
+- `sim-slim-doctor.py` and `sim-slim-verify.py` exit non-zero on failure, for CI preflight
+- Daemon catalog ported from [simslim](https://github.com/MobAI-App/simslim) (MIT)
 
 ### 0.6.6
 - Added `opencode-plugin.js` for OpenCode users
