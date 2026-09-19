@@ -1,6 +1,7 @@
 {
     "skills": [
-        "ios-simulator"
+        "ios-simulator",
+        "simulator-slimming"
     ],
     "pre-tool-use-rules": [
         {
@@ -8,10 +9,14 @@
             "match": "xcrun\\s+simctl",
             "not_match": "list devices",
             "decision": "deny_once",
-            "message": "Make sure to use the ios-simulator skill to control iOS Simulators."
+            "message": "Make sure to use the ios-simulator skill to control iOS Simulators, or the simulator-slimming skill to disable simulator background daemons."
         }
     ],
     "versions": [
+        {
+            "version": "0.7.0",
+            "changes": "Added the simulator-slimming skill: disable the ~170 background daemons a simulator does not need to cut its memory roughly 4x, with category and per-daemon profiles, profile files, drift verification, required-feature checks, and phys_footprint measurement. The OpenCode entry point registers both skills along with session context and pre-tool-use command guardrails."
+        },
         {
             "version": "0.6.6",
             "changes": "Added OpenCode support through an opencode-plugin.js entry point that registers skills, session-start context, and pre-tool-use command guardrails."
