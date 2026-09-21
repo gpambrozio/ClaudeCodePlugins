@@ -52,7 +52,8 @@ def dry_run(device, profile, managed):
         'success': True,
         'mode': 'dry-run',
         'changed': False,
-        'persistent': launchd.supports_persistent_overrides(device['os_version']),
+        'persistent': launchd.supports_persistent_overrides(
+            device['os_version'], device['platform']),
         'profile': {'except': profile['except'], 'keep': profile['keep']},
         'would_disable_total': len(profile['desired']),
         'managed_total': len(managed),
@@ -109,7 +110,7 @@ def slim_without_reboot(device, profile, managed, deadline, spawn_timeout, progr
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Slim an iOS Simulator')
+    parser = argparse.ArgumentParser(description='Slim an iOS or watchOS Simulator')
     parser.add_argument('--udid', help='Simulator UDID (defaults to the booted one)')
     parser.add_argument('--name', help='Simulator name')
     parser.add_argument('--except', dest='except_ids', default='',
@@ -131,19 +132,23 @@ def main():
     started = time.time()
 
     try:
-        profile = catalog.build_profile(
-            catalog.parse_list(args.except_ids), catalog.parse_list(args.keep), args.profile)
-    except catalog.ProfileError as exc:
-        launchd.fail(str(exc))
-        return
-
-    managed = catalog.managed_labels()
-
-    try:
         device = launchd.resolve_device(args.udid, args.name)
     except launchd.SlimError as exc:
         launchd.fail(str(exc))
         return
+
+    # The device decides which catalog answers, so it is resolved before the
+    # profile is built: a watch slims its own daemons on top of the shared
+    # ones, and --keep is validated against that platform's label set.
+    try:
+        catalog.select_platform(device['platform'])
+        profile = catalog.build_profile(
+            catalog.parse_list(args.except_ids), catalog.parse_list(args.keep), args.profile)
+    except catalog.ProfileError as exc:
+        launchd.fail(str(exc), **launchd.device_summary(device))
+        return
+
+    managed = catalog.managed_labels()
 
     if args.dry_run:
         try:
@@ -152,12 +157,15 @@ def main():
             launchd.fail(str(exc), **launchd.device_summary(device))
         return
 
-    persistent = launchd.supports_persistent_overrides(device['os_version'])
+    persistent = launchd.supports_persistent_overrides(device['os_version'], device['platform'])
     if profile['desired'] and not args.no_reboot and not persistent:
+        minimum = launchd.MIN_PERSISTENT_VERSION[device['platform']]
         launchd.fail(
-            'iOS {} cannot persist launchd disable overrides across a reboot (iOS 18.5 is the '
-            'earliest runtime that can). Use --no-reboot to slim the current boot session, and '
-            're-run it after every boot.'.format(device['os_version']),
+            '{} cannot persist launchd disable overrides across a reboot ({} {}.{} is the '
+            'earliest runtime verified to). Use --no-reboot to slim the current boot session, '
+            'and re-run it after every boot.'.format(
+                launchd.os_label(device), launchd.PLATFORM_NAMES[device['platform']],
+                minimum[0], minimum[1]),
             **launchd.device_summary(device))
         return
 
@@ -176,8 +184,8 @@ def main():
 
     if args.no_reboot and not persistent:
         warnings.append(
-            'iOS {} does not persist these overrides: the simulator comes back stock at its '
-            'next boot, so re-run this after every boot.'.format(device['os_version']))
+            '{} does not persist these overrides: the simulator comes back stock at its '
+            'next boot, so re-run this after every boot.'.format(launchd.os_label(device)))
 
     result = {
         'success': True,

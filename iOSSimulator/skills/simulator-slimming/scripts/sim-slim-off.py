@@ -47,10 +47,13 @@ def main():
             sys.stderr.flush()
 
     started = time.time()
-    managed = catalog.managed_labels()
 
     try:
         device = launchd.resolve_device(args.udid, args.name)
+        # Restoring means re-enabling every label this platform's catalog
+        # manages, which for a watch includes its own daemons.
+        catalog.select_platform(device['platform'])
+        managed = catalog.managed_labels()
         deadline = launchd.Deadline(args.boot_timeout)
         changed, disabled, applied = launchd.ensure_overrides(
             device, set(), managed, deadline, args.spawn_timeout, progress)

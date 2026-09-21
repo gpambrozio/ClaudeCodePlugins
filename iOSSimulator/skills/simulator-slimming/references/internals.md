@@ -6,7 +6,8 @@ explaining, or when the daemon catalog has to be refreshed from upstream.
 ## Contents
 
 - [How the overrides work](#how-the-overrides-work)
-- [Persistence by iOS version](#persistence-by-ios-version)
+- [Persistence by runtime version](#persistence-by-runtime-version)
+- [watchOS](#watchos)
 - [Slimming without a reboot](#slimming-without-a-reboot)
 - [What the managed allowlist protects](#what-the-managed-allowlist-protects)
 - [How the transitions are applied](#how-the-transitions-are-applied)
@@ -30,18 +31,68 @@ Nothing on the host Mac is modified. The state belongs to one simulator and
 travels with it only through this plugin's own operations - not through
 `simctl clone`, and not when a simulator is moved to another Mac.
 
-## Persistence by iOS version
+## Persistence by runtime version
 
 | Runtime | `launchctl disable` accepted | Survives reboot |
 |---|---|---|
 | iOS 17.x, 18.3 | yes | **no** - comes back stock |
 | iOS 18.5+ | yes | yes |
+| watchOS 27.0, 27.2 | yes | yes |
+| watchOS before 27 | untested | untested - refused |
 
 This is the trap worth knowing: on older runtimes every command reports success
 and the simulator silently returns to stock at the next boot. `sim-slim.py`
 refuses those runtimes before booting or changing anything, rather than claiming
 a win it cannot deliver, and points at `--no-reboot`. After a supported slim it
 reads the overrides back post-reboot and fails if any were lost.
+
+watchOS is gated at 27.0 because 27.0 and 27.2 are the runtimes that have been
+measured - earlier watchOS is refused for want of evidence, not because it is
+known to come back stock. Widening that gate means testing it, not editing
+`MIN_PERSISTENT_VERSION` on the assumption that watchOS 11.5 behaves like the
+contemporaneous iOS 18.5.
+
+## watchOS
+
+A watch is not the small thing its screen suggests: stock, one runs ~178
+processes for ~1.3 GB, against a phone's ~300 for ~2.5 GB. Slimmed with the same
+profile it drops to ~65 processes and ~460 MB - a larger proportional win than
+the phone's, and worth taking on any Mac running paired simulators.
+
+**The catalog covers both platforms from one file.** `slim-catalog.json` is
+upstream's iOS data plus a `platformExtras` block per non-iOS platform, and the
+merge *extends* the shared categories by ID rather than replacing them. That is
+deliberate: `--except pim` has to mean the same thing on either device, and a
+profile committed by a project has to validate against both halves of its pair.
+`slim_catalog.select_platform()` binds the view once, from the device the
+command resolved, which is why every script resolves its device *before*
+building a profile.
+
+Of ~266 launchd jobs on a stock watch, about 107 are labels the upstream iOS
+catalog already knows - the watch runs most of the same daemons - and the
+`platformExtras.watchos` block adds 30 more of its own. The rest are core
+services no catalog should touch: `locationd`, `securityd`, `trustd`,
+`runningboardd`, `backboardd`, `installd`, and `testmanagerd`, which is what
+XCUITest talks to.
+
+**Three watch daemons cannot be disabled, and are catalogued as features only.**
+`com.apple.nanomaild`, `com.apple.nanomessagesd` and `com.apple.nanophotosd`
+accept the disable and stop - `print-disabled` confirms it - and the next boot
+writes all three back to `=> enabled`. The watch re-enables the daemons
+mirroring its phone apps. Measured twice on watchOS 27.0, once inside a full
+slim and once with only those three disabled, so it is the daemons rather than
+a race with the rest of the set. They are absent from `categories` because
+listing them fails every run at the post-reboot check, and present in `features`
+so the doctor still recognises one disabled by hand.
+
+**What must never be disabled on a watch** is in
+`platformExtras.watchos.alwaysEnabled`, which puts it in the managed set: no
+profile can turn these off, and a watch found with one disabled is repaired.
+`nanoregistryd` and `nanoregistrylaunchd` hold the pairing, `Carousel` is the
+home screen, `nanotimekitd` serves the face and its complications, `appconduitd`
+and `nexusd` carry phone traffic, `gizmoappd` installs watch apps from the
+phone. A watch that loses its pairing is one no companion app installs onto,
+and nothing about that failure points at a launchd override.
 
 ## Slimming without a reboot
 
@@ -66,12 +117,15 @@ scan both the default and `testing` sets.
 
 ## What the managed allowlist protects
 
-Two sets govern every operation:
+Two sets govern every operation, and both are per platform:
 
-- **Slimmable**: the 170 labels a profile may disable.
-- **Managed**: slimmable plus `com.apple.sharingd`, which is required for system
-  share sheets and is therefore only ever transitioned *back* to enabled. It
-  stays in the allowlist so a simulator slimmed by older tooling can be repaired.
+- **Slimmable**: the labels a profile may disable - 170 on iOS, 200 on watchOS
+  (the same 170 plus that platform's own).
+- **Managed**: slimmable plus the always-enabled labels, which are only ever
+  transitioned *back* to enabled, so a simulator slimmed by older tooling can be
+  repaired. On iOS that is `com.apple.sharingd`, required for system share
+  sheets; on watchOS it is that plus the eleven daemons a watch cannot lose (see
+  [watchOS](#watchos)).
 
 Labels outside the managed set are never touched in either direction. That is
 what keeps an unrelated tool's `launchctl disable` from being clobbered, and why
@@ -211,3 +265,10 @@ Then merge `/tmp/simslim-catalog.json` into `slim-catalog.json`, keeping the
 `source` object and updating its `commit`. The Python side reads the same field
 names upstream emits (`approxMemoryMB`, `alwaysEnabled`, `serviceDescriptions`),
 so a refresh is data-only.
+
+**Keep `platformExtras` when you do.** Upstream catalogues iOS only, so that key
+is local data with no counterpart to merge from - dropping it silently stops
+every non-iOS platform being slimmed properly, and nothing fails to say so.
+`tests/test_slim_catalog.py` checks each block still names categories and
+features that exist, which is the other half of a refresh going wrong: upstream
+renaming a category the watch block extends.

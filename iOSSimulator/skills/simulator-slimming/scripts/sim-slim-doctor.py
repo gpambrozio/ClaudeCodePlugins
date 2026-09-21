@@ -43,9 +43,13 @@ def main():
     parser.add_argument('--list', action='store_true', help='List every known feature')
     parser.add_argument('--udid', help='Simulator UDID (defaults to the booted one)')
     parser.add_argument('--name', help='Simulator name')
+    parser.add_argument('--platform', default=catalog.DEFAULT_PLATFORM,
+                        choices=catalog.known_platforms(),
+                        help='Which platform\'s catalog to describe')
     args = parser.parse_args()
 
     if args.list:
+        catalog.select_platform(args.platform)
         features = [{
             'id': feature['id'],
             'name': feature['name'],
@@ -62,6 +66,9 @@ def main():
 
     try:
         device = launchd.resolve_device(args.udid, args.name)
+        # A feature is backed by different daemons per platform, so the device
+        # picks the catalog rather than --platform, which only serves --list.
+        catalog.select_platform(device['platform'])
         if device['state'] != 'Booted':
             launchd.fail('simulator must be booted to check its features (it is {})'.format(
                 device['state']), **launchd.device_summary(device))

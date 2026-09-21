@@ -22,7 +22,11 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 CATALOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'slim-catalog.json')
 
+DEFAULT_PLATFORM = 'ios'
+
 _catalog = None
+_platform = DEFAULT_PLATFORM
+_views = {}  # type: Dict[str, dict]
 
 
 class ProfileError(Exception):
@@ -38,16 +42,116 @@ def load_catalog() -> dict:
     return _catalog
 
 
+def known_platforms() -> List[str]:
+    return sorted({DEFAULT_PLATFORM} | set(load_catalog().get('platformExtras', {})))
+
+
+def select_platform(platform: str) -> None:
+    """Bind the catalog to one simulator platform for the rest of the process.
+
+    Every command slims exactly one device, so the platform is resolved once -
+    from the device itself - and the catalog answers for it from then on.
+    Threading a platform argument through all nine accessors and their callers
+    would buy nothing: no run has two platforms in view at once.
+    """
+    global _platform
+    if platform not in known_platforms():
+        raise ProfileError('unknown platform "{}" (known: {})'.format(
+            platform, ', '.join(known_platforms())))
+    _platform = platform
+
+
+def current_platform() -> str:
+    return _platform
+
+
+def _extras() -> dict:
+    """The bound platform's local additions to the upstream data.
+
+    iOS *is* the upstream catalog, so it has no extras; another platform is
+    that catalog plus a block of its own. See the `platformExtras` note in
+    slim-catalog.json for why the two are kept apart.
+    """
+    return load_catalog().get('platformExtras', {}).get(_platform, {})
+
+
+def _merge_labels(base: Sequence[str], added: Sequence[str]) -> List[str]:
+    merged = list(base)
+    merged.extend(label for label in added if label not in merged)
+    return merged
+
+
+def _view() -> dict:
+    """The merged catalog for the bound platform, built once and cached.
+
+    The merge *extends* the upstream categories rather than replacing them, so
+    a category ID means the same thing on every platform and a profile written
+    against one simulator still validates against another - which is what lets
+    a project commit one profile and slim both halves of a paired pair with it.
+    """
+    if _platform in _views:
+        return _views[_platform]
+
+    base = load_catalog()
+    extras = _extras()
+    extra_labels = extras.get('categories', {})
+    extra_features = extras.get('features', {})
+
+    known_ids = {category['id'] for category in base['categories']}
+    unknown = sorted(set(extra_labels) - known_ids)
+    if unknown:
+        raise ProfileError(
+            'platformExtras.{}.categories names unknown categories: {}'.format(
+                _platform, ', '.join(unknown)))
+    known_features = {feature['id'] for feature in base['features']}
+    unknown = sorted(set(extra_features) - known_features)
+    if unknown:
+        raise ProfileError(
+            'platformExtras.{}.features names unknown features: {}'.format(
+                _platform, ', '.join(unknown)))
+
+    categories_view = []
+    for category in base['categories']:
+        added = extra_labels.get(category['id'], [])
+        if not added:
+            categories_view.append(category)
+            continue
+        merged = dict(category)
+        merged['labels'] = _merge_labels(category['labels'], added)
+        categories_view.append(merged)
+
+    features_view = []
+    for feature in base['features']:
+        added = extra_features.get(feature['id'], [])
+        if not added:
+            features_view.append(feature)
+            continue
+        merged = dict(feature)
+        merged['labels'] = _merge_labels(feature['labels'], added)
+        features_view.append(merged)
+
+    descriptions = dict(base['serviceDescriptions'])
+    descriptions.update(extras.get('serviceDescriptions', {}))
+
+    _views[_platform] = {
+        'categories': categories_view,
+        'features': features_view,
+        'serviceDescriptions': descriptions,
+        'alwaysEnabled': list(extras.get('alwaysEnabled', [])),
+    }
+    return _views[_platform]
+
+
 def categories() -> List[dict]:
-    return load_catalog()['categories']
+    return _view()['categories']
 
 
 def features() -> List[dict]:
-    return load_catalog()['features']
+    return _view()['features']
 
 
 def service_descriptions() -> Dict[str, str]:
-    return load_catalog()['serviceDescriptions']
+    return _view()['serviceDescriptions']
 
 
 def source_info() -> dict:
@@ -86,15 +190,18 @@ def managed_labels() -> Set[str]:
     Always-enabled labels are only ever transitioned back to enabled, which is
     how a simulator slimmed by an older allowlist gets repaired.
     """
-    labels = slimmable_labels()
-    for category in categories():
-        for service in category.get('alwaysEnabled', []):
-            labels.add(service['label'])
-    return labels
+    return slimmable_labels() | always_enabled_labels()
 
 
 def always_enabled_labels() -> Set[str]:
-    labels = set()
+    """Labels that must stay enabled, and are repaired if found disabled.
+
+    Never overlaps the slimmable set, so listing one here is how a daemon a
+    platform cannot live without is protected from a future catalog edit:
+    `nanoregistryd` on a watch strands the pairing, and an unpaired watch
+    simulator is one no companion app installs onto.
+    """
+    labels = {service['label'] for service in _view()['alwaysEnabled']}
     for category in categories():
         for service in category.get('alwaysEnabled', []):
             labels.add(service['label'])

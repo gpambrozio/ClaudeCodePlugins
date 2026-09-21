@@ -28,11 +28,17 @@ import slim_catalog as catalog
 import slim_launchd as launchd
 
 
-def status_for(device, slimmable, dropped):
+def status_for(device, dropped):
+    # Bound per device rather than once per run: --all reports a mixed fleet,
+    # and a watch's slimmable set is larger than a phone's.
+    catalog.select_platform(device['platform'])
+    slimmable = catalog.slimmable_labels()
+
     entry = launchd.device_summary(device)
     entry['booted'] = device['state'] == 'Booted'
     entry['managed_total'] = len(slimmable)
-    entry['persistent'] = launchd.supports_persistent_overrides(device['os_version'])
+    entry['persistent'] = launchd.supports_persistent_overrides(
+        device['os_version'], device['platform'])
 
     if not entry['booted']:
         # The overrides live inside the simulator's launchd, which only exists
@@ -46,24 +52,22 @@ def status_for(device, slimmable, dropped):
     entry['disabled_count'] = len(managed_disabled)
     entry['slim'] = bool(managed_disabled)
     if not entry['persistent']:
-        entry['note'] = ('iOS {} does not persist disable overrides across a reboot, so this '
+        entry['note'] = ('{} does not persist disable overrides across a reboot, so this '
                          'state lasts only for the current boot session'.format(
-                             device['os_version']))
+                             launchd.os_label(device)))
     if dropped:
         entry['dropped'] = catalog.affected_categories(managed_disabled)
     return entry
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Report iOS Simulator slimming status')
+    parser = argparse.ArgumentParser(description='Report simulator slimming status')
     parser.add_argument('--udid', help='Simulator UDID (defaults to the booted one)')
     parser.add_argument('--name', help='Simulator name')
     parser.add_argument('--all', action='store_true', help='Report every booted simulator')
     parser.add_argument('--dropped', action='store_true',
                         help='List disabled labels grouped by category')
     args = parser.parse_args()
-
-    slimmable = catalog.slimmable_labels()
 
     try:
         if args.all:
@@ -72,13 +76,13 @@ def main():
                 print(json.dumps({'success': True, 'simulators': [],
                                   'message': 'no simulators are booted'}))
                 return
-            simulators = [status_for(device, slimmable, args.dropped) for device in devices]
+            simulators = [status_for(device, args.dropped) for device in devices]
             print(json.dumps({'success': True, 'simulators': simulators}))
             return
 
         device = launchd.resolve_device(args.udid, args.name)
         result = {'success': True}
-        result.update(status_for(device, slimmable, args.dropped))
+        result.update(status_for(device, args.dropped))
         print(json.dumps(result))
     except launchd.SlimError as exc:
         launchd.fail(str(exc))

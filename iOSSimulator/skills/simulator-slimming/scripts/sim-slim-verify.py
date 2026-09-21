@@ -50,16 +50,24 @@ def main():
     args = parser.parse_args()
 
     try:
+        device = launchd.resolve_device(args.udid, args.name)
+    except launchd.SlimError as exc:
+        launchd.fail(str(exc))
+        return
+
+    # The device under verification decides which catalog its state is held
+    # against; see the same ordering in sim-slim.py.
+    try:
+        catalog.select_platform(device['platform'])
         profile = catalog.build_profile(
             catalog.parse_list(args.except_ids), catalog.parse_list(args.keep), args.profile)
     except catalog.ProfileError as exc:
-        launchd.fail(str(exc))
+        launchd.fail(str(exc), **launchd.device_summary(device))
         return
 
     managed = catalog.managed_labels()
 
     try:
-        device = launchd.resolve_device(args.udid, args.name)
         if device['state'] != 'Booted':
             launchd.fail('simulator must be booted to read its state (it is {})'.format(
                 device['state']), **launchd.device_summary(device))

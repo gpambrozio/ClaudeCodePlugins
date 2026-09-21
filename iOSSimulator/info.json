@@ -14,6 +14,10 @@
     ],
     "versions": [
         {
+            "version": "0.8.0",
+            "changes": "watchOS simulators can now be slimmed: a stock watch runs ~178 processes for ~1.3 GB and drops to ~65 for ~460 MB. One catalog covers both platforms - the watch's own nano* daemons extend the existing categories by ID, so a category means the same thing on either device and one profile file slims both halves of a paired pair. The pairing registry, home screen and complication daemons are protected as always-enabled, and the three daemons watchOS re-enables at boot are catalogued as features only. The OpenCode entry point registers both skills along with session context and pre-tool-use command guardrails."
+        },
+        {
             "version": "0.7.0",
             "changes": "Added the simulator-slimming skill: disable the ~170 background daemons a simulator does not need to cut its memory roughly 4x, with category and per-daemon profiles, profile files, drift verification, required-feature checks, and phys_footprint measurement. The OpenCode entry point registers both skills along with session context and pre-tool-use command guardrails."
         },
