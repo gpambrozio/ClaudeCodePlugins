@@ -508,7 +508,7 @@ class RepositoryIntegrityTests(unittest.TestCase):
 
     def test_agent_facing_docs_avoid_known_stale_terms(self):
         checks = {
-            "CLAUDE.md": ["SwiftDevelopment", "lastUpdated"],
+            "AGENTS.md": ["SwiftDevelopment", "lastUpdated"],
             ".claude/skills/update-plugin/SKILL.md": ["SwiftDevelopment"],
             "SwiftScaffolding/skills/scaffolding/SKILL.md": [
                 "MacOS",
