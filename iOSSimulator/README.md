@@ -131,6 +131,12 @@ Agents with image input can view screenshots. The recommended workflow:
 
 ## Changelog
 
+### 0.8.0
+- `simulator-slimming` now slims **watchOS** simulators too: a stock watch is ~178 processes for ~1.3 GB and comes down to ~65 for ~460 MB
+- One catalog covers both platforms - the watch's own `nano*` daemons extend the existing categories by ID, so `--except pim` means the same thing on either device and one profile file slims both halves of a paired pair
+- The pairing registry, home screen and complication daemons are protected as always-enabled, so no profile can strand a watch
+- `sim-slim-profiles.py --platform watchos` describes what a watch would lose
+
 ### 0.7.0
 - Added the `simulator-slimming` skill: disable the ~170 background daemons a simulator does not need, cutting its memory roughly 4x so many more simulators fit on one Mac
 - Category, per-daemon, and JSON profile-file selection, plus `--no-reboot` for runtimes that cannot persist overrides

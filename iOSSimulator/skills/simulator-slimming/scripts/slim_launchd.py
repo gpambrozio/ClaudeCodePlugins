@@ -52,6 +52,28 @@ BOOTOUT_GONE = 3
 # parallel-testing clones live in "testing".
 KNOWN_SETS = [('', 'default'), ('testing', 'testing')]
 
+# The simulator platforms this tool slims, and the marker each one's runtime
+# identifier spells its version with:
+# "com.apple.CoreSimulator.SimRuntime.watchOS-27-0" -> ('watchos', '27.0').
+#
+# No marker is a substring of another - "watchOS-", "tvOS-" and "visionOS-" all
+# end in "OS-", but none of them contains "iOS-" - so the first match wins
+# safely. A runtime matching nothing is skipped rather than guessed at: tvOS and
+# visionOS have daemon sets nobody has measured against this catalog.
+SLIMMABLE_PLATFORMS = (
+    ('ios', 'iOS-', 'iOS'),
+    ('watchos', 'watchOS-', 'watchOS'),
+)
+
+PLATFORM_NAMES = {platform: name for platform, _, name in SLIMMABLE_PLATFORMS}
+
+# The earliest runtime, per platform, verified to keep disable overrides across
+# a reboot. See supports_persistent_overrides.
+MIN_PERSISTENT_VERSION = {
+    'ios': (18, 5),
+    'watchos': (27, 0),
+}
+
 
 class SlimError(Exception):
     """An operation failed in a way the caller should report and stop on."""
@@ -104,13 +126,20 @@ def simctl_args(set_token: str, *sub: str) -> List[str]:
     return ['xcrun', 'simctl'] + list(sub)
 
 
-def _os_version(runtime: str) -> str:
-    """'com.apple.CoreSimulator.SimRuntime.iOS-26-5' -> '26.5'."""
-    marker = 'iOS-'
-    index = runtime.rfind(marker)
-    if index < 0:
-        return '?'
-    return runtime[index + len(marker):].replace('-', '.')
+def _platform_and_version(runtime: str) -> Tuple[Optional[str], str]:
+    """'…SimRuntime.watchOS-27-0' -> ('watchos', '27.0'); unknown -> (None, '?')."""
+    for platform, marker, _ in SLIMMABLE_PLATFORMS:
+        index = runtime.rfind(marker)
+        if index >= 0:
+            return platform, runtime[index + len(marker):].replace('-', '.')
+    return None, '?'
+
+
+def os_label(device: dict) -> str:
+    """'watchOS 27.0' - how a runtime is named in a message to a person."""
+    return '{} {}'.format(
+        PLATFORM_NAMES.get(device.get('platform'), device.get('platform', '?')),
+        device['os_version'])
 
 
 def _list_devices_in_set(set_token: str, set_name: str) -> List[dict]:
@@ -129,7 +158,8 @@ def _list_devices_in_set(set_token: str, set_name: str) -> List[dict]:
 
     devices = []
     for runtime, entries in listing.get('devices', {}).items():
-        if 'iOS' not in runtime:
+        platform, os_version = _platform_and_version(runtime)
+        if platform is None:
             continue
         for entry in entries:
             if not entry.get('isAvailable', True):
@@ -138,7 +168,8 @@ def _list_devices_in_set(set_token: str, set_name: str) -> List[dict]:
                 'udid': entry.get('udid'),
                 'name': entry.get('name'),
                 'state': entry.get('state'),
-                'os_version': _os_version(runtime),
+                'platform': platform,
+                'os_version': os_version,
                 'set': set_name,
                 'set_token': set_token,
             })
@@ -146,7 +177,7 @@ def _list_devices_in_set(set_token: str, set_name: str) -> List[dict]:
 
 
 def list_devices() -> List[dict]:
-    """List available iOS simulators across the default and testing sets.
+    """List available iOS and watchOS simulators across the default and testing sets.
 
     The default set is mandatory; a secondary set that cannot be listed (it may
     simply not exist) is skipped rather than failing the whole listing.
@@ -195,13 +226,21 @@ def resolve_device(udid: Optional[str] = None, name: Optional[str] = None) -> di
     return booted[0]
 
 
-def supports_persistent_overrides(os_version: str) -> bool:
+def supports_persistent_overrides(os_version: str, platform: str = 'ios') -> bool:
     """Does this runtime keep disable overrides across a reboot?
 
     iOS 17.x and 18.3 accept every `launchctl disable` and then come back stock,
     which looks like success but silently leaves a heavy simulator. iOS 18.5 is
     the earliest runtime verified to persist them.
+
+    watchOS is gated at 27.0 because that is what has been measured, not
+    because 26 is known to fail - only 27.0 and 27.2 runtimes were available to
+    test against. An earlier watchOS is refused the same way an earlier iOS is,
+    and `--no-reboot` still slims its current boot session.
     """
+    minimum = MIN_PERSISTENT_VERSION.get(platform)
+    if minimum is None:
+        return False
     parts = os_version.split('.')
     if len(parts) < 2:
         return False
@@ -209,7 +248,7 @@ def supports_persistent_overrides(os_version: str) -> bool:
         major, minor = int(parts[0]), int(parts[1])
     except ValueError:
         return False
-    return major > 18 or (major == 18 and minor >= 5)
+    return (major, minor) >= minimum
 
 
 def boot_and_wait(device: dict, deadline: Deadline) -> None:
@@ -410,6 +449,7 @@ def device_summary(device: dict) -> dict:
     return {
         'udid': device['udid'],
         'name': device['name'],
+        'platform': device.get('platform', 'ios'),
         'os_version': device['os_version'],
         'set': device['set'],
     }

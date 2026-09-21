@@ -677,5 +677,184 @@
     "com.apple.webkit.adattributiond": "Processes privacy-preserving web ad attribution.",
     "com.apple.webkit.webpushd": "Receives push notifications for websites.",
     "com.apple.webprivacyd": "Maintains Safari privacy-protection data."
+  },
+  "platformExtras": {
+    "watchos": {
+      "note": "Local additions, not upstream data: simslim catalogues iOS only. Each block extends the categories and features above by ID, so a category means the same thing on every platform and an existing profile still validates. Keep this key when refreshing the rest of the file from upstream. Every label here was observed running on a watchOS 27 simulator and verified to stay disabled across a reboot. Three that do not are deliberately absent from \"categories\" and listed only under \"features\": com.apple.nanomaild, com.apple.nanomessagesd and com.apple.nanophotosd accept the disable, stop, and are written back to enabled by the next boot - the watch re-enables the daemons mirroring its phone apps. Cataloguing them would fail every run at the post-reboot check.",
+      "categories": {
+        "apps": [
+          "com.apple.nanoweatherd",
+          "com.apple.shazamd",
+          "com.apple.shazameventsd",
+          "com.apple.translationd"
+        ],
+        "connectivity": [
+          "com.apple.nanofindlocallyd",
+          "com.apple.pairedunlockd",
+          "com.apple.nanomediaremoted"
+        ],
+        "family": [
+          "com.apple.ManagedSettingsAgent"
+        ],
+        "health": [
+          "com.apple.sleepd"
+        ],
+        "icloud": [
+          "com.apple.nanobackupd",
+          "com.apple.cksharingmanagementd"
+        ],
+        "messaging": [
+          "com.apple.messagesescrowd",
+          "com.apple.messagesregistrationd",
+          "com.apple.avconferenced"
+        ],
+        "other": [
+          "com.apple.tonelibraryd",
+          "com.apple.bookdatastored",
+          "com.apple.quicklook.ThumbnailsAgent",
+          "com.apple.remoteappintentsd",
+          "com.apple.donotdisturbd"
+        ],
+        "photos": [
+          "com.apple.mediaartworkd"
+        ],
+        "pim": [
+          "com.apple.eventkitsyncd",
+          "com.apple.addressbooksyncd",
+          "com.apple.cmfsyncagent",
+          "com.apple.ABDatabaseDoctor"
+        ],
+        "search": [
+          "com.apple.corespotlightd"
+        ],
+        "siri": [
+          "com.apple.GenerativeFunctions.agentstored"
+        ],
+        "store": [
+          "com.apple.nanopassd"
+        ],
+        "telemetry": [
+          "com.apple.biomed",
+          "com.apple.biomesyncd",
+          "com.apple.relevanced"
+        ]
+      },
+      "features": {
+        "calendar": [
+          "com.apple.eventkitsyncd"
+        ],
+        "contacts": [
+          "com.apple.addressbooksyncd"
+        ],
+        "find-my": [
+          "com.apple.nanofindlocallyd"
+        ],
+        "icloud": [
+          "com.apple.nanobackupd"
+        ],
+        "imessage": [
+          "com.apple.nanomessagesd"
+        ],
+        "mail": [
+          "com.apple.nanomaild"
+        ],
+        "photos": [
+          "com.apple.nanophotosd"
+        ],
+        "screen-time": [
+          "com.apple.ManagedSettingsAgent"
+        ],
+        "spotlight": [
+          "com.apple.corespotlightd"
+        ],
+        "wallet": [
+          "com.apple.nanopassd"
+        ],
+        "weather": [
+          "com.apple.nanoweatherd"
+        ]
+      },
+      "alwaysEnabled": [
+        {
+          "label": "com.apple.Carousel",
+          "reason": "The watch home screen; without it the device boots to nothing."
+        },
+        {
+          "label": "com.apple.carouselecomoded",
+          "reason": "Drives the home screen’s always-on and wake behaviour."
+        },
+        {
+          "label": "com.apple.nanoregistryd",
+          "reason": "Holds the pairing with the companion phone."
+        },
+        {
+          "label": "com.apple.nanoregistrylaunchd",
+          "reason": "Brings the pairing registry up at boot."
+        },
+        {
+          "label": "com.apple.nanoprefsyncd.2",
+          "reason": "Syncs preferences with the paired phone."
+        },
+        {
+          "label": "com.apple.nanotimekitd",
+          "reason": "Serves the watch face and its complications."
+        },
+        {
+          "label": "com.apple.appconduitd",
+          "reason": "Carries app-to-app traffic between watch and phone."
+        },
+        {
+          "label": "com.apple.nexusd",
+          "reason": "The transport the paired phone link runs over."
+        },
+        {
+          "label": "com.apple.gizmoappd",
+          "reason": "Manages watch app installs from the companion phone."
+        },
+        {
+          "label": "com.apple.watchgesturesd",
+          "reason": "Delivers wrist gestures, including the double tap."
+        },
+        {
+          "label": "com.apple.splashboard",
+          "reason": "Draws app launch screens."
+        }
+      ],
+      "serviceDescriptions": {
+        "com.apple.ABDatabaseDoctor": "Repairs the Contacts database.",
+        "com.apple.GenerativeFunctions.agentstored": "Stores Apple Intelligence agent state.",
+        "com.apple.ManagedSettingsAgent": "Applies Screen Time and Family Controls policy.",
+        "com.apple.addressbooksyncd": "Syncs the Contacts database.",
+        "com.apple.avconferenced": "Runs FaceTime audio and video calls.",
+        "com.apple.biomed": "Records on-device behavioural event streams.",
+        "com.apple.biomesyncd": "Syncs those event streams between devices.",
+        "com.apple.bookdatastored": "Stores Books library data.",
+        "com.apple.cksharingmanagementd": "Manages CloudKit record sharing.",
+        "com.apple.cmfsyncagent": "Syncs contact metadata with the paired phone.",
+        "com.apple.corespotlightd": "Indexes on-device content for search.",
+        "com.apple.donotdisturbd": "Manages Focus and Do Not Disturb state.",
+        "com.apple.eventkitsyncd": "Syncs Calendar and Reminders data.",
+        "com.apple.mediaartworkd": "Fetches artwork for media items.",
+        "com.apple.messagesescrowd": "Escrows Messages encryption keys.",
+        "com.apple.messagesregistrationd": "Registers the device for Messages.",
+        "com.apple.nanobackupd": "Backs the watch up to its paired phone.",
+        "com.apple.nanofindlocallyd": "Finds nearby paired devices for Find My.",
+        "com.apple.nanomaild": "Syncs Mail to the watch.",
+        "com.apple.nanomediaremoted": "Drives Now Playing remote control.",
+        "com.apple.nanomessagesd": "Syncs Messages to the watch.",
+        "com.apple.nanopassd": "Manages Wallet passes on the watch.",
+        "com.apple.nanophotosd": "Syncs photo albums to the watch.",
+        "com.apple.nanoweatherd": "Fetches weather data for the watch.",
+        "com.apple.pairedunlockd": "Unlocks the paired Mac or phone from the watch.",
+        "com.apple.quicklook.ThumbnailsAgent": "Renders Quick Look thumbnails.",
+        "com.apple.relevanced": "Ranks suggestions by predicted relevance.",
+        "com.apple.remoteappintentsd": "Runs App Intents on behalf of the paired phone.",
+        "com.apple.shazamd": "Provides Shazam music recognition.",
+        "com.apple.shazameventsd": "Handles Shazam match events.",
+        "com.apple.sleepd": "Tracks sleep and runs the sleep schedule.",
+        "com.apple.tonelibraryd": "Manages ringtones and haptic tones.",
+        "com.apple.translationd": "Provides on-device translation."
+      }
+    }
   }
 }

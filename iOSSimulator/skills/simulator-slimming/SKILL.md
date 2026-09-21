@@ -1,12 +1,14 @@
 ---
 name: simulator-slimming
 version: 1.0.0
-description: Cut an iOS Simulator's memory roughly 4x by disabling the ~170 background daemons it does not need (Siri, Spotlight, photo analysis, iCloud sync, News, widgets), so many more simulators fit on one Mac. Use this skill whenever the user mentions simulators eating RAM, a Mac slowing down or swapping with simulators open, running many simulators or agents in parallel, parallel or CI test runs that are memory-bound, "slimming" a simulator, simslim, or asks how many simulators their machine can hold - even if they do not name a specific tool. Also use it to check what a slimmed simulator gave up, to confirm a feature a test needs (push, StoreKit, universal links) still works, or to restore a slimmed simulator to stock.
+description: Cut an iOS or watchOS Simulator's memory roughly 3-4x by disabling the background daemons it does not need (Siri, Spotlight, photo analysis, iCloud sync, News, widgets), so many more simulators fit on one Mac. Use this skill whenever the user mentions simulators eating RAM, a Mac slowing down or swapping with simulators open, running many simulators or agents in parallel, parallel or CI test runs that are memory-bound, "slimming" a simulator, simslim, or asks how many simulators their machine can hold - even if they do not name a specific tool. Also use it for watchOS simulators and paired watch/phone pairs, to check what a slimmed simulator gave up, to confirm a feature a test needs (push, StoreKit, universal links, watch pairing) still works, or to restore a slimmed simulator to stock.
 ---
 
-# iOS Simulator Slimming
+# Simulator Slimming
 
 A freshly booted iOS Simulator starts around 180 background services - Siri, Spotlight indexing, photo analysis, News, wallpaper posters, iCloud sync. None of them matter for development, UI automation, or CI, and together they are most of the simulator's memory. Disabling them takes a simulator from roughly 3 GB to under 1 GB - measured here at 2.9 GB across 240 processes stock versus 620 MB across 80 slim - which is what decides how many simulators a Mac holds before it starts swapping.
+
+**watchOS simulators slim too**, and are worth doing: a stock watch is not the small thing its screen suggests. Measured on watchOS 27, one went from 1315 MB across 178 processes to 554 MB across 79. A watch runs most of the same daemons a phone does plus its own `nano*` family - Mail, Photos, Weather, Messages mirrored from the phone - so the catalog covers both and a category means the same thing on either.
 
 The mechanism is `launchctl disable system/<label>` run inside the simulator through `simctl spawn`. The overrides live in that one simulator's own launchd database, so nothing on the host Mac is touched and each simulator is independent.
 
@@ -14,7 +16,8 @@ The mechanism is `launchctl disable system/<label>` run inside the simulator thr
 
 - macOS with Xcode installed (simctl ships with full Xcode, not the Command Line Tools)
 - Python 3 (pre-installed on macOS)
-- **iOS 18.5 or newer** for slimming that survives a reboot. Older runtimes accept every `launchctl disable` and then come back stock, so `sim-slim.py` refuses them and points at `--no-reboot`, which slims only the current boot session.
+- **iOS 18.5 or newer**, or **watchOS 27 or newer**, for slimming that survives a reboot. Older runtimes accept every `launchctl disable` and then come back stock, so `sim-slim.py` refuses them and points at `--no-reboot`, which slims only the current boot session. (watchOS is gated where it is because that is what has been measured, not because earlier is known to fail.)
+- tvOS and visionOS simulators are skipped entirely: their daemon sets have never been measured against this catalog, and the scripts will not find such a device.
 
 ## Running the Scripts
 
@@ -58,7 +61,7 @@ Slimming takes roughly two minutes: it boots the simulator, applies the override
 | `sim-slim.py` | Slim a simulator | `--except search`, `--keep com.apple.apsd`, `--dry-run` |
 | `sim-slim-off.py` | Restore to stock | `--udid <udid>` |
 | `sim-slim-status.py` | Is it still slim? | `--dropped`, `--all` |
-| `sim-slim-profiles.py` | What a slim boot turns off | `--category siri`, `--find com.apple.apsd` |
+| `sim-slim-profiles.py` | What a slim boot turns off | `--category siri`, `--find com.apple.apsd`, `--platform watchos` |
 | `sim-slim-measure.py` | Real memory footprint | `--all`, `--processes` |
 | `sim-slim-doctor.py` | Do required features still work? | `--requires push,storekit` |
 | `sim-slim-verify.py` | Has the slim state drifted? | `--profile ci.json` |
@@ -105,6 +108,23 @@ scripts/sim-slim-profiles.py --find com.apple.swcd  # which categories disable a
 ```
 
 The ones that bite most often: push needs `apsd` (`store`), StoreKit testing needs `storekitd` plus the Apple Media Services and Wallet daemons (`store`), universal links need `swcd` (`web`), and the Contacts, Photos, and Calendar pickers want their own categories (`pim`, `photos`).
+
+`sim-slim-profiles.py` reads a device's platform from the device; with no device to read - which is every invocation of this one - pass `--platform watchos` to see what a watch would lose.
+
+## Slimming a Paired Watch
+
+A watch and the phone it is paired to are two simulators and slim independently, and one profile covers both: category IDs mean the same thing on either, so `--except health` keeps HealthKit on a phone and `healthd` *plus* the watch's `sleepd` on a watch.
+
+Three things are specific to the watch, and all three are handled by the catalog rather than by the caller:
+
+- **The pairing and the home screen are never disabled.** `nanoregistryd`, `nanoregistrylaunchd`, `Carousel`, `nanotimekitd`, `appconduitd` and the rest of that set are in the always-enabled list, so no profile can turn them off and a watch found with one disabled is repaired. A watch that loses its pairing is one no companion app installs onto, and the failure looks nothing like its cause.
+- **WatchConnectivity lives in `connectivity`.** `com.apple.wcd` is shared with iOS and sits in that category on both sides, so a project whose phone and watch talk to each other excepts `connectivity` on both.
+- **The watch's own apps are mirrored, not separate.** Mail, Photos, Weather, Messages and Wallet on a watch are the `nano*` daemons, and they are in `pim`, `photos`, `apps`, `messaging` and `store` alongside their phone equivalents.
+
+```bash
+scripts/sim-slim.py --udid <watch-udid> --profile ci.json
+scripts/sim-slim-measure.py --all          # both halves of the pair
+```
 
 ## Running Many Simulators
 

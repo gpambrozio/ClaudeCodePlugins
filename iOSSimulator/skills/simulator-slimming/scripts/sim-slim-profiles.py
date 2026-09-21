@@ -53,10 +53,17 @@ def category_detail(category):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='List iOS Simulator slimming categories')
+    parser = argparse.ArgumentParser(description='List simulator slimming categories')
     parser.add_argument('--category', help='Show one category in full')
     parser.add_argument('--find', help='Show which categories disable a launchd label')
+    parser.add_argument('--platform', default=catalog.DEFAULT_PLATFORM,
+                        choices=catalog.known_platforms(),
+                        help='Which platform to describe (default: ios)')
     args = parser.parse_args()
+
+    # The only command with no device to read the platform from, so it is asked
+    # for: a watch disables everything below plus its own daemons.
+    catalog.select_platform(args.platform)
 
     if args.category:
         category = catalog.category_by_id(args.category)
@@ -83,6 +90,7 @@ def main():
 
     print(json.dumps({
         'success': True,
+        'platform': catalog.current_platform(),
         'categories': [category_summary(category) for category in catalog.categories()],
         'slimmable_total': len(catalog.slimmable_labels()),
         'note': ('memory figures are clean-boot medians and are not additive; they rank '
