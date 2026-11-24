@@ -3,7 +3,7 @@ name: macos-app
 description: Launch and stop macOS applications. Use after building a macOS app to run it, or to terminate running macOS applications.
 ---
 
-> This skill has no equivalent in the Xcode MCP server.
+> The Xcode MCP's `RunProject` runs the active scheme; use this skill to launch or stop an already built `.app` directly.
 
 # macOS App Management
 

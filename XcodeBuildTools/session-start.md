@@ -8,9 +8,9 @@ The `XcodeBuildTools` plugin provides specialized tools for Xcode build and test
 
 ## Build Isolation
 
-Each session gets an isolated build sandbox keyed by its agent session ID. The plugin ships sandboxing wrappers for `xcodebuild` and `swift` in its `bin/` directory, which is on `PATH` ahead of `/usr/bin`. Any invocation — direct (`xcodebuild ...`, `swift build ...`) or nested inside a build script (Makefile, fastlane, shell script) — is sandboxed transparently.
+Builds run in an isolated build sandbox. In Claude Code there is one per worktree (or project folder), shared by every session in it, so new sessions build warm while separate worktrees stay separate. The plugin ships sandboxing wrappers for `xcodebuild` and `swift` in its `bin/` directory, which is on `PATH` ahead of `/usr/bin`. Any invocation — direct (`xcodebuild ...`, `swift build ...`) or nested inside a build script (Makefile, fastlane, shell script) — is sandboxed transparently.
 
-The wrappers inject `-derivedDataPath`, `-clonedSourcePackagesDirPath`, and `--cache-path` flags so DerivedData and SPM caches stay isolated from Xcode and from other agent sessions. No changes to commands are needed.
+The wrappers inject `-derivedDataPath`, `-clonedSourcePackagesDirPath`, and `--cache-path` flags so DerivedData and SPM caches stay isolated from Xcode and from other worktrees. No changes to commands are needed.
 
 Two sandbox paths are also exported in every Bash invocation for scripts that need to reach into the sandbox without reconstructing the path formula:
 

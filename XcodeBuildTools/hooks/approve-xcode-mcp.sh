@@ -1,9 +1,16 @@
 #!/bin/bash
 # approve-xcode-mcp.sh
-# Auto-clicks "Allow" on Xcode's MCP agent authorization dialog.
+# Auto-clicks "Allow" on Xcode's windowed MCP agent authorization dialog.
+#
+# Windowed mode only. Xcode 27's headless MCP server has no dialog to click:
+# its approvals are made by the owner with
+# `sudo xcrun mcp-server approve <id>` and `allow-folder <path>`, so this
+# helper exits without doing anything whenever headless mode is enabled (or
+# its state can't be read).
 #
 # Started through run-background.sh so it doesn't block startup.
-#   1. Pre-checks: Xcode must be running and mcpbridge must exist
+#   1. Pre-checks: Xcode must be running, mcpbridge must exist, and headless
+#      mode must be off or unsupported (Xcode 26.x)
 #   2. Checks Accessibility permissions (notifies + opens Settings if missing)
 #   3. Polls Xcode's windows for the auth dialog (up to 15 seconds)
 #   4. Clicks "Allow" when found, or exits silently on timeout
@@ -19,6 +26,16 @@ fi
 
 if ! xcrun --find mcpbridge &>/dev/null; then
     exit 0
+fi
+
+# --- Headless mode (Xcode 27+): approvals happen through sudo, never a click ---
+# `xcrun mcp-server` only exists on Xcode 27+. When it answers, click only if
+# it explicitly reports headless permission as disabled.
+if status_json=$(xcrun mcp-server status --format json 2>/dev/null); then
+    headless_enabled=$(printf '%s' "$status_json" | /usr/bin/jq -r '.permission.enabled' 2>/dev/null || true)
+    if [[ "$headless_enabled" != "false" ]]; then
+        exit 0
+    fi
 fi
 
 # --- Check Accessibility permissions ---

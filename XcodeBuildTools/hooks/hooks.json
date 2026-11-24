@@ -9,7 +9,7 @@
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/common/session-start.py XcodeBuildTools"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.py XcodeBuildTools"
           },
           {
             "type": "command",
@@ -18,17 +18,6 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/run-background.sh hooks/approve-xcode-mcp.sh"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "logout|prompt_input_exit|other",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/teardown-sandbox.py"
           }
         ]
       }

@@ -13,6 +13,9 @@
 # wrapper was invoked from a shell outside a hosted Bash-tool context),
 # the wrapper falls through to an unsandboxed exec.
 #
+# The sandbox is kept per worktree, so sessions in the same worktree reuse
+# the same DerivedData and build warm.
+#
 # On first invocation, seeds the sandbox SPM cache from the system cache
 # using APFS copy-on-write clones (zero extra disk until writes diverge).
 
@@ -26,6 +29,13 @@ if [[ -z "$SANDBOX_BUILD" || -z "$SANDBOX_PKGS" ]]; then
     exec /usr/bin/xcodebuild "$@"
 fi
 
+# Per-worktree sandbox bookkeeping (stale reset, last-used marker). Skipped
+# for sandbox layouts this plugin's Claude Code hooks did not create.
+source "$(dirname "${BASH_SOURCE[0]}")/../hooks/lib/sandbox.sh"
+sandbox_base=$(sandbox_base_for "$SANDBOX_BUILD" "$SANDBOX_PKGS")
+if [[ -n "$sandbox_base" ]]; then
+    sandbox_prepare "$sandbox_base"
+fi
 mkdir -p "$SANDBOX_BUILD" "$SANDBOX_PKGS"
 
 # Lazy SPM cache seeding — only on first build

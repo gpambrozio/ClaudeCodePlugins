@@ -3,7 +3,7 @@ name: swift-package
 description: Build, test, run, and manage Swift Package Manager projects. Use when working with Package.swift projects, running "swift build", "swift test", or "swift run", managing package executables, or cleaning SPM build artifacts.
 ---
 
-> **Tool routing**: Use this skill for Swift package build/test/run workflows even when raw Xcode MCP tools are available. Use raw Xcode MCP only when explicitly requested, when this skill instructs you to, or when MCP-only Xcode context is required.
+> **Tool routing**: Use this skill for Swift package command-line build/test/run workflows, also when the project prefers the Xcode MCP: a package opened as an Xcode workspace can build through the MCP, but `swift build`/`swift test`/`swift run` go through this skill.
 
 # Swift Package
 
@@ -15,7 +15,7 @@ For build/test output parsing: `brew install xcsift`
 
 ## Build & Test (with xcsift)
 
-**Build isolation is automatic** The plugin ships a `swift` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the per-session sandbox. Just call `swift` normally.
+**Build isolation is automatic** The plugin ships a `swift` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the plugin's build sandbox (kept per worktree in Claude Code). Just call `swift` normally.
 
 ```bash
 cd /path/to/package

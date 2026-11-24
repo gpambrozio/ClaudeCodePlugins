@@ -3,7 +3,7 @@ name: xcode-test
 description: Run Xcode unit tests and UI tests using xcodebuild with xcsift for token-efficient output. Use when running tests for iOS/macOS projects, filtering specific test cases, or checking test results.
 ---
 
-> **Tool routing**: Use this skill for Xcode test workflows even when raw Xcode MCP test tools are available. Use raw Xcode MCP only when explicitly requested, when this skill instructs you to, or when MCP-only Xcode context is required.
+> **Tool routing**: Use this skill for Xcode test workflows even when raw Xcode MCP test tools are available, unless this session's XcodeBuildTools context says the project prefers the Xcode MCP. In that case use the MCP's `RunSomeTests`/`RunAllTests` for plain runs and this skill for UDID destinations, `TEST_RUNNER_*` variables, `-skip-testing`, `-collect-test-diagnostics`, result bundle paths, and whenever the MCP is unavailable.
 
 # Xcode Test
 
@@ -19,7 +19,7 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 2. **Always add** `-skipMacroValidation -skipPackagePluginValidation`
 3. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
 4. **Use workspace when available** If the project has a corresponding `xcworkspace` always use the `-workspace` flag to compile, never `-project`
-5. **Build isolation is automatic** The plugin ships a `xcodebuild` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the per-session sandbox. Just call `xcodebuild` normally.
+5. **Build isolation is automatic** The plugin ships a `xcodebuild` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the plugin's build sandbox (kept per worktree in Claude Code). Just call `xcodebuild` normally.
 
 ## Test Commands
 
