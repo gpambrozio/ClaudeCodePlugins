@@ -6,10 +6,11 @@ This project opted in to Xcode MCP first routing (`XCODEBUILDTOOLS_PREFER_MCP`).
 
 {{WORKSPACE}}
 
-- Open it with `XcodeOpenWorkspace` before the first Xcode MCP call, and pass that absolute path as `workspaceIdentifier` on every call. Each git worktree is its own workspace; never open or drive another checkout's workspace.
+- Open it by that absolute path with `XcodeOpenWorkspace` before the first Xcode MCP call. Keep the `workspace-…` id it returns as `workspaceIdentifier` and pass that id on every later call: in headless mode the tools reject the absolute path with "Unknown workspace identifier". Each git worktree is its own workspace; never open or drive another checkout's workspace.
 - Use one tool per worktree: the Xcode MCP for the loop below, xcodebuild only for the fallbacks. Don't alternate the two for the same builds.
 - Scheme, run destination and test plan are workspace state on the server. Set them with `XcodeSwitchScheme` and `XcodeSwitchRunDestination` (destinations are chosen by display title, not UDID). `XcodeSwitchTestPlan` changes the scheme's active test plan persistently, so check `git status` after it.
-- When the task is finished, close the workspace with `XcodeCloseWorkspace`.
+- For `RunSomeTests`, pass one identifier per test. A whole suite passed as one identifier runs, but reports a single "No result" with no counts.
+- When the task is finished, close the workspace with `XcodeCloseWorkspace`, then run `git status`: closing can rewrite tracked `.xcscheme` files (for example the test debugger set to PosixSpawn, or an added MacroExpansion). Restore shared scheme files you didn't mean to change with `git restore <file>`.
 
 {{APPROVAL}}
 
