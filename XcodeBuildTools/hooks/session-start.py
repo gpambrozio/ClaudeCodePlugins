@@ -320,7 +320,8 @@ def detect_xcode_mcp(run=bounded_run, environ=os.environ):
             `workspaceIdentifier`) the MCP-first context is written for.
             Xcode 26.x's bridge addresses windows by `tabIdentifier` instead.
         status_readable: `xcrun mcp-server status --format json` answered
-            with a JSON object within the timeout
+            within the timeout with a JSON object whose permission.enabled
+            is a JSON boolean
         headless_enabled: the headless server's permission.enabled is true
         allow_all_agents: permission.unsafeAlwaysAllowAllAgents is true
         pending: pending approval requests, as [{"id", "kind", "label", "path", "signed"}]
@@ -356,14 +357,14 @@ def detect_xcode_mcp(run=bounded_run, environ=os.environ):
         status = json.loads(stdout) if returncode == 0 else None
     except Exception:
         status = None
-    if not isinstance(status, dict):
-        # A failed, stalled or unreadable probe leaves the server's state unknown.
+    permission = status.get("permission") if isinstance(status, dict) else None
+    if not isinstance(permission, dict) or not isinstance(permission.get("enabled"), bool):
+        # A failed, stalled or unreadable probe, or one without a boolean
+        # permission.enabled, leaves the server's state unknown.
         return result
 
-    permission = status.get("permission")
-    permission = permission if isinstance(permission, dict) else {}
     result["status_readable"] = True
-    result["headless_enabled"] = permission.get("enabled") is True
+    result["headless_enabled"] = permission["enabled"]
     result["allow_all_agents"] = permission.get("unsafeAlwaysAllowAllAgents") is True
     result["pending"] = pending_requests(status)
 
@@ -399,7 +400,8 @@ def unavailable_reason(detection):
         )
     if not detection["status_readable"]:
         return (
-            "`xcrun mcp-server status --format json` failed, timed out or printed no JSON, so the state "
+            "`xcrun mcp-server status --format json` failed, timed out or printed no boolean "
+            "`permission.enabled`, so the state "
             "of Xcode's MCP server is unknown. The owner can check it with `xcrun mcp-server status`."
         )
     return (

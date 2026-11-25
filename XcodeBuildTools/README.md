@@ -92,7 +92,7 @@ If the MCP is not usable, the agent gets the default skills-first context plus a
 |------|-------------|-----------|
 | Headless (Xcode 27+) | `xcrun mcp-server status --format json` reports `permission.enabled` | The owner runs `sudo xcrun mcp-server approve <id>` and `allow-folder`; there is no dialog |
 | Windowed (Xcode 27+) | The status reports headless mode off, and Xcode is running | Xcode's "Allow" dialog, clicked by the auto-approve hook below |
-| Unavailable | No `mcpbridge`; Xcode 26.x (no `xcrun mcp-server`); a status probe that fails, times out (5 seconds) or prints no JSON; or headless off and Xcode not running | The agent uses the skills; the notice says why and names the command to run (`sudo xcrun mcp-server enable`) |
+| Unavailable | No `mcpbridge`; Xcode 26.x (no `xcrun mcp-server`); a status probe that fails, times out (5 seconds, killing its whole process group) or prints no JSON boolean `permission.enabled`; or headless off and Xcode not running | The agent uses the skills; the notice says why and names the command to run (`sudo xcrun mcp-server enable`) |
 
 Headless mode shows the pending requests from `xcrun mcp-server status`, both in the agent's context and in the session's system message, with the exact command for each (`--always` for signed agents and folders, `--for-24-hours` for unsigned agents). Folder requests for other checkouts are left out, including a git worktree nested inside this one (such as `.worktrees/feature`); a request for a folder that contains this checkout is kept. The agent is told never to run sudo, enable the server or approve anything itself.
 
@@ -109,7 +109,7 @@ sudo xcrun mcp-server approve <id> --always                 # signed agents; uns
 
 A backgrounded SessionStart hook clicks "Allow" on the windowed Xcode MCP authorization dialog. It:
 - Runs only when Xcode is running and `mcpbridge` exists
-- Clicks only in positively established windowed mode: Xcode 26.x, or Xcode 27 whose `xcrun mcp-server status` answers within 5 seconds with headless permission disabled. It does nothing when headless mode is enabled or the status probe fails, stalls or prints no JSON
+- Clicks only in positively established windowed mode: Xcode 26.x, or Xcode 27 whose `xcrun mcp-server status` answers within 5 seconds with `permission.enabled` set to the JSON boolean `false`. It does nothing when headless mode is enabled, the status probe fails or stalls (its whole process group is killed), or `permission.enabled` is missing, null or not a boolean
 - Does not require host-level `async` hook support
 - Times out silently if no dialog appears
 

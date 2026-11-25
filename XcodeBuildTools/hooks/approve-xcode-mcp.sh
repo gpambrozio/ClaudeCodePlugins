@@ -7,8 +7,8 @@
 # `sudo xcrun mcp-server approve <id>` and `allow-folder <path>`. This helper
 # clicks only when windowed mode is positively established: Xcode 26.x (no
 # `mcp-server` tool at all), or Xcode 27 whose status probe answers within a
-# few seconds and reports headless permission as disabled. A failed, stalled
-# or unreadable probe leaves it idle.
+# few seconds and reports permission.enabled as the JSON boolean false. A
+# failed, stalled or unreadable probe, or any other value, leaves it idle.
 #
 # Started through run-background.sh so it doesn't block startup.
 #   1. Pre-checks: Xcode must be running, mcpbridge must exist, and windowed
@@ -35,17 +35,22 @@ STATUS_TIMEOUT="${XCODEBUILDTOOLS_MCP_STATUS_TIMEOUT:-5}"
 [[ "$STATUS_TIMEOUT" =~ ^[0-9]+$ && "$STATUS_TIMEOUT" -gt 0 ]] || STATUS_TIMEOUT=5
 
 # Run a command with stdout in a file (so a stalled grandchild can't hold a
-# pipe open), killing it after $1 seconds. Prints the output on success.
+# pipe open), killing its whole process group after $1 seconds. Prints the
+# output on success.
 run_bounded() {
     local seconds="$1"
     shift
     local output pid ticks=0 status=0
     output=$(mktemp "${TMPDIR:-/tmp}/approve-xcode-mcp.XXXXXX") || return 1
+    # Job control puts the background job in its own process group (its
+    # PGID is $pid), so a timeout can kill the probe's children too.
+    set -m
     "$@" >"$output" 2>/dev/null </dev/null &
     pid=$!
+    set +m
     while kill -0 "$pid" 2>/dev/null; do
         if (( ticks >= seconds * 10 )); then
-            kill -9 "$pid" 2>/dev/null
+            kill -9 -- "-$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null
             wait "$pid" 2>/dev/null
             rm -f "$output"
             return 124
@@ -63,7 +68,9 @@ run_bounded() {
 # which is windowed only.
 if xcrun --find mcp-server &>/dev/null; then
     status_json=$(run_bounded "$STATUS_TIMEOUT" xcrun mcp-server status --format json) || exit 0
-    headless_enabled=$(printf '%s' "$status_json" | /usr/bin/jq -r '.permission.enabled' 2>/dev/null || true)
+    # Only a JSON boolean counts: a missing, null or string value is unknown.
+    headless_enabled=$(printf '%s' "$status_json" | /usr/bin/jq -r \
+        '.permission.enabled | if type == "boolean" then tostring else "unknown" end' 2>/dev/null || true)
     if [[ "$headless_enabled" != "false" ]]; then
         exit 0
     fi

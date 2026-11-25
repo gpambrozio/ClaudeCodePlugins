@@ -61,7 +61,8 @@ BASELINE_0_5_11 = FIXTURES / "xcodebuildtools-0.5.11"
 #   `--find mcp-server` follows FAKE_MCP_SERVER (default found; 0 = Xcode 26.x,
 #   which answers `xcrun mcp-server` with exit 72 like a missing tool);
 #   `mcp-server status` prints FAKE_MCP_STATUS, or with FAKE_MCP_STATUS_MODE
-#   `fail` exits 1 and `hang` stalls in a child process.
+#   `fail` exits 1 and `hang` stalls waiting on a child process whose PID it
+#   writes to FAKE_HANG_PID_FILE.
 FAKE_XCRUN = """#!/bin/sh
 if [ "$1" = "--find" ]; then
     case "$2" in
@@ -75,7 +76,11 @@ if [ "$1" = "mcp-server" ]; then
     if [ "$2" = "status" ]; then
         case "${FAKE_MCP_STATUS_MODE:-}" in
             fail) echo "permission service unavailable" >&2; exit 1 ;;
-            hang) sleep 20 ;;
+            hang)
+                sleep 20 &
+                echo $! > "${FAKE_HANG_PID_FILE:-/dev/null}"
+                wait
+                ;;
         esac
         printf '%s' "${FAKE_MCP_STATUS:-}"
         exit 0
@@ -94,6 +99,27 @@ echo "$@" >> "$OSASCRIPT_LOG"
 echo timeout
 exit 0
 """
+
+
+# Valid JSON whose headless state is still unknown: no boolean permission.enabled.
+INVALID_SCHEMA_STATUSES = (
+    {},
+    {"permission": {}},
+    {"permission": "enabled"},
+    {"permission": {"enabled": None}},
+    {"permission": {"enabled": "false"}},
+    [{"permission": {"enabled": False}}],
+)
+
+
+def process_exists(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def load_router():
@@ -150,6 +176,18 @@ class FakeToolsMixin:
             json.dumps({"env": {"XCODEBUILDTOOLS_PREFER_MCP": value}}),
             encoding="utf-8",
         )
+
+    def hang_pid_file(self):
+        return Path(self.temp.name) / "hang.pid"
+
+    def assert_hang_child_exited(self):
+        pid = int(self.hang_pid_file().read_text(encoding="utf-8").strip())
+        for _ in range(50):
+            if not process_exists(pid):
+                return
+            time.sleep(0.1)
+        os.kill(pid, 9)
+        self.fail(f"the stalled probe's child process {pid} outlived the timeout")
 
     def run_script(self, script, env):
         result = subprocess.run(
@@ -299,8 +337,21 @@ class McpFirstRoutingTests(FakeToolsMixin, unittest.TestCase):
         )
         context = payload["hookSpecificOutput"]["additionalContext"]
         self.assertIn("## Xcode MCP unavailable", context)
-        self.assertIn("failed, timed out or printed no JSON", context)
+        self.assertIn("failed, timed out or printed no boolean", context)
         self.assertNotIn("Windowed mode", context)
+
+    def test_opted_in_with_status_lacking_a_boolean_permission_falls_back(self):
+        self.opt_in()
+        for status in INVALID_SCHEMA_STATUSES:
+            with self.subTest(status=status):
+                payload = self.run_script(
+                    ROUTER_PATH,
+                    self.env(FAKE_MCP_STATUS=json.dumps(status), FAKE_XCODE_RUNNING="1"),
+                )
+                context = payload["hookSpecificOutput"]["additionalContext"]
+                self.assertIn("## Xcode MCP unavailable", context)
+                self.assertIn("printed no boolean", context)
+                self.assertNotIn("Xcode MCP first (", payload["systemMessage"])
 
     def test_opted_in_with_stalled_status_probe_falls_back_within_the_timeout(self):
         self.opt_in()
@@ -309,14 +360,16 @@ class McpFirstRoutingTests(FakeToolsMixin, unittest.TestCase):
             ROUTER_PATH,
             self.env(
                 FAKE_MCP_STATUS_MODE="hang",
+                FAKE_HANG_PID_FILE=str(self.hang_pid_file()),
                 FAKE_XCODE_RUNNING="1",
                 XCODEBUILDTOOLS_MCP_STATUS_TIMEOUT="1",
             ),
         )
         self.assertLess(time.monotonic() - started, 10)
+        self.assert_hang_child_exited()
         context = payload["hookSpecificOutput"]["additionalContext"]
         self.assertIn("## Xcode MCP unavailable", context)
-        self.assertIn("failed, timed out or printed no JSON", context)
+        self.assertIn("failed, timed out or printed no boolean", context)
 
 
 class McpHelperTests(unittest.TestCase):
@@ -427,6 +480,8 @@ class McpHelperTests(unittest.TestCase):
 class ApproveHelperTests(FakeToolsMixin, unittest.TestCase):
     def run_helper(self, **env_overrides):
         log = Path(self.temp.name) / "osascript.log"
+        if log.exists():
+            log.unlink()
         env = self.env(FAKE_XCODE_RUNNING="1", OSASCRIPT_LOG=str(log), **env_overrides)
         started = time.monotonic()
         result = subprocess.run(
@@ -456,10 +511,18 @@ class ApproveHelperTests(FakeToolsMixin, unittest.TestCase):
     def test_stalled_status_probe_never_clicks_and_gives_up(self):
         calls, elapsed = self.run_helper(
             FAKE_MCP_STATUS_MODE="hang",
+            FAKE_HANG_PID_FILE=str(self.hang_pid_file()),
             XCODEBUILDTOOLS_MCP_STATUS_TIMEOUT="1",
         )
         self.assertEqual("", calls)
         self.assertLess(elapsed, 10)
+        self.assert_hang_child_exited()
+
+    def test_status_lacking_a_boolean_permission_never_clicks(self):
+        for status in INVALID_SCHEMA_STATUSES:
+            with self.subTest(status=status):
+                calls, _ = self.run_helper(FAKE_MCP_STATUS=json.dumps(status))
+                self.assertEqual("", calls)
 
     @unittest.skipUnless(Path("/usr/bin/jq").exists(), "needs /usr/bin/jq")
     def test_windowed_mode_still_looks_for_the_allow_dialog(self):
