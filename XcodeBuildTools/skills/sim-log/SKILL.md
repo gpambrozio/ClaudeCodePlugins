@@ -3,7 +3,7 @@ name: sim-log
 description: Capture logs from iOS Simulator apps. Use when debugging simulator apps, monitoring app output, or capturing logs for analysis.
 ---
 
-> This skill has no equivalent in the Xcode MCP server.
+> This skill has no equivalent in the Xcode MCP server for apps the MCP did not launch. For an app started with the MCP's `RunProject`, `GetConsoleOutput` returns its console.
 
 # Simulator Log Capture
 

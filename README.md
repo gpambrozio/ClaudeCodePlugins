@@ -72,7 +72,7 @@ Adds Marvin the Paranoid Android personality from *The Hitchhiker's Guide to the
 
 ### XcodeBuildTools
 
-Xcode development tools using token-efficient build output. Provides 11 consolidated skills covering the full Xcode development workflow, with optional Xcode MCP integration for MCP-only Xcode context.
+Xcode development tools using token-efficient build output. Provides 11 consolidated skills covering the full Xcode development workflow, with optional Xcode MCP integration: projects can opt in to Xcode MCP first routing (including Xcode 27's headless server), and command-line builds use a per-worktree sandbox.
 
 **Skills:**
 - `swift-package` - Build, test, run, and manage SPM projects

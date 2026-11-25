@@ -3,7 +3,7 @@ name: xcodebuild
 description: Build Xcode projects for simulator, device, or macOS using `xcodebuild` with xcsift for token-efficient output. Use when compiling iOS/tvOS/watchOS apps, building macOS apps, cleaning Xcode build products, or before you invoke any Bash command with `xcodebuild`.
 ---
 
-> **Tool routing**: Use this skill for Xcode build workflows even when raw Xcode MCP build tools are available. Use raw Xcode MCP only when explicitly requested, when this skill instructs you to, or when MCP-only Xcode context is required.
+> **Tool routing**: Use this skill for Xcode build workflows even when raw Xcode MCP build tools are available, unless this session's XcodeBuildTools context says the project prefers the Xcode MCP. In that case use the MCP's `BuildProject` for plain builds and this skill for UDID destinations, archives, scripts, and whenever the MCP is unavailable.
 
 # Xcodebuild
 
@@ -24,7 +24,7 @@ Ensure `xcsift` is installed and up to date: `brew install xcsift` (or `brew upg
 5. **Single line commands** Do not use line continuation characters (backslashes) to split commands across multiple lines. Keep each command on a single line.
 6. **Capture full output just in case** `xcsift` only outputs the most important build information but in some cases you might need to inspect the full output of `xcodebuild`. When using `xcsift` always `tee` to a temporary file and use it if `xcsift`'s output is not enough. In the examples below the path to the temporary file is an example, use what you think is the most appropriate location.
 7. **Always use workspace when building** Always use the `-workspace` flag to build, never `-project`
-8. **Build isolation is automatic** The plugin ships a `xcodebuild` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the per-session sandbox. Just call `xcodebuild` normally.
+8. **Build isolation is automatic** The plugin ships a `xcodebuild` wrapper on `PATH` ahead of `/usr/bin`, so every invocation — direct or nested inside a build script — runs inside the plugin's build sandbox (kept per worktree in Claude Code). Just call `xcodebuild` normally.
 
 ## Build Command Examples
 

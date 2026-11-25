@@ -1,14 +1,15 @@
 #!/bin/bash
 #
-# sandbox.sh — Sourceable helpers shared by write-env.sh and setup-sandbox.sh.
+# sandbox.sh — Sourceable helpers shared by the sandbox hooks and wrappers.
 #
-# Single source of truth for the inheritance-discovery contract. Both
-# the sync SessionStart hook (write-env.sh) and the backgrounded
-# setup hook (setup-sandbox.sh) need to decide whether the current session is
-# inheriting a prior sandbox across /clear — and they must agree on
-# *which* anchor. Drift here means write-env.sh embeds one path in
-# $CLAUDE_ENV_FILE while setup-sandbox.sh creates a symlink to a
-# different one, silently breaking /clear inheritance.
+# The build sandbox is keyed per worktree (or per project folder outside
+# git), not per session: every session that starts in the same worktree
+# gets the same $TMPDIR/claude-sandbox/wt-<name>-<hash>/ directory, so new
+# sessions build warm, while separate worktrees keep separate sandboxes.
+#
+# write-env.sh (sync SessionStart) and setup-sandbox.sh (backgrounded
+# SessionStart) must agree on the key; both call sandbox_key here. The
+# bin/ wrappers call sandbox_prepare before every build.
 #
 # This file is meant to be sourced, not executed. Functions here must:
 #   - Not exit (they run inside the caller's shell)
@@ -18,52 +19,117 @@
 # To use:
 #     source "$(dirname "${BASH_SOURCE[0]}")/lib/sandbox.sh"
 
-# find_anchor SANDBOX_ROOT TARGET_PID
-#
-# Echoes the resolved anchor path on stdout if a peer under
-# SANDBOX_ROOT is owned by TARGET_PID (owner.pid line 1 match),
-# resolving symlinks one hop. Echoes nothing if no match.
-#
-# Always returns 0 — callers test for an empty result to distinguish
-# "no anchor found" from "scan failed".
-#
-# Eligibility (must all hold):
-#   - The peer is a symlink (readable, non-empty target) OR a real dir.
-#   - The resolved target is a directory.
-#   - $resolved/owner.pid exists and its first line == TARGET_PID.
-#
-# Note: this intentionally matches setup-sandbox.sh's *inheritance*
-# criteria, not its *sweep* criteria. The sweep additionally checks
-# owner.pid line 2 (ps comm) for PID-recycling detection; inheritance
-# does not currently do that. If we tighten inheritance to require
-# comm match, update only this function.
-find_anchor() {
-    local sandbox_root="$1"
-    local target_pid="$2"
-    local peer resolved peer_pid
+# A sandbox untouched for this many days is reset on its next use: macOS
+# purges old files under $TMPDIR one by one, and a half-purged DerivedData
+# fails in confusing ways, so a clean cold build is the safer outcome.
+SANDBOX_STALE_DAYS=3
 
-    [[ -d "$sandbox_root" ]] || return 0
+# sandbox_identity DIRECTORY
+#
+# Echoes the path that identifies DIRECTORY's worktree: the git dir
+# (`git rev-parse --absolute-git-dir`, distinct for every linked worktree and
+# shared by its subdirectories), or DIRECTORY's physical path outside git.
+sandbox_identity() {
+    local directory="$1"
+    local git_dir
 
-    for peer in "$sandbox_root"/*; do
-        if [[ -L "$peer" ]]; then
-            resolved=$(readlink "$peer" 2>/dev/null) || continue
-            [[ -n "$resolved" ]] || continue
-        elif [[ -d "$peer" ]]; then
-            resolved="$peer"
-        else
-            continue
+    git_dir=$(git -C "$directory" rev-parse --absolute-git-dir 2>/dev/null) || git_dir=""
+    if [[ -n "$git_dir" ]]; then
+        printf '%s\n' "$git_dir"
+        return 0
+    fi
+    (cd "$directory" 2>/dev/null && pwd -P) || printf '%s\n' "$directory"
+}
+
+# sandbox_label DIRECTORY
+#
+# Echoes a short human-readable name for DIRECTORY's checkout (the basename
+# of the worktree top level), restricted to [A-Za-z0-9_-].
+sandbox_label() {
+    local directory="$1"
+    local top label
+
+    top=$(git -C "$directory" rev-parse --show-toplevel 2>/dev/null) || top="$directory"
+    label=$(printf '%s' "$(basename "$top")" | LC_ALL=C tr -c 'A-Za-z0-9_-' '_' | cut -c1-40)
+    printf '%s\n' "${label:-project}"
+}
+
+# sha256_hex — sha256 of stdin as lowercase hex, using whichever tool exists.
+sha256_hex() {
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    else
+        sha256sum | cut -d' ' -f1
+    fi
+}
+
+# sandbox_key DIRECTORY
+#
+# Echoes `wt-<label>-<12 hex digits>`, where the digits hash
+# sandbox_identity. Always matches ^[A-Za-z0-9_-]+$.
+sandbox_key() {
+    local directory="$1"
+    local identity label digest
+
+    identity=$(sandbox_identity "$directory")
+    label=$(sandbox_label "$directory")
+    digest=$(printf '%s' "$identity" | sha256_hex | cut -c1-12)
+    printf 'wt-%s-%s\n' "$label" "$digest"
+}
+
+# sandbox_base_for BUILD_DIR PACKAGES_DIR
+#
+# Echoes the per-worktree sandbox base that BUILD_DIR and PACKAGES_DIR belong
+# to (…/claude-sandbox/wt-*/{build,packages}). Echoes nothing for any other
+# layout, such as the OpenCode entry point's own sandbox, which manages its
+# directories itself and must not be touched by sandbox_prepare.
+sandbox_base_for() {
+    local build_dir="${1%/}" packages_dir="${2%/}"
+    local base
+
+    base=$(dirname "$build_dir")
+    [[ "$build_dir" == "$base/build" && "$packages_dir" == "$base/packages" ]] || return 0
+    [[ "$(basename "$base")" == wt-* && "$(basename "$(dirname "$base")")" == "claude-sandbox" ]] || return 0
+    printf '%s\n' "$base"
+}
+
+# sandbox_prepare SANDBOX_BASE
+#
+# Makes sure SANDBOX_BASE/build and SANDBOX_BASE/packages exist and records
+# the use. If the sandbox has not been used for SANDBOX_STALE_DAYS, its
+# contents are moved aside and deleted in the background first. Safe to call
+# before every build: a stale sandbox has had no build for days, so nothing
+# is writing to it.
+sandbox_prepare() {
+    local base="$1"
+    local marker="$base/.last-used"
+    local stale=0 trash entry
+
+    if [[ -f "$marker" ]]; then
+        if [[ -n "$(find "$marker" -mtime +$((SANDBOX_STALE_DAYS - 1)) 2>/dev/null)" ]]; then
+            stale=1
         fi
+    elif [[ -d "$base/build" || -d "$base/packages" ]]; then
+        # Contents without a marker: the marker itself was purged.
+        stale=1
+    fi
 
-        [[ -d "$resolved" && -f "$resolved/owner.pid" ]] || continue
-
-        peer_pid=""
-        { read -r peer_pid; } < "$resolved/owner.pid" 2>/dev/null || continue
-
-        if [[ "$peer_pid" == "$target_pid" ]]; then
-            printf '%s\n' "$resolved"
-            return 0
+    if [[ $stale -eq 1 ]]; then
+        trash=$(mktemp -d "$base/.stale.XXXXXX" 2>/dev/null) || trash=""
+        if [[ -n "$trash" ]]; then
+            for entry in build packages; do
+                if [[ -e "$base/$entry" ]]; then
+                    mv -- "$base/$entry" "$trash/" 2>/dev/null || true
+                fi
+            done
+            (/bin/rm -rf -- "$trash" >/dev/null 2>&1 &)
         fi
-    done
+    fi
 
+    # Marker first: anyone who sees build/ must also see the marker, or a
+    # concurrent call would take the new sandbox for a purged one.
+    mkdir -p "$base" 2>/dev/null || true
+    touch "$marker" 2>/dev/null || true
+    mkdir -p "$base/build" "$base/packages" 2>/dev/null || true
     return 0
 }

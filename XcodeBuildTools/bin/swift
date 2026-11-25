@@ -27,6 +27,13 @@ fi
 
 case "${1:-}" in
     build|test|run)
+        # Per-worktree sandbox bookkeeping (stale reset, last-used marker).
+        # Skipped for sandbox layouts this plugin's Claude Code hooks did not create.
+        source "$(dirname "${BASH_SOURCE[0]}")/../hooks/lib/sandbox.sh"
+        sandbox_base=$(sandbox_base_for "${SANDBOX_DERIVED_DATA:-}" "$SANDBOX_PKGS")
+        if [[ -n "$sandbox_base" ]]; then
+            sandbox_prepare "$sandbox_base"
+        fi
         mkdir -p "$SANDBOX_PKGS"
         # Lazy SPM cache seeding — only on first build
         if [[ ! -f "$SANDBOX_PKGS/.seeded" ]]; then
