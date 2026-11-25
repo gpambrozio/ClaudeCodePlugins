@@ -15,12 +15,15 @@ off again for one checkout.
 
 * Not opted in: exec the shared common/session-start.py, so the context is
   exactly what earlier versions produced.
-* Opted in and the Xcode MCP is usable (Xcode 27 headless server enabled, or
-  the windowed Xcode 26.3+ bridge with Xcode running): render
+* Opted in and the Xcode MCP is usable with Xcode 27's workspace tools
+  (`XcodeOpenWorkspace`, `workspaceIdentifier`), either through the headless
+  server or the windowed bridge with Xcode running: render
   session-start-mcp-first.md with this worktree's workspace path and the
   approval commands the owner may need.
-* Opted in but the MCP is unusable: render the default skills-first context
-  with a notice that says why and what the owner can run.
+* Opted in but the MCP is unusable, its state can't be read, or it is Xcode
+  26.x's older window-based tool surface (`XcodeListWindows`,
+  `tabIdentifier`): render the default skills-first context with a notice
+  that says why and what the owner can run.
 
 The hook never runs sudo, enables the server or approves anything. It only
 prints the commands the owner has to run.
@@ -29,6 +32,7 @@ prints the commands the owner has to run.
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 
@@ -43,6 +47,8 @@ SKIPPED_SEARCH_DIRS = {
     "node_modules",
 }
 STATUS_TIMEOUT_SECONDS = 5
+# Tests shorten the probe timeout; hosts never need to set this.
+STATUS_TIMEOUT_ENV = "XCODEBUILDTOOLS_MCP_STATUS_TIMEOUT"
 
 
 # --- Opt-in setting -------------------------------------------------------
@@ -107,8 +113,11 @@ def git_toplevel(directory, run=subprocess.run):
 def find_workspaces(root):
     """Absolute paths of the workspaces an agent should open for this checkout.
 
-    Prefers .xcworkspace over .xcodeproj, the checkout root over its direct
-    subdirectories, and falls back to a root Package.swift folder.
+    A root .xcworkspace wins, then a root .xcodeproj: a workspace or project
+    in a subdirectory (an example app, say) never hides the root one.
+    Without either, the candidates are the direct subdirectories' workspaces
+    (or, without those, their projects) plus a root Package.swift folder, so
+    the agent can choose between them.
     """
 
     def entries_with_suffix(directory, suffix):
@@ -140,23 +149,58 @@ def find_workspaces(root):
         found = entries_with_suffix(root, suffix)
         if found:
             return found
+
+    candidates = [root] if os.path.isfile(os.path.join(root, "Package.swift")) else []
+    for suffix in (".xcworkspace", ".xcodeproj"):
         nested = []
         for child in subdirectories(root):
             nested.extend(entries_with_suffix(child, suffix))
         if nested:
-            return nested
-
-    if os.path.isfile(os.path.join(root, "Package.swift")):
-        return [root]
-    return []
+            return candidates + nested
+    return candidates
 
 
 # --- Xcode MCP detection ----------------------------------------------------
 
 
+def bounded_run(args, timeout):
+    """Run args and return (returncode, stdout).
+
+    The command runs in its own process group, and the whole group is killed
+    once `timeout` seconds pass, so a stalled `xcrun` child can't keep the
+    hook waiting on its output. Raises subprocess.TimeoutExpired then.
+    """
+    process = subprocess.Popen(
+        args,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, _ = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except OSError:
+            pass
+        process.communicate()
+        raise
+    return process.returncode, stdout
+
+
+def status_timeout(environ):
+    try:
+        value = float(environ.get(STATUS_TIMEOUT_ENV, ""))
+    except ValueError:
+        return STATUS_TIMEOUT_SECONDS
+    return value if value > 0 else STATUS_TIMEOUT_SECONDS
+
+
 def command_succeeds(args, run, timeout):
     try:
-        return run(args, capture_output=True, timeout=timeout).returncode == 0
+        return run(args, timeout)[0] == 0
     except Exception:
         return False
 
@@ -223,17 +267,40 @@ def pending_requests(status):
     return requests
 
 
-def path_overlaps(first, second):
-    first = os.path.realpath(first).rstrip("/") + "/"
-    second = os.path.realpath(second).rstrip("/") + "/"
-    return first.startswith(second) or second.startswith(first)
+def is_within(path, directory):
+    """True when path is directory itself or inside it (both already canonical)."""
+    return path == directory or path.startswith(directory.rstrip("/") + "/")
+
+
+def folder_concerns_checkout(folder, root):
+    """Whether a folder approval request is about the checkout at root.
+
+    A folder that contains the checkout (a parent grant) covers it. A folder
+    inside the checkout belongs to it unless a nested checkout sits between
+    them, such as another git worktree at `<root>/.worktrees/feature`: any
+    `.git` entry below root marks the start of a different checkout.
+    """
+    folder = os.path.realpath(folder)
+    root = os.path.realpath(root)
+    if is_within(root, folder):
+        return True
+    if not is_within(folder, root):
+        return False
+    current = folder
+    while current != root:
+        if os.path.lexists(os.path.join(current, ".git")):
+            return False
+        current = os.path.dirname(current)
+    return True
 
 
 def relevant_requests(requests, root):
     """Agent requests (any may be this agent) and folder requests about this checkout."""
     return [
         request for request in requests
-        if request["kind"] != "folder" or not request["path"] or path_overlaps(request["path"], root)
+        if request["kind"] != "folder"
+        or not request["path"]
+        or folder_concerns_checkout(request["path"], root)
     ]
 
 
@@ -243,12 +310,17 @@ def approve_command(request):
     return f"sudo xcrun mcp-server approve {request['id']} {duration}"
 
 
-def detect_xcode_mcp(run=subprocess.run):
+def detect_xcode_mcp(run=bounded_run, environ=os.environ):
     """Describe how this Mac's Xcode MCP can be reached.
 
     Returns a dict with:
         installed: `xcrun --find mcpbridge` succeeds (Xcode 26.3+)
-        headless_supported: `xcrun mcp-server status --format json` answered (Xcode 27+)
+        headless_supported: `xcrun --find mcp-server` succeeds. It ships with
+            Xcode 27, whose MCP has the workspace tools (`XcodeOpenWorkspace`,
+            `workspaceIdentifier`) the MCP-first context is written for.
+            Xcode 26.x's bridge addresses windows by `tabIdentifier` instead.
+        status_readable: `xcrun mcp-server status --format json` answered
+            with a JSON object within the timeout
         headless_enabled: the headless server's permission.enabled is true
         allow_all_agents: permission.unsafeAlwaysAllowAllAgents is true
         pending: pending approval requests, as [{"id", "kind", "label", "path", "signed"}]
@@ -258,6 +330,7 @@ def detect_xcode_mcp(run=subprocess.run):
     result = {
         "installed": False,
         "headless_supported": False,
+        "status_readable": False,
         "headless_enabled": False,
         "allow_all_agents": False,
         "pending": [],
@@ -270,26 +343,29 @@ def detect_xcode_mcp(run=subprocess.run):
     if not result["installed"]:
         return result
 
+    result["xcode_running"] = command_succeeds(["pgrep", "-x", "Xcode"], run, 3)
+    result["headless_supported"] = command_succeeds(
+        ["xcrun", "--find", "mcp-server"], run, STATUS_TIMEOUT_SECONDS)
+    if not result["headless_supported"]:
+        # Xcode 26.x: the windowed bridge's tools don't match the MCP-first context.
+        return result
+
     try:
-        status_run = run(
-            ["xcrun", "mcp-server", "status", "--format", "json"],
-            capture_output=True,
-            text=True,
-            timeout=STATUS_TIMEOUT_SECONDS,
-        )
-        status = json.loads(status_run.stdout) if status_run.returncode == 0 else None
+        returncode, stdout = run(
+            ["xcrun", "mcp-server", "status", "--format", "json"], status_timeout(environ))
+        status = json.loads(stdout) if returncode == 0 else None
     except Exception:
         status = None
+    if not isinstance(status, dict):
+        # A failed, stalled or unreadable probe leaves the server's state unknown.
+        return result
 
-    if isinstance(status, dict):
-        permission = status.get("permission")
-        permission = permission if isinstance(permission, dict) else {}
-        result["headless_supported"] = True
-        result["headless_enabled"] = permission.get("enabled") is True
-        result["allow_all_agents"] = permission.get("unsafeAlwaysAllowAllAgents") is True
-        result["pending"] = pending_requests(status)
-
-    result["xcode_running"] = command_succeeds(["pgrep", "-x", "Xcode"], run, 3)
+    permission = status.get("permission")
+    permission = permission if isinstance(permission, dict) else {}
+    result["status_readable"] = True
+    result["headless_enabled"] = permission.get("enabled") is True
+    result["allow_all_agents"] = permission.get("unsafeAlwaysAllowAllAgents") is True
+    result["pending"] = pending_requests(status)
 
     if result["headless_enabled"]:
         result["mode"] = "headless"
@@ -311,19 +387,25 @@ def strip_conditional_blocks(content, xcode_mcp_likely):
 def unavailable_reason(detection):
     if not detection["installed"]:
         return (
-            "`xcrun --find mcpbridge` found no Xcode MCP bridge. It ships with Xcode 26.3 and later; "
-            "check `xcode-select -p` points at that Xcode."
+            "`xcrun --find mcpbridge` found no Xcode MCP bridge. MCP-first routing needs Xcode 27 or "
+            "later; check `xcode-select -p` points at that Xcode."
         )
-    if detection["headless_supported"]:
+    if not detection["headless_supported"]:
         return (
-            "Xcode's headless MCP server is turned off and the Xcode app is not running. "
-            "The owner can turn headless mode on once with `sudo xcrun mcp-server enable`, "
-            "or open this workspace in Xcode with Settings › Intelligence › "
-            "\"Allow external agents to use Xcode tools\" switched on."
+            "this Xcode is older than Xcode 27 (`xcrun --find mcp-server` finds nothing). Its MCP bridge "
+            "has no `XcodeOpenWorkspace`: its tools address windows open in the Xcode app by "
+            "`tabIdentifier`, which MCP-first routing does not cover. MCP-first routing needs Xcode 27 "
+            "or later selected with `xcode-select`."
+        )
+    if not detection["status_readable"]:
+        return (
+            "`xcrun mcp-server status --format json` failed, timed out or printed no JSON, so the state "
+            "of Xcode's MCP server is unknown. The owner can check it with `xcrun mcp-server status`."
         )
     return (
-        "the Xcode app is not running. This Xcode has only the windowed MCP bridge, which needs "
-        "the workspace open in Xcode with Settings › Intelligence › "
+        "Xcode's headless MCP server is turned off and the Xcode app is not running. "
+        "The owner can turn headless mode on once with `sudo xcrun mcp-server enable`, "
+        "or open this workspace in Xcode with Settings › Intelligence › "
         "\"Allow external agents to use Xcode tools\" switched on."
     )
 
@@ -409,7 +491,10 @@ def render_unavailable(default_content, detection):
         f"This project prefers the Xcode MCP (`{PREFER_MCP_ENV}`), but {unavailable_reason(detection)} "
         "Use the XcodeBuildTools skills below for this whole session.\n\n"
     )
-    body = strip_conditional_blocks(default_content, xcode_mcp_likely=False)
+    # Same blocks as the default routing: with Xcode running, the MCP is there
+    # as a secondary tool, as it was in 0.5.x.
+    xcode_mcp_likely = detection["installed"] and detection["xcode_running"]
+    body = strip_conditional_blocks(default_content, xcode_mcp_likely=xcode_mcp_likely)
     marker = "## Building, Testing & Compilation"
     if marker in body:
         return body.replace(marker, notice + marker, 1)

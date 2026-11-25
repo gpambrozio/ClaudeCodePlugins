@@ -62,7 +62,7 @@ Set `XCODEBUILDTOOLS_PREFER_MCP` in the project's committed `.claude/settings.js
 }
 ```
 
-The SessionStart hook reads the variable from the environment first, then from the project's `.claude/settings.local.json` and `.claude/settings.json`. `1`, `true`, `yes` and `on` opt in; `0`, `false`, `no` and `off` opt out, so `"XCODEBUILDTOOLS_PREFER_MCP": "0"` in `settings.local.json` turns it off for one checkout. Without the setting, the session context is exactly what 0.5.x produced.
+The SessionStart hook reads the variable from the environment first, then from the project's `.claude/settings.local.json` and `.claude/settings.json`. `1`, `true`, `yes` and `on` opt in; `0`, `false`, `no` and `off` opt out, so `"XCODEBUILDTOOLS_PREFER_MCP": "0"` in `settings.local.json` turns it off for one checkout. Without the setting, the session context is 0.5.11's except for the two Build Isolation paragraphs, which now describe the per-worktree sandbox; a test compares it with a frozen copy of the 0.5.11 output.
 
 The project also needs the Xcode MCP server configured for the agent, for example in its `.mcp.json`:
 
@@ -78,22 +78,23 @@ The plugin does not ship this server itself, so projects that have not opted in 
 
 When a project opts in and the MCP is usable, the session context tells the agent to:
 
-- open this worktree's workspace (the hook finds it and prints its absolute path) with `XcodeOpenWorkspace`, keep the `workspace-…` id it returns and pass that id as `workspaceIdentifier` on every call (headless tools reject the absolute path with "Unknown workspace identifier"), keep to one tool per worktree, and close it with `XcodeCloseWorkspace` at the end, then check `git status` and restore any shared `.xcscheme` the close rewrote;
+- note which `.xcscheme` files are already modified, then open this worktree's workspace (the hook finds it and prints its absolute path) with `XcodeOpenWorkspace`, keep the `workspace-…` id it returns and pass that id as `workspaceIdentifier` on every call (headless tools reject the absolute path with "Unknown workspace identifier"), keep to one tool per worktree, and close it with `XcodeCloseWorkspace` at the end;
+- after closing, check `git status`: `git restore` a shared `.xcscheme` the close rewrote only if it was clean before and the task didn't change it, and otherwise undo just the lines the close added;
 - pass `RunSomeTests` one identifier per test: a whole suite as one identifier runs but reports a single "No result" with no counts;
 - use the MCP for builds (`BuildProject`), runs (`RunProject`), focused tests and test plans (`RunSomeTests`, `RunAllTests`), previews (`RenderPreview`) and console logs (`GetConsoleOutput`);
 - fall back to the skills for what the MCP cannot do: a destination chosen by UDID, `TEST_RUNNER_*` variables, `-skip-testing`, `-collect-test-diagnostics`, result bundle paths, archives and exports, scripts and CI, physical devices (`device-app`), Swift packages from the command line (`swift-package`), `xcode-doctor`, `sparkle-integration`, `sim-log` for apps the MCP did not launch, and `macos-app`.
 
-If the MCP is not usable, the agent gets the default skills-first context plus a notice that says why.
+If the MCP is not usable, the agent gets the default skills-first context plus a notice that says why. That includes Xcode 26.x: its bridge has no `XcodeOpenWorkspace` and addresses open windows by `tabIdentifier`, so MCP-first routing needs Xcode 27 or later.
 
 ### Headless and windowed modes
 
 | Mode | Detected by | Approvals |
 |------|-------------|-----------|
 | Headless (Xcode 27+) | `xcrun mcp-server status --format json` reports `permission.enabled` | The owner runs `sudo xcrun mcp-server approve <id>` and `allow-folder`; there is no dialog |
-| Windowed (Xcode 26.3+) | Headless mode off or unsupported, and Xcode is running | Xcode's "Allow" dialog, clicked by the auto-approve hook below |
-| Unavailable | No `mcpbridge`, or headless off and Xcode not running | The agent uses the skills; the notice names the command to run (`sudo xcrun mcp-server enable`) |
+| Windowed (Xcode 27+) | The status reports headless mode off, and Xcode is running | Xcode's "Allow" dialog, clicked by the auto-approve hook below |
+| Unavailable | No `mcpbridge`; Xcode 26.x (no `xcrun mcp-server`); a status probe that fails, times out (5 seconds) or prints no JSON; or headless off and Xcode not running | The agent uses the skills; the notice says why and names the command to run (`sudo xcrun mcp-server enable`) |
 
-Headless mode shows the pending requests from `xcrun mcp-server status`, both in the agent's context and in the session's system message, with the exact command for each (`--always` for signed agents and folders, `--for-24-hours` for unsigned agents). Folder requests for other checkouts are left out. The agent is told never to run sudo, enable the server or approve anything itself.
+Headless mode shows the pending requests from `xcrun mcp-server status`, both in the agent's context and in the session's system message, with the exact command for each (`--always` for signed agents and folders, `--for-24-hours` for unsigned agents). Folder requests for other checkouts are left out, including a git worktree nested inside this one (such as `.worktrees/feature`); a request for a folder that contains this checkout is kept. The agent is told never to run sudo, enable the server or approve anything itself.
 
 ### One-time setup for headless mode (owner)
 
@@ -108,7 +109,7 @@ sudo xcrun mcp-server approve <id> --always                 # signed agents; uns
 
 A backgrounded SessionStart hook clicks "Allow" on the windowed Xcode MCP authorization dialog. It:
 - Runs only when Xcode is running and `mcpbridge` exists
-- Does nothing when Xcode 27's headless mode is enabled, or when `xcrun mcp-server status` answers but its state can't be read
+- Clicks only in positively established windowed mode: Xcode 26.x, or Xcode 27 whose `xcrun mcp-server status` answers within 5 seconds with headless permission disabled. It does nothing when headless mode is enabled or the status probe fails, stalls or prints no JSON
 - Does not require host-level `async` hook support
 - Times out silently if no dialog appears
 
@@ -128,9 +129,9 @@ Xcode MCP builds use Xcode's own DerivedData, not this sandbox.
 ## Changelog
 
 ### 0.6.0
-- Xcode MCP first, per project: a project opts in with `XCODEBUILDTOOLS_PREFER_MCP=1` in the `env` of its `.claude/settings.json` (also read from the environment and `.claude/settings.local.json`). Opted-in sessions get MCP-first routing (build, run, focused tests, test plans, previews and console logs through the Xcode MCP, opening the worktree's workspace by its path and passing the `workspace-…` id `XcodeOpenWorkspace` returns as `workspaceIdentifier`, checking `git status` for rewritten `.xcscheme` files after `XcodeCloseWorkspace`) and a shorter fallback list for what the MCP cannot do. Projects that don't opt in get the same routing as 0.5.11
+- Xcode MCP first, per project: a project opts in with `XCODEBUILDTOOLS_PREFER_MCP=1` in the `env` of its `.claude/settings.json` (also read from the environment and `.claude/settings.local.json`). Opted-in sessions get MCP-first routing (build, run, focused tests, test plans, previews and console logs through the Xcode MCP, opening the worktree's workspace by its path and passing the `workspace-…` id `XcodeOpenWorkspace` returns as `workspaceIdentifier`, checking `git status` after `XcodeCloseWorkspace` and undoing only the `.xcscheme` changes the close made) and a shorter fallback list for what the MCP cannot do. MCP-first routing needs Xcode 27's workspace tools; Xcode 26.x gets the skills-first context with a notice. Projects that don't opt in get 0.5.11's routing; only the Build Isolation paragraphs of their context changed, to describe the per-worktree sandbox
 - Xcode 27 headless MCP detection through `xcrun mcp-server status --format json`, alongside the windowed Xcode 26.3+ bridge. The context says when the MCP is unavailable or awaiting approval, lists pending requests for this checkout, and prints the exact `sudo xcrun mcp-server` commands the owner must run. The plugin never runs sudo or approves anything
-- The auto-approve hook no longer clicks anything when headless mode is enabled; it is kept for windowed mode
+- The auto-approve hook clicks only in windowed mode it can establish (Xcode 26.x, or Xcode 27 reporting headless mode off within 5 seconds); headless mode or a failed or stalled status probe leaves it idle
 - The build sandbox is keyed per worktree (`$TMPDIR/claude-sandbox/wt-<name>-<hash>`) instead of per session, so new sessions in the same worktree build warm. Separate worktrees stay separate. The SessionEnd teardown hook (`teardown-sandbox.py`) and `/clear` inheritance are gone; sandboxes of removed worktrees are swept at session start, sandboxes unused for three days are reset on their next build, and per-session sandboxes from older versions are removed once their session has exited
 - Skill routing notes now defer to the Xcode MCP for plain builds and tests in opted-in projects
 - The OpenCode entry point registers skills, MCP servers, session-start context and command guardrails as before, and keeps the default routing and its per-session sandbox pool
